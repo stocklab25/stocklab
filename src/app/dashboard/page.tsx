@@ -12,6 +12,16 @@ interface DashboardStats {
   recentTransactions: number;
 }
 
+interface InventoryItem {
+  id: string;
+  cost: number;
+}
+
+interface Transaction {
+  id: string;
+  date: string;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalProducts: 0,
@@ -31,11 +41,11 @@ export default function Dashboard() {
         ]);
 
         const products = await productsRes.json();
-        const inventory = await inventoryRes.json();
-        const transactions = await transactionsRes.json();
+        const inventory: InventoryItem[] = await inventoryRes.json();
+        const transactions: Transaction[] = await transactionsRes.json();
 
-        const totalValue = inventory.reduce((sum: number, item: any) => sum + item.cost, 0);
-        const recentTransactions = transactions.filter((txn: any) => {
+        const totalValue = inventory.reduce((sum: number, item: InventoryItem) => sum + item.cost, 0);
+        const recentTransactions = transactions.filter((txn: Transaction) => {
           const txnDate = new Date(txn.date);
           const weekAgo = new Date();
           weekAgo.setDate(weekAgo.getDate() - 7);

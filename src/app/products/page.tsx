@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
-import { Table } from '@/components/Table';
+
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 interface Product {

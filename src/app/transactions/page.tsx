@@ -1,8 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
+
+interface Product {
+  id: string;
+  brand: string;
+  name: string;
+  color: string;
+  style: string;
+}
+
+interface InventoryItem {
+  id: string;
+  productId: string;
+  sku: string;
+  size: string;
+  condition: string;
+  cost: number;
+  status: string;
+  location: string;
+  consigner: string;
+}
 
 interface StockTransaction {
   id: string;
@@ -25,8 +45,6 @@ interface StockTransaction {
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<StockTransaction[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -41,13 +59,13 @@ export default function Transactions() {
         ]);
         
         const transactionsData = await transactionsRes.json();
-        const inventoryData = await inventoryRes.json();
-        const productsData = await productsRes.json();
+        const inventoryData: InventoryItem[] = await inventoryRes.json();
+        const productsData: Product[] = await productsRes.json();
         
         // Merge data
         const enrichedTransactions = transactionsData.map((txn: StockTransaction) => {
-          const item = inventoryData.find((i: any) => i.id === txn.itemId);
-          const product = item ? productsData.find((p: any) => p.id === item.productId) : null;
+          const item = inventoryData.find((i: InventoryItem) => i.id === txn.itemId);
+          const product = item ? productsData.find((p: Product) => p.id === item.productId) : null;
           
           return {
             ...txn,
@@ -62,8 +80,6 @@ export default function Transactions() {
         });
         
         setTransactions(enrichedTransactions);
-        setInventory(inventoryData);
-        setProducts(productsData);
       } catch (error) {
         console.error('Error fetching transactions:', error);
       } finally {

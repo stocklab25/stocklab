@@ -26,7 +26,7 @@ export default function Login() {
       } else {
         setError('Invalid email or password');
       }
-    } catch (err) {
+    } catch {
       setError('Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -123,7 +123,7 @@ export default function Login() {
         {/* Footer */}
         <div className="text-center">
           <p className="text-muted-foreground dark:text-muted-foreground text-sm">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/register" className="text-primary hover:text-primary/80">
               Contact administrator
             </Link>

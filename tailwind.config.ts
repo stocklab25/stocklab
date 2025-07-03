@@ -1,5 +1,11 @@
 import type { Config } from "tailwindcss";
 
+// Define proper types for the plugin function
+interface PluginAPI {
+  addUtilities: (utilities: Record<string, Record<string, string | Record<string, string>>>) => void;
+  theme: (path: string) => string;
+}
+
 const config: Config = {
   darkMode: 'class',
   content: [
@@ -133,7 +139,7 @@ const config: Config = {
   },
   plugins: [
     // Custom plugin for inventory-specific utilities
-    function({ addUtilities, theme }: any) {
+    function({ addUtilities, theme }: PluginAPI) {
       const newUtilities = {
         // Status indicators
         ".status-indicator": {

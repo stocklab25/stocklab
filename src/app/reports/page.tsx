@@ -12,6 +12,24 @@ interface ReportData {
   recentActivity: { type: string; count: number }[];
 }
 
+interface InventoryItem {
+  id: string;
+  productId: string;
+  cost: number;
+}
+
+interface Product {
+  id: string;
+  brand: string;
+  name: string;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  date: string;
+}
+
 export default function Reports() {
   const [reportData, setReportData] = useState<ReportData>({
     totalValue: 0,
@@ -31,18 +49,18 @@ export default function Reports() {
           fetch('/api/transactions'),
         ]);
 
-        const inventory = await inventoryRes.json();
-        const products = await productsRes.json();
-        const transactions = await transactionsRes.json();
+        const inventory: InventoryItem[] = await inventoryRes.json();
+        const products: Product[] = await productsRes.json();
+        const transactions: Transaction[] = await transactionsRes.json();
 
         // Calculate report data
-        const totalValue = inventory.reduce((sum: number, item: any) => sum + item.cost, 0);
+        const totalValue = inventory.reduce((sum: number, item: InventoryItem) => sum + item.cost, 0);
         const totalItems = inventory.length;
         
         // Count items by brand
         const brandCounts: { [key: string]: number } = {};
-        inventory.forEach((item: any) => {
-          const product = products.find((p: any) => p.id === item.productId);
+        inventory.forEach((item: InventoryItem) => {
+          const product = products.find((p: Product) => p.id === item.productId);
           if (product) {
             brandCounts[product.brand] = (brandCounts[product.brand] || 0) + 1;
           }
@@ -55,7 +73,7 @@ export default function Reports() {
 
         // Recent activity by type
         const activityCounts: { [key: string]: number } = {};
-        transactions.forEach((txn: any) => {
+        transactions.forEach((txn: Transaction) => {
           activityCounts[txn.type] = (activityCounts[txn.type] || 0) + 1;
         });
 

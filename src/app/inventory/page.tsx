@@ -4,6 +4,14 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 
+interface Product {
+  id: string;
+  brand: string;
+  name: string;
+  color: string;
+  style: string;
+}
+
 interface InventoryItem {
   id: string;
   productId: string;
@@ -25,7 +33,6 @@ interface InventoryItem {
 
 export default function Inventory() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -39,16 +46,15 @@ export default function Inventory() {
         ]);
         
         const inventoryData = await inventoryRes.json();
-        const productsData = await productsRes.json();
+        const productsData: Product[] = await productsRes.json();
         
         // Merge product data with inventory
         const enrichedInventory = inventoryData.map((item: InventoryItem) => ({
           ...item,
-          product: productsData.find((p: any) => p.id === item.productId),
+          product: productsData.find((p: Product) => p.id === item.productId),
         }));
         
         setInventory(enrichedInventory);
-        setProducts(productsData);
       } catch (error) {
         console.error('Error fetching inventory:', error);
       } finally {
