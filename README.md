@@ -1,4 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stock Lab - Inventory Management System
+
+A modern, responsive inventory management system built with Next.js 15, TypeScript, and Tailwind CSS. Features dark/light mode support, real-time data management, and a professional UI.
+
+## Features
+
+- 📊 Dashboard with key metrics
+- 📦 Product and inventory management
+- 💰 Transaction tracking
+- 📈 Reports and analytics
+- ⚙️ Settings and configuration
+- 🌙 Dark/Light mode toggle
+- 🔐 Authentication system
+- 📱 Responsive design
 
 ## Getting Started
 
