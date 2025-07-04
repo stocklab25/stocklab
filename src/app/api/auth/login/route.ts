@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateToken, comparePassword } from '@/lib/auth';
-import { prisma } from '@/lib/db';
+import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
   try {
