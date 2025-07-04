@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  name              String
+  password          String
+  role              UserRole           @default(USER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+  stockTransactions StockTransaction[]
+
+  @@map("users")
+}
+
+model Product {
+  id                String             @id @default(cuid())
+  brand             String
+  name              String
+  color             String?
+  sku               String?            @unique
+  quantity          Int                @default(0)
+  createdAt         DateTime           @default(now())
+  deletedAt         DateTime?
+  updatedAt         DateTime           @default(now()) @updatedAt
+  inventoryItems    InventoryItem[]
+  stockTransactions StockTransaction[]
+
+  @@map("products")
+}
+
+model InventoryItem {
+  id                String             @id @default(cuid())
+  productId         String
+  sku               String
+  size              String
+  condition         String
+  cost              Decimal            @db.Decimal(10, 2)
+  consigner         String
+  consignDate       DateTime
+  status            InventoryStatus
+  location          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockTransactions StockTransaction[]
+
+  @@map("inventory_items")
+}
+
+model StockTransaction {
+  id              String          @id @default(cuid())
+  type            TransactionType
+  quantity        Int
+  date            DateTime
+  fromLocation    String?
+  toLocation      String?
+  userId          String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  inventoryItemId String?
+  productId       String
+  deletedAt       DateTime?
+  updatedAt       DateTime        @default(now()) @updatedAt
+  InventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user            User?           @relation(fields: [userId], references: [id])
+
+  @@map("stock_transactions")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum InventoryStatus {
+  InStock
+  Returned
+  OutOfStock
+  Discontinued
+  Sold
+}
+
+enum TransactionType {
+  IN
+  OUT
+  MOVE
+  RETURN
+  ADJUSTMENT
+  AUDIT
+}

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
+import { PageLoader } from '@/components/Loader';
+import { useInventory, useProducts, useTransactions } from '@/hooks';
 
 interface ReportData {
   totalValue: number;
@@ -16,6 +18,11 @@ interface InventoryItem {
   id: string;
   productId: string;
   cost: number;
+  product?: {
+    id: string;
+    brand: string;
+    name: string;
+  };
 }
 
 interface Product {
@@ -31,6 +38,10 @@ interface Transaction {
 }
 
 export default function Reports() {
+  const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
+  const { data: products, isLoading: productsLoading, isError: productsError } = useProducts();
+  const { data: transactions, isLoading: transactionsLoading, isError: transactionsError } = useTransactions();
+  
   const [reportData, setReportData] = useState<ReportData>({
     totalValue: 0,
     totalItems: 0,
@@ -38,32 +49,33 @@ export default function Reports() {
     topBrands: [],
     recentActivity: [],
   });
-  const [loading, setLoading] = useState(true);
 
+  // Calculate report data when data is available
   useEffect(() => {
-    const fetchReportData = async () => {
+    if (inventory && products && transactions) {
       try {
-        const [inventoryRes, productsRes, transactionsRes] = await Promise.all([
-          fetch('/api/inventory'),
-          fetch('/api/products'),
-          fetch('/api/transactions'),
-        ]);
-
-        const inventory: InventoryItem[] = await inventoryRes.json();
-        const products: Product[] = await productsRes.json();
-        const transactions: Transaction[] = await transactionsRes.json();
+        // Ensure inventory is an array
+        if (!Array.isArray(inventory)) {
+          console.error('Inventory is not an array:', inventory);
+          return;
+        }
 
         // Calculate report data
-        const totalValue = inventory.reduce((sum: number, item: InventoryItem) => sum + item.cost, 0);
+        const totalValue = inventory.reduce((sum: number, item: InventoryItem) => sum + (item.cost || 0), 0);
         const totalItems = inventory.length;
         
         // Count items by brand
         const brandCounts: { [key: string]: number } = {};
         inventory.forEach((item: InventoryItem) => {
-          const product = products.find((p: Product) => p.id === item.productId);
-          if (product) {
-            brandCounts[product.brand] = (brandCounts[product.brand] || 0) + 1;
+          // Try to get brand from product relation first, then fallback to products array
+          let brand = '';
+          if (item.product?.brand) {
+            brand = item.product.brand;
+          } else {
+            const product = products.find((p: Product) => p.id === item.productId);
+            brand = product?.brand || 'Unknown';
           }
+          brandCounts[brand] = (brandCounts[brand] || 0) + 1;
         });
 
         const topBrands = Object.entries(brandCounts)
@@ -89,20 +101,40 @@ export default function Reports() {
           recentActivity,
         });
       } catch (error) {
-        console.error('Error fetching report data:', error);
-      } finally {
-        setLoading(false);
+        console.error('Error calculating report data:', error);
       }
-    };
+    }
+  }, [inventory, products, transactions]);
 
-    fetchReportData();
-  }, []);
+  // Check if any data is loading
+  const isLoading = inventoryLoading || productsLoading || transactionsLoading;
+  
+  // Check if any data has errors
+  const hasError = inventoryError || productsError || transactionsError;
 
-  if (loading) {
+  if (isLoading) {
+    return (
+      <Layout>
+        <PageLoader />
+      </Layout>
+    );
+  }
+
+  if (hasError) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg text-muted-foreground">Loading reports...</div>
+          <div className="text-center space-y-4">
+            <div className="text-6xl">⚠️</div>
+            <div className="text-lg text-red-600">Error loading reports</div>
+            <p className="text-muted-foreground">Failed to fetch data. Please check your connection and try again.</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </Layout>
     );
@@ -117,7 +149,7 @@ export default function Reports() {
             <h1 className="text-3xl font-bold text-foreground">Reports</h1>
             <p className="text-muted-foreground mt-2">Analytics and insights for your inventory</p>
           </div>
-                      <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+          <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
             📊 Export Report
           </button>
         </div>
@@ -174,15 +206,19 @@ export default function Reports() {
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Top Brands by Item Count</h3>
               <div className="space-y-3">
-                {reportData.topBrands.map((brand, index) => (
-                  <div key={brand.brand} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
-                      <span className="font-medium text-foreground">{brand.brand}</span>
+                {reportData.topBrands.length > 0 ? (
+                  reportData.topBrands.map((brand, index) => (
+                    <div key={brand.brand} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
+                        <span className="font-medium text-foreground">{brand.brand}</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">{brand.count} items</span>
                     </div>
-                    <span className="text-sm text-muted-foreground">{brand.count} items</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-muted-foreground">No brand data available</p>
+                )}
               </div>
             </div>
           </Card>
@@ -192,23 +228,23 @@ export default function Reports() {
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Transaction Activity</h3>
               <div className="space-y-3">
-                {reportData.recentActivity.map((activity) => (
-                  <div key={activity.type} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-lg">
-                        {activity.type === 'in' ? '📥' : 
-                         activity.type === 'out' ? '📤' : 
-                         activity.type === 'return' ? '↩️' : '🔄'}
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {activity.type === 'in' ? 'Stock In' : 
-                         activity.type === 'out' ? 'Stock Out' : 
-                         activity.type === 'return' ? 'Return' : activity.type}
-                      </span>
+                {reportData.recentActivity.length > 0 ? (
+                  reportData.recentActivity.map((activity) => (
+                    <div key={activity.type} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">
+                          {activity.type === 'in' ? '📥' : 
+                           activity.type === 'out' ? '📤' : 
+                           activity.type === 'transfer' ? '🔄' : '📋'}
+                        </span>
+                        <span className="font-medium text-foreground capitalize">{activity.type}</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">{activity.count} transactions</span>
                     </div>
-                    <span className="text-sm text-muted-foreground">{activity.count} transactions</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-muted-foreground">No transaction data available</p>
+                )}
               </div>
             </div>
           </Card>

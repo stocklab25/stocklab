@@ -1,0 +1,179 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Modal from './Modal';
+import Button from './Button';
+import Input from './Input';
+import useCheckSku from '@/hooks/useCheckSku';
+
+interface Product {
+  id: string;
+  brand: string;
+  name: string;
+  color?: string;
+  sku?: string;
+}
+
+interface EditProductModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (productId: string, product: { brand: string; name: string; color?: string; sku?: string }) => void;
+  isLoading?: boolean;
+  product?: Product | null;
+}
+
+export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading = false, product }: EditProductModalProps) {
+  const [formData, setFormData] = useState({
+    brand: '',
+    name: '',
+    color: '',
+    sku: '',
+  });
+  const [skuError, setSkuError] = useState('');
+  const { checkSkuExists, isChecking } = useCheckSku();
+
+  // Initialize form data when product changes
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        brand: product.brand || '',
+        name: product.name || '',
+        color: product.color || '',
+        sku: product.sku || '',
+      });
+      setSkuError('');
+    }
+  }, [product]);
+
+  // Check SKU uniqueness for manual input, and only on change
+  const handleSkuChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData({ ...formData, sku: value });
+    setSkuError('');
+    
+    if (value && value.length >= 3 && value !== product?.sku) {
+      const exists = await checkSkuExists(value);
+      if (exists) {
+        setSkuError('This SKU already exists. Please choose a different one.');
+      }
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!product) return;
+
+    // Final validation before submit
+    if (formData.sku && formData.sku !== product.sku) {
+      const exists = await checkSkuExists(formData.sku);
+      if (exists) {
+        setSkuError('This SKU already exists. Please choose a different one.');
+        return;
+      }
+    }
+
+    onSubmit(product.id, {
+      brand: formData.brand,
+      name: formData.name,
+      color: formData.color || undefined,
+      sku: formData.sku || undefined,
+    });
+  };
+
+  const handleClose = () => {
+    setFormData({ brand: '', name: '', color: '', sku: '' });
+    setSkuError('');
+    onClose();
+  };
+
+  if (!product) return null;
+
+  return (
+    <Modal open={isOpen} onClose={handleClose}>
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-foreground">Edit Product</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="brand" className="block text-sm font-medium text-foreground mb-1">
+              Brand *
+            </label>
+            <Input
+              id="brand"
+              type="text"
+              value={formData.brand}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, brand: e.target.value })}
+              placeholder="e.g., Nike, Jordan, adidas"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1">
+              Product Name *
+            </label>
+            <Input
+              id="name"
+              type="text"
+              value={formData.name}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Air Jordan 1 Retro High OG"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="color" className="block text-sm font-medium text-foreground mb-1">
+              Color
+            </label>
+            <Input
+              id="color"
+              type="text"
+              value={formData.color}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, color: e.target.value })}
+              placeholder="e.g., Red/Black, White/Black"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="sku" className="block text-sm font-medium text-foreground mb-1">
+              SKU
+            </label>
+            <Input
+              id="sku"
+              type="text"
+              value={formData.sku}
+              onChange={handleSkuChange}
+              placeholder="e.g., AB1234"
+            />
+            {skuError && (
+              <p className="text-sm text-red-600 mt-1">{skuError}</p>
+            )}
+            {isChecking && (
+              <p className="text-sm text-blue-600 mt-1">Checking SKU availability...</p>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={isLoading}
+              disabled={isLoading || !!skuError}
+            >
+              {isLoading ? 'Updating...' : 'Update Product'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </Modal>
+  );
+} 

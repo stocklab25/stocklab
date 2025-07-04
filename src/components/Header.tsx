@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNavigation } from '@/contexts/NavigationContext';
+import Loader from './Loader';
 
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { isNavigating } = useNavigation();
 
   return (
     <header className="bg-background border-b border-border px-6 py-4">
@@ -30,15 +33,18 @@ export default function Header() {
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
+          {/* Navigation Loading Indicator */}
+          {isNavigating && (
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <Loader size="sm" variant="dots" />
+              <span>Loading...</span>
+            </div>
+          )}
+
           {/* Notifications */}
           <button className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors">
             <span className="text-xl">🔔</span>
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
-
-          {/* Quick Actions */}
-          <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-            + Add Item
           </button>
 
           {/* Theme Toggle */}
@@ -68,7 +74,7 @@ export default function Header() {
               className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Logout"
             >
-              <span className="text-lg">��</span>
+              <span className="text-lg">🚪</span>
             </button>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useNavigation } from '@/contexts/NavigationContext';
 
 interface NavItem {
   name: string;
@@ -22,6 +23,11 @@ const navigation: NavItem[] = [
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const { setIsNavigating } = useNavigation();
+
+  const handleNavigation = () => {
+    setIsNavigating(true);
+  };
 
   return (
     <div className={`bg-background border-r border-border transition-all duration-300 ${
@@ -56,6 +62,7 @@ export default function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={handleNavigation}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-primary text-primary-foreground'

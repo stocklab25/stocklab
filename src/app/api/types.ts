@@ -4,7 +4,7 @@ export interface Product {
   brand: string;
   name: string;
   color?: string;
-  style?: string;
+  sku?: string;
 }
 
 // InventoryItem: each physical item in your warehouse

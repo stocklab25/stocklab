@@ -1,59 +1,179 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
-
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useProducts, useAddProduct } from '@/hooks';
+import { useDeleteProduct } from '@/hooks/useDeleteProduct';
+import { useRestoreProduct } from '@/hooks/useRestoreProduct';
+import { useEditProduct } from '@/hooks/useEditProduct';
+import AddProductModal from '@/components/AddProductModal';
+import EditProductModal from '@/components/EditProductModal';
+import PromptModal from '@/components/PromptModal';
+import { PageLoader } from '@/components/Loader';
+import Button from '@/components/Button';
 
 interface Product {
   id: string;
   brand: string;
   name: string;
-  color: string;
-  style: string;
+  color?: string;
+  sku?: string;
+  deletedAt?: string;
 }
 
 export default function Products() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
+  const { data: products, isLoading, isError, mutate } = useProducts();
+  const { addProduct, isLoading: isAdding } = useAddProduct();
+  const { archiveProduct, hardDeleteProduct, loading: isDeleting } = useDeleteProduct({
+    onSuccess: () => mutate(),
+    onError: (error) => console.error('Delete error:', error)
+  });
+  const { restoreProduct, loading: isRestoring } = useRestoreProduct({
+    onSuccess: () => mutate(),
+    onError: (error) => console.error('Restore error:', error)
+  });
+  const { editProduct, loading: isEditing } = useEditProduct({
+    onSuccess: () => {
+      mutate();
+      setIsEditModalOpen(false);
+      setProductToEdit(null);
+    },
+    onError: (error) => console.error('Edit error:', error)
+  });
+  
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [deleteType, setDeleteType] = useState<'archive' | 'hard' | 'force'>('archive');
+  const [showForcePrompt, setShowForcePrompt] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('/api/products');
-        const data = await response.json();
-        setProducts(data);
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setLoading(false);
+  // Filter products based on archived status
+  const filteredProducts = products.filter((product: Product) => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const isArchived = !!product.deletedAt;
+    return matchesSearch && (showArchived ? isArchived : !isArchived);
+  });
+
+  const handleAddProduct = async (productData: { brand: string; name: string; color?: string; sku?: string }) => {
+    try {
+      await addProduct(productData);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error adding product:', error);
+    }
+  };
+
+  const handleDeletePrompt = (product: Product, type: 'archive' | 'hard' | 'force') => {
+    setProductToDelete(product);
+    setDeleteType(type);
+    setOpenDropdown(null);
+    if (type === 'force') {
+      setShowForcePrompt(true);
+    } else {
+      setShowPrompt(true);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setDeletingId(productToDelete.id);
+    
+    try {
+      if (deleteType === 'hard') {
+        await hardDeleteProduct(productToDelete.id);
+      } else if (deleteType === 'force') {
+        await hardDeleteProduct(productToDelete.id, true);
+      } else {
+        await archiveProduct(productToDelete.id);
       }
-    };
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    } finally {
+      setDeletingId(null);
+      setShowPrompt(false);
+      setShowForcePrompt(false);
+      setProductToDelete(null);
+    }
+  };
 
-    fetchProducts();
-  }, []);
+  const handleRestoreProduct = async (productId: string) => {
+    try {
+      await restoreProduct(productId);
+      setOpenDropdown(null);
+    } catch (error) {
+      console.error('Error restoring product:', error);
+    }
+  };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.style.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleEditProduct = (product: Product) => {
+    setProductToEdit(product);
+    setIsEditModalOpen(true);
+    setOpenDropdown(null);
+  };
+
+  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; color?: string; sku?: string }) => {
+    try {
+      await editProduct(productId, productData);
+    } catch (error) {
+      console.error('Error editing product:', error);
+    }
+  };
+
+  const toggleDropdown = (productId: string, event: React.MouseEvent) => {
+    if (openDropdown === productId) {
+      setOpenDropdown(null);
+      setProductToDelete(null);
+    } else {
+      const rect = event.currentTarget.getBoundingClientRect();
+      setDropdownPosition({
+        x: rect.right - 192, // 192px is the width of the dropdown (w-48)
+        y: rect.bottom + 8
+      });
+      setOpenDropdown(productId);
+      const product = products.find((p: any) => p.id === productId);
+      setProductToDelete(product || null);
+    }
+  };
 
   const columns = [
     { key: 'brand', label: 'Brand' },
     { key: 'name', label: 'Name' },
     { key: 'color', label: 'Color' },
-    { key: 'style', label: 'Style Code' },
+    { key: 'sku', label: 'SKU' },
   ];
 
-  if (loading) {
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <Layout>
+          <PageLoader />
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (isError) {
     return (
       <ProtectedRoute>
         <Layout>
           <div className="flex items-center justify-center h-64">
-            <div className="text-lg text-muted-foreground">Loading products...</div>
+            <div className="text-center space-y-4">
+              <div className="text-6xl">⚠️</div>
+              <div className="text-lg text-red-600">Error loading products</div>
+              <p className="text-muted-foreground">Please try refreshing the page</p>
+            </div>
           </div>
         </Layout>
       </ProtectedRoute>
@@ -67,12 +187,29 @@ export default function Products() {
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Products</h1>
-            <p className="text-muted-foreground mt-2">Manage your product catalog</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              {showArchived ? 'Archived Products' : 'Products'}
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              {showArchived ? 'View and restore archived products' : 'Manage your product catalog'}
+            </p>
           </div>
-                      <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-            + Add Product
-          </button>
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={() => setShowArchived(!showArchived)}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors"
+            >
+              {showArchived ? 'View Active' : 'View Archived'}
+            </button>
+            {!showArchived && (
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                + Add Product
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -82,7 +219,7 @@ export default function Products() {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Search products by name, brand, or style..."
+                  placeholder={`Search ${showArchived ? 'archived ' : ''}products by name, brand, or SKU...`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -108,14 +245,14 @@ export default function Products() {
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground">
-                Products ({filteredProducts.length})
+                {showArchived ? 'Archived Products' : 'Products'} ({filteredProducts.length})
               </h3>
               <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <span>Showing {filteredProducts.length} of {products.length} products</span>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto relative">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
@@ -133,7 +270,7 @@ export default function Products() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product) => (
+                  {filteredProducts.map((product: Product) => (
                     <tr key={product.id} className="border-b border-muted hover:bg-accent">
                       <td className="py-3 px-4">
                         <span className="font-medium text-foreground">{product.brand}</span>
@@ -147,18 +284,18 @@ export default function Products() {
                         <span className="text-muted-foreground">{product.color}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm text-muted-foreground font-mono">{product.style}</span>
+                        <span className="text-sm text-muted-foreground font-mono">{product.sku}</span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button className="p-1 text-muted-foreground hover:text-foreground">
-                            👁️
-                          </button>
-                          <button className="p-1 text-muted-foreground hover:text-foreground">
-                            ✏️
-                          </button>
-                          <button className="p-1 text-gray-400 hover:text-red-600">
-                            🗑️
+                        <div className="relative">
+                          <button
+                            onClick={(e) => toggleDropdown(product.id, e)}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                            disabled={isDeleting || isRestoring}
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                            </svg>
                           </button>
                         </div>
                       </td>
@@ -170,12 +307,191 @@ export default function Products() {
 
             {filteredProducts.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No products found</p>
+                <p className="text-muted-foreground">
+                  {showArchived ? 'No archived products found' : 'No products found'}
+                </p>
               </div>
             )}
           </div>
         </Card>
       </div>
+
+      {/* Add Product Modal */}
+      <AddProductModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddProduct}
+        isLoading={isAdding}
+      />
+
+      {/* Edit Product Modal */}
+      <EditProductModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setProductToEdit(null);
+        }}
+        onSubmit={handleEditSubmit}
+        isLoading={isEditing}
+        product={productToEdit}
+      />
+      
+      {/* Delete Prompt Modal */}
+      <PromptModal
+        show={showPrompt}
+        title={deleteType === 'archive' ? 'Archive Product' : 'Delete Product Permanently'}
+        onClose={() => { setShowPrompt(false); setProductToDelete(null); }}
+      >
+        <div className="space-y-4">
+          <p>
+            {deleteType === 'archive' 
+              ? `Are you sure you want to archive "${productToDelete?.name}"? This will hide it from the main view but preserve all data.`
+              : `Are you sure you want to permanently delete "${productToDelete?.name}"? This action cannot be undone and will remove all related transactions and inventory items.`
+            }
+          </p>
+          <div className="flex justify-end space-x-3">
+            <button
+              className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+              onClick={() => { setShowPrompt(false); setProductToDelete(null); }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </button>
+            <button
+              className={`px-4 py-2 rounded ${
+                deleteType === 'archive' 
+                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                  : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              }`}
+              onClick={handleDeleteProduct}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Processing...' : (deleteType === 'archive' ? 'Archive' : 'Delete Permanently')}
+            </button>
+          </div>
+        </div>
+      </PromptModal>
+
+      {/* Force Delete Prompt Modal */}
+      <PromptModal
+        show={showForcePrompt}
+        title="Force Delete Everything"
+        onClose={() => { setShowForcePrompt(false); setProductToDelete(null); }}
+      >
+        <div className="space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-red-600 text-lg">⚠️</span>
+              <span className="font-semibold text-red-800">Dangerous Operation</span>
+            </div>
+            <p className="text-red-700 text-sm">
+              This will permanently delete <strong>"{productToDelete?.name}"</strong> and <strong>ALL related data</strong> including:
+            </p>
+            <ul className="text-red-700 text-sm mt-2 ml-4 list-disc">
+              <li>All stock transactions</li>
+              <li>All inventory items</li>
+              <li>All historical data</li>
+              <li>All audit trails</li>
+            </ul>
+            <p className="text-red-700 text-sm mt-2 font-semibold">
+              This action cannot be undone!
+            </p>
+          </div>
+          <div className="flex justify-end space-x-3">
+            <button
+              className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+              onClick={() => { setShowForcePrompt(false); setProductToDelete(null); }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+              onClick={handleDeleteProduct}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting Everything...' : 'Yes, Delete Everything'}
+            </button>
+          </div>
+        </div>
+      </PromptModal>
+
+      {/* Dropdown Menu - Positioned outside table */}
+      {openDropdown && (
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setOpenDropdown(null)}
+          />
+          <div 
+            className="fixed z-50 bg-white rounded-md shadow-lg border border-gray-200 w-48"
+            style={{
+              left: `${dropdownPosition.x}px`,
+              top: `${dropdownPosition.y}px`
+            }}
+          >
+            <div className="py-1">
+              {showArchived ? (
+                // Archived product actions
+                <button
+                  onClick={() => handleRestoreProduct(productToDelete!.id)}
+                  className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                  disabled={isRestoring}
+                >
+                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Restore
+                </button>
+                             ) : (
+                 // Active product actions
+                 <>
+                   <button
+                     onClick={() => handleEditProduct(productToDelete!)}
+                     className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                     disabled={isEditing}
+                   >
+                     <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                     </svg>
+                     Edit
+                   </button>
+                   <button
+                     onClick={() => handleDeletePrompt(productToDelete!, 'archive')}
+                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                     disabled={isDeleting}
+                   >
+                     <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-14 0h14" />
+                     </svg>
+                     Archive
+                   </button>
+                   <button
+                     onClick={() => handleDeletePrompt(productToDelete!, 'hard')}
+                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                     disabled={isDeleting}
+                   >
+                     <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                     </svg>
+                     Delete
+                   </button>
+                   <button
+                     onClick={() => handleDeletePrompt(productToDelete!, 'force')}
+                     className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"
+                     disabled={isDeleting}
+                   >
+                     <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                     </svg>
+                     Force Delete
+                   </button>
+                 </>
+               )}
+            </div>
+          </div>
+        </>
+      )}
       </Layout>
     </ProtectedRoute>
   );

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useRouter } from 'next/navigation';
 
 interface User {
+  id: string;
   email: string;
   name: string;
   role: string;
@@ -15,6 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
+  getAuthToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,47 +28,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check if user is logged in on app start
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const userEmail = localStorage.getItem('userEmail');
-    
-    if (isLoggedIn === 'true' && userEmail) {
-      setUser({
-        email: userEmail,
-        name: 'Admin User',
-        role: 'Administrator',
-      });
-    }
-    
-    setLoading(false);
+    const checkAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      
+      if (token) {
+        try {
+          // Verify token using the verify endpoint
+          const response = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setUser(data.user);
+          } else {
+            // Token is invalid or expired
+            localStorage.removeItem('authToken');
+          }
+        } catch (error) {
+          console.error('Token verification error:', error);
+          localStorage.removeItem('authToken');
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Simulate API call
-      if (email && password) {
-        const userData = {
-          email,
-          name: 'Admin User',
-          role: 'Administrator',
-        };
-        
-        setUser(userData);
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userEmail', email);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        localStorage.setItem('authToken', data.token);
         return true;
+      } else {
+        const errorData = await response.json();
+        console.error('Login failed:', errorData.error);
+        return false;
       }
-      return false;
     } catch (error) {
       console.error('Login error:', error);
       return false;
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userEmail');
-    router.push('/login');
+  const logout = async () => {
+    try {
+      // Call logout API (optional, since JWT is stateless)
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('authToken');
+      router.push('/login');
+    }
+  };
+
+  const getAuthToken = (): string | null => {
+    return localStorage.getItem('authToken');
   };
 
   const value = {
@@ -75,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     loading,
+    getAuthToken,
   };
 
   return (

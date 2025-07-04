@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useProducts, useInventory, useTransactions } from '@/hooks';
 
 interface DashboardStats {
   totalProducts: number;
@@ -12,63 +13,31 @@ interface DashboardStats {
   recentTransactions: number;
 }
 
-interface InventoryItem {
-  id: string;
-  cost: number;
-}
-
-interface Transaction {
-  id: string;
-  date: string;
-}
-
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalProducts: 0,
-    totalInventory: 0,
-    totalValue: 0,
-    recentTransactions: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  const { data: products, isLoading: productsLoading } = useProducts();
+  const { data: inventory, isLoading: inventoryLoading } = useInventory();
+  const { data: transactions, isLoading: transactionsLoading } = useTransactions();
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [productsRes, inventoryRes, transactionsRes] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/inventory'),
-          fetch('/api/transactions'),
-        ]);
+  const stats = useMemo<DashboardStats>(() => {
+    const totalValue = inventory.reduce((sum: number, item: any) => sum + Number(item.cost), 0);
+    const recentTransactions = transactions.filter((txn: any) => {
+      const txnDate = new Date(txn.date);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return txnDate >= weekAgo;
+    }).length;
 
-        const products = await productsRes.json();
-        const inventory: InventoryItem[] = await inventoryRes.json();
-        const transactions: Transaction[] = await transactionsRes.json();
-
-        const totalValue = inventory.reduce((sum: number, item: InventoryItem) => sum + item.cost, 0);
-        const recentTransactions = transactions.filter((txn: Transaction) => {
-          const txnDate = new Date(txn.date);
-          const weekAgo = new Date();
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          return txnDate >= weekAgo;
-        }).length;
-
-        setStats({
-          totalProducts: products.length,
-          totalInventory: inventory.length,
-          totalValue,
-          recentTransactions,
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
+    return {
+      totalProducts: products.length,
+      totalInventory: inventory.length,
+      totalValue,
+      recentTransactions,
     };
+  }, [products, inventory, transactions]);
 
-    fetchStats();
-  }, []);
+  const isLoading = productsLoading || inventoryLoading || transactionsLoading;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <ProtectedRoute>
         <Layout>
@@ -146,26 +115,26 @@ export default function Dashboard() {
           <Card>
             <h3 className="text-lg font-semibold text-foreground mb-4">Recent Transactions</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <span className="text-green-500">📥</span>
-                  <div>
-                    <p className="font-medium text-foreground">Stock In</p>
-                    <p className="text-sm text-muted-foreground">Jordan 1 Retro High OG</p>
+              {transactions.slice(0, 5).map((txn: any) => (
+                <div key={txn.id} className="flex items-center justify-between p-3 bg-accent rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <span className={txn.type.toLowerCase() === 'in' ? 'text-green-500' : 'text-red-500'}>
+                      {txn.type.toLowerCase() === 'in' ? '📥' : '📤'}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {txn.type.charAt(0).toUpperCase() + txn.type.slice(1).toLowerCase()}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {txn.inventoryItem?.product?.name || 'Unknown Product'}
+                      </p>
+                    </div>
                   </div>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(txn.date).toLocaleDateString()}
+                  </span>
                 </div>
-                <span className="text-sm text-muted-foreground">2 hours ago</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <span className="text-red-500">📤</span>
-                  <div>
-                    <p className="font-medium text-foreground">Stock Out</p>
-                    <p className="text-sm text-muted-foreground">Nike Dunk Low Panda</p>
-                  </div>
-                </div>
-                <span className="text-sm text-muted-foreground">1 day ago</span>
-              </div>
+              ))}
             </div>
           </Card>
 
