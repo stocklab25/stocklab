@@ -2,13 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateToken, comparePassword } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
 
-// Debug environment variables
-console.log('Environment check:', {
-  DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
-  NODE_ENV: process.env.NODE_ENV,
-  VERCEL: process.env.VERCEL ? 'YES' : 'NO'
-});
-
 const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
