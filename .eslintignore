@@ -1,0 +1,6 @@
+# Ignore generated and build files
+node_modules/
+dist/
+build/
+.next/
+src/generated/ 

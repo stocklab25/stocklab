@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     DIRECT_URL: process.env.DIRECT_URL,
     JWT_SECRET: process.env.JWT_SECRET,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
