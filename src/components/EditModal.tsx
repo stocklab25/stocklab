@@ -5,10 +5,14 @@ import Modal from './Modal';
 import Button from './Button';
 import Input from './Input';
 
+interface FormData {
+  [key: string]: string | number;
+}
+
 interface EditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: FormData) => Promise<void>;
   title: string;
   fields: {
     name: string;
@@ -21,7 +25,6 @@ interface EditModalProps {
     required?: boolean;
   }[];
   isLoading?: boolean;
-  initialData?: any;
 }
 
 export function EditModal({
@@ -31,15 +34,14 @@ export function EditModal({
   title,
   fields,
   isLoading = false,
-  initialData = {},
 }: EditModalProps) {
-  const [formData, setFormData] = useState<{ [key: string]: string | number }>({});
+  const [formData, setFormData] = useState<FormData>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Initialize form data when modal opens
   useEffect(() => {
     if (isOpen) {
-      const initialFormData: { [key: string]: string | number } = {};
+      const initialFormData: FormData = {};
       fields.forEach(field => {
         initialFormData[field.name] = field.value;
       });

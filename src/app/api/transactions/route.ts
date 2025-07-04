@@ -4,8 +4,15 @@ import { verifyToken } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
 // Auth check function
-function checkAuth(req: NextRequest): { user: any; isValid: boolean } {
+function checkAuth(req: NextRequest): { user: User | null; isValid: boolean } {
   // Check for auth token in headers
   const authHeader = req.headers.get('authorization');
   
@@ -27,7 +34,8 @@ function checkAuth(req: NextRequest): { user: any; isValid: boolean } {
 
 export async function GET(req: NextRequest) {
   // Check authentication
-  if (!checkAuth(req)) {
+  const { isValid } = checkAuth(req);
+  if (!isValid) {
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 }
@@ -67,7 +75,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   // Check authentication
   const { user, isValid } = checkAuth(req);
-  if (!isValid) {
+  if (!isValid || !user) {
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 }
@@ -180,7 +188,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   // Check authentication
-  if (!checkAuth(req)) {
+  const { isValid } = checkAuth(req);
+  if (!isValid) {
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 }

@@ -1,4 +1,4 @@
-import useSWR, { mutate } from 'swr';
+import { mutate } from 'swr';
 import { useState } from 'react';
 
 interface UpdateQuantityData {

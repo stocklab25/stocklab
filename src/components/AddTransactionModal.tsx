@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Product {
@@ -116,7 +116,7 @@ export default function AddTransactionModal({
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing
@@ -126,8 +126,8 @@ export default function AddTransactionModal({
     
     // Real-time validation for quantity when product or quantity changes
     if ((field === 'quantity' || field === 'productId' || field === 'type') && selectedProduct) {
-      const newQuantity = field === 'quantity' ? value : formData.quantity;
-      const newType = field === 'type' ? value : formData.type;
+      const newQuantity = field === 'quantity' ? Number(value) : formData.quantity;
+      const newType = field === 'type' ? value as string : formData.type;
       
       if (newType === 'OUT' && newQuantity > selectedProduct.quantity) {
         setErrors(prev => ({ 
