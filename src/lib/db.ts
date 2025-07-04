@@ -1,22 +1,19 @@
 import { PrismaClient } from '@prisma/client'
 
-// Add query parameter to disable prepared statements in production
-const getDatabaseUrl = () => {
-  const baseUrl = process.env.DATABASE_URL
-  if (process.env.NODE_ENV === 'production' && baseUrl) {
-    const separator = baseUrl.includes('?') ? '&' : '?'
-    return `${baseUrl}${separator}prepared_statements=false`
-  }
-  return baseUrl
+declare global {
+  var prisma: PrismaClient | undefined;
 }
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: getDatabaseUrl(),
-    },
-  },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-})
+let prisma: PrismaClient;
 
-export { prisma } 
+if (process.env.NODE_ENV === 'production') {
+  prisma = new PrismaClient();
+} else {
+  if (!global.prisma) {
+    global.prisma = new PrismaClient();
+  }
+
+  prisma = global.prisma;
+}
+
+export default prisma; 
