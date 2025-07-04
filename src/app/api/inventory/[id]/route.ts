@@ -66,7 +66,7 @@ export async function PATCH(
     }
 
     // Update the product quantity (not the inventory item quantity)
-    const updatedProduct = await prisma.product.update({
+    await prisma.product.update({
       where: { id: existingItem.productId },
       data: {
         quantity,

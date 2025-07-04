@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Return user data (without password) and JWT token
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: userPassword, ...userWithoutPassword } = user;
     
     return NextResponse.json({
       user: userWithoutPassword,

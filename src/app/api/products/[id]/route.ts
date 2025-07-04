@@ -25,9 +25,43 @@ function checkAuth(req: NextRequest): boolean {
   return false;
 }
 
-export async function DELETE(req: NextRequest, context: any) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const product = await prisma.product.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+    });
+
+    if (!product) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   // Check authentication
-  if (!checkAuth(req)) {
+  if (!checkAuth(request)) {
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 }
@@ -35,8 +69,8 @@ export async function DELETE(req: NextRequest, context: any) {
   }
 
   try {
-    const id = (await context.params).id;
-    const { searchParams } = new URL(req.url);
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
     const isHardDelete = searchParams.get('hard') === 'true';
     const forceDelete = searchParams.get('force') === 'true';
 
@@ -122,54 +156,48 @@ export async function DELETE(req: NextRequest, context: any) {
   }
 }
 
-export async function PUT(req: NextRequest, context: any) {
-  // Check authentication
-  if (!checkAuth(req)) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const id = (await context.params).id;
-    const body = await req.json();
-    const { brand, name, color, sku } = body;
+    const { id } = await params;
+    const data = await request.json();
 
     // Validate required fields
-    if (!brand || !name) {
+    if (!data.brand || !data.name) {
       return NextResponse.json(
         { error: 'Brand and name are required' },
         { status: 400 }
       );
     }
 
-    // Check if product exists and is not deleted
+    // Check if product exists
     const existingProduct = await prisma.product.findFirst({
-      where: { 
+      where: {
         id,
-        deletedAt: null
-      }
+        deletedAt: null,
+      },
     });
 
     if (!existingProduct) {
       return NextResponse.json(
-        { error: 'Product not found or archived' },
+        { error: 'Product not found' },
         { status: 404 }
       );
     }
 
     // Check if SKU is unique (if provided)
-    if (sku && sku !== existingProduct.sku) {
-      const existingSku = await prisma.product.findFirst({
-        where: { 
-          sku,
+    if (data.sku && data.sku !== existingProduct.sku) {
+      const skuExists = await prisma.product.findFirst({
+        where: {
+          sku: data.sku,
           deletedAt: null,
-          id: { not: id }
-        }
+          id: { not: id },
+        },
       });
 
-      if (existingSku) {
+      if (skuExists) {
         return NextResponse.json(
           { error: 'SKU already exists' },
           { status: 400 }
@@ -177,35 +205,34 @@ export async function PUT(req: NextRequest, context: any) {
       }
     }
 
-    // Update the product
     const updatedProduct = await prisma.product.update({
       where: { id },
-      data: { 
-        brand,
-        name,
-        color,
-        sku,
-        updatedAt: new Date()
-      }
+      data: {
+        brand: data.brand,
+        name: data.name,
+        color: data.color,
+        sku: data.sku,
+        quantity: data.quantity !== undefined ? parseInt(data.quantity) : undefined,
+        updatedAt: new Date(),
+      },
     });
-    
-    return NextResponse.json({
-      data: updatedProduct,
-      success: true,
-      message: 'Product updated successfully'
-    });
+
+    return NextResponse.json(updatedProduct);
   } catch (error) {
     console.error('Error updating product:', error);
     return NextResponse.json(
-      { error: 'Failed to update product' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-export async function PATCH(req: NextRequest, context: any) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   // Check authentication
-  if (!checkAuth(req)) {
+  if (!checkAuth(request)) {
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 }
@@ -213,50 +240,63 @@ export async function PATCH(req: NextRequest, context: any) {
   }
 
   try {
-    const id = (await context.params).id;
-    const { searchParams } = new URL(req.url);
-    const action = searchParams.get('action');
+    const { id } = await params;
+    const data = await request.json();
 
-    if (action === 'restore') {
-      // Check if product exists and is archived
-      const existingProduct = await prisma.product.findFirst({
-        where: { 
-          id,
-          deletedAt: { not: null }
-        }
-      });
+    // Check if product exists
+    const existingProduct = await prisma.product.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+    });
 
-      if (!existingProduct) {
-        return NextResponse.json(
-          { error: 'Product not found or not archived' },
-          { status: 404 }
-        );
-      }
-
-      // Restore the product
-      const restoredProduct = await prisma.product.update({
-        where: { id },
-        data: { 
-          deletedAt: null,
-          updatedAt: new Date()
-        }
-      });
-      
-      return NextResponse.json({
-        data: restoredProduct,
-        success: true,
-        message: 'Product restored successfully'
-      });
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(
-      { error: 'Invalid action' },
-      { status: 400 }
-    );
+    // Update only the provided fields
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+
+    if (data.brand !== undefined) updateData.brand = data.brand;
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.color !== undefined) updateData.color = data.color;
+    if (data.sku !== undefined) updateData.sku = data.sku;
+    if (data.quantity !== undefined) updateData.quantity = parseInt(data.quantity);
+
+    // Check if SKU is unique (if being updated)
+    if (data.sku && data.sku !== existingProduct.sku) {
+      const skuExists = await prisma.product.findFirst({
+        where: {
+          sku: data.sku,
+          deletedAt: null,
+          id: { not: id },
+        },
+      });
+
+      if (skuExists) {
+        return NextResponse.json(
+          { error: 'SKU already exists' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json(updatedProduct);
   } catch (error) {
-    console.error('Error restoring product:', error);
+    console.error('Error updating product:', error);
     return NextResponse.json(
-      { error: 'Failed to restore product' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
