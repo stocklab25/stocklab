@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import dotenv from 'dotenv';
 import { verifyToken } from '@/lib/auth';
-
-// Load environment variables
-dotenv.config();
 
 const prisma = new PrismaClient();
 
