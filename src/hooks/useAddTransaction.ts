@@ -21,11 +21,10 @@ const fetcher = async (url: string) => {
 
 interface TransactionData {
   type: 'IN' | 'OUT' | 'MOVE' | 'RETURN' | 'ADJUSTMENT' | 'AUDIT';
-  productId: string;
+  inventoryItemId: string;
   quantity: number;
   date: string;
-  fromLocation?: string;
-  toLocation?: string;
+  storeId?: string;
   userId?: string;
   notes?: string;
 }
@@ -40,29 +39,63 @@ const useAddTransaction = () => {
     try {
       const token = localStorage.getItem('authToken');
       
-      const response = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-        body: JSON.stringify(transactionData),
-      });
+      // If it's an OUT transaction with a store, handle as store transfer
+      if (transactionData.type === 'OUT' && transactionData.storeId) {
+        // Transfer to store using the inventoryItemId directly
+        const transferResponse = await fetch('/api/transfers/warehouse-to-store', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+          body: JSON.stringify({
+            inventoryItemId: transactionData.inventoryItemId,
+            storeId: transactionData.storeId,
+            quantity: transactionData.quantity,
+            notes: transactionData.notes || `Stock Out to store - ${transactionData.notes || ''}`
+          }),
+        });
+        
+        if (!transferResponse.ok) {
+          const errorData = await transferResponse.json();
+          throw new Error(errorData.error || 'Failed to transfer to store');
+        }
+        
+        const result = await transferResponse.json();
+        
+        // Update both transactions and products cache
+        await Promise.all([
+          mutateTransactions(),
+          mutateProducts()
+        ]);
+        
+        return result;
+      } else {
+        // Regular transaction (not store transfer)
+        const response = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+          body: JSON.stringify(transactionData),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add transaction');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to add transaction');
+        }
+
+        const result = await response.json();
+        
+        // Update both transactions and products cache
+        await Promise.all([
+          mutateTransactions(),
+          mutateProducts()
+        ]);
+        
+        return result;
       }
-
-      const result = await response.json();
-      
-      // Update both transactions and products cache
-      await Promise.all([
-        mutateTransactions(),
-        mutateProducts()
-      ]);
-      
-      return result;
     } catch (error) {
       console.error('Error adding transaction:', error);
       throw error;

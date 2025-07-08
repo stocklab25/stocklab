@@ -7,6 +7,8 @@ export const products: Product[] = [
     name: 'Jordan 1 Retro High OG Spider-Man Across The Spider-Verse',
     color: 'Red/Black',
     sku: 'DV1753-601',
+    cost: 150.0,
+    payout: 220.0,
   },
   {
     id: 'prod2',
@@ -14,6 +16,8 @@ export const products: Product[] = [
     name: "Nike Dunk Low Retro White Black Panda (Women's)",
     color: 'White/Black',
     sku: 'DD1503-101',
+    cost: 120.0,
+    payout: 180.0,
   },
   {
     id: 'prod3',
@@ -21,6 +25,8 @@ export const products: Product[] = [
     name: 'Jordan 4 Retro Red Cement',
     color: 'Red/White',
     sku: 'DH6927-161',
+    cost: 250.0,
+    payout: 350.0,
   },
   {
     id: 'prod4',
@@ -28,6 +34,8 @@ export const products: Product[] = [
     name: 'Nike SB Dunk Low Pro Bart Simpson',
     color: 'Yellow/Blue',
     sku: 'BQ6817-602',
+    cost: 240.0,
+    payout: 320.0,
   },
   {
     id: 'prod5',
@@ -35,6 +43,8 @@ export const products: Product[] = [
     name: 'adidas Yeezy Slide Flax',
     color: 'Flax',
     sku: 'FZ5896',
+    cost: 110.0,
+    payout: 160.0,
   },
   {
     id: 'prod6',
@@ -42,6 +52,8 @@ export const products: Product[] = [
     name: 'New Balance 550 White Grey',
     color: 'White/Grey',
     sku: 'BB550WT1',
+    cost: 90.0,
+    payout: 130.0,
   },
   {
     id: 'prod7',
@@ -49,6 +61,8 @@ export const products: Product[] = [
     name: 'Converse Chuck Taylor All Star',
     color: 'Black/White',
     sku: 'M9166',
+    cost: 60.0,
+    payout: 85.0,
   },
   {
     id: 'prod8',
@@ -56,6 +70,8 @@ export const products: Product[] = [
     name: 'Vans Old Skool Black White',
     color: 'Black/White',
     sku: 'VN000D3HY28',
+    cost: 55.0,
+    payout: 80.0,
   },
   {
     id: 'prod9',
@@ -63,6 +79,8 @@ export const products: Product[] = [
     name: 'Puma Suede Classic',
     color: 'Red/White',
     sku: '352634-62',
+    cost: 45.0,
+    payout: 65.0,
   },
   {
     id: 'prod10',
@@ -70,6 +88,8 @@ export const products: Product[] = [
     name: 'Reebok Club C 85',
     color: 'White/Green',
     sku: 'AR0456',
+    cost: 70.0,
+    payout: 100.0,
   },
 ];
 

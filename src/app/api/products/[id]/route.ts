@@ -210,7 +210,6 @@ export async function PUT(
         name: data.name,
         color: data.color,
         sku: data.sku,
-        quantity: data.quantity !== undefined ? parseInt(data.quantity) : undefined,
         updatedAt: new Date(),
       },
     });
@@ -265,7 +264,6 @@ export async function PATCH(
     if (data.name !== undefined) updateData.name = data.name;
     if (data.color !== undefined) updateData.color = data.color;
     if (data.sku !== undefined) updateData.sku = data.sku;
-    if (data.quantity !== undefined) updateData.quantity = parseInt(data.quantity);
 
     // Check if SKU is unique (if being updated)
     if (data.sku && data.sku !== existingProduct.sku) {

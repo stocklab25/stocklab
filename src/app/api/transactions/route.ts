@@ -44,13 +44,19 @@ export async function GET(req: NextRequest) {
     const transactions = await prisma.stockTransaction.findMany({
       where: {
         deletedAt: null, // Only show non-deleted transactions
-        product: {
-          deletedAt: null // Only show transactions from non-deleted products
+        InventoryItem: {
+          deletedAt: null // Only show transactions from non-deleted inventory items
         }
       },
       include: {
-        product: true,
-        user: true
+        InventoryItem: {
+          include: {
+            product: true // Include product info through inventory item
+          }
+        },
+        user: true,
+        fromStore: true,
+        toStore: true
       },
       orderBy: {
         date: 'desc'
@@ -84,9 +90,9 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     
     // Validate required fields
-    if (!data.type || !data.productId || !data.quantity || !data.date) {
+    if (!data.type || !data.inventoryItemId || !data.quantity || !data.date) {
       return NextResponse.json(
-        { error: 'Missing required fields: type, productId, quantity, date' },
+        { error: 'Missing required fields: type, inventoryItemId, quantity, date' },
         { status: 400 }
       );
     }
@@ -99,28 +105,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get the product to check current quantity
-    const product = await prisma.product.findUnique({
-      where: { id: data.productId }
+    // Get the inventory item to check current quantity
+    const inventoryItem = await prisma.inventoryItem.findUnique({
+      where: { id: data.inventoryItemId },
+      include: {
+        product: true
+      }
     });
 
-    if (!product) {
+    if (!inventoryItem) {
       return NextResponse.json(
-        { error: 'Product not found' },
+        { error: 'Inventory item not found' },
         { status: 404 }
       );
     }
 
     // For OUT transactions, check if we have enough stock
-    if (data.type === 'OUT' && product.quantity < data.quantity) {
+    if (data.type === 'OUT' && inventoryItem.quantity < data.quantity) {
       return NextResponse.json(
-        { error: `Insufficient stock. Available: ${product.quantity}, Requested: ${data.quantity}` },
+        { error: `Insufficient stock. Available: ${inventoryItem.quantity}, Requested: ${data.quantity}` },
         { status: 400 }
       );
     }
 
     // Calculate new quantity based on transaction type
-    let newQuantity = product.quantity;
+    let newQuantity = inventoryItem.quantity;
     switch (data.type) {
       case 'IN':
         newQuantity += data.quantity;
@@ -146,29 +155,33 @@ export async function POST(req: NextRequest) {
 
     // Create the transaction
     const newTransaction = await prisma.stockTransaction.create({
-      data: {
-        productId: data.productId,
-        inventoryItemId: data.inventoryItemId || null,
-        type: data.type,
-        quantity: data.quantity,
-        date: new Date(data.date),
-        fromLocation: data.fromLocation,
-        toLocation: data.toLocation,
-        userId: user.id, // Use the authenticated user's ID
-        notes: data.notes,
-      },
-      include: {
-        product: true,
-        InventoryItem: true,
-        user: true
-      }
-    });
+            data: {
+        inventoryItemId: data.inventoryItemId,
+          type: data.type,
+          quantity: data.quantity,
+          date: new Date(data.date),
+          fromStoreId: data.fromStoreId,
+          toStoreId: data.toStoreId,
+          userId: user.id, // Use the authenticated user's ID
+          notes: data.notes,
+        },
+        include: {
+        InventoryItem: {
+          include: {
+            product: true
+          }
+        },
+            user: true,
+            fromStore: true,
+            toStore: true
+          }
+        });
 
-    // Update product quantity
-    await prisma.product.update({
-      where: { id: data.productId },
-      data: { quantity: newQuantity }
-    });
+    // Update inventory item quantity
+    await prisma.inventoryItem.update({
+      where: { id: data.inventoryItemId },
+        data: { quantity: newQuantity }
+      });
     
     return NextResponse.json({
       data: newTransaction,

@@ -1,12 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface Product {
+interface InventoryItem {
   id: string;
-  brand: string;
-  name: string;
-  sku?: string;
+  sku: string;
+  size: string;
+  condition: string;
+  cost: number;
+  payout: number;
+  consigner: string;
+  consignDate: string;
+  status: string;
   quantity: number;
+  product: {
+    id: string;
+    brand: string;
+    name: string;
+    sku?: string;
+  };
+}
+
+interface Store {
+  id: string;
+  name: string;
+  status: string;
 }
 
 interface AddTransactionModalProps {
@@ -14,16 +31,15 @@ interface AddTransactionModalProps {
   onClose: () => void;
   onSubmit: (data: {
     type: 'IN' | 'OUT' | 'MOVE' | 'RETURN' | 'ADJUSTMENT' | 'AUDIT';
-    productId: string;
+    inventoryItemId: string;
     quantity: number;
     date: string;
-    fromLocation?: string;
-    toLocation?: string;
+    storeId?: string;
     userId?: string;
     notes?: string;
   }) => Promise<void>;
   isLoading: boolean;
-  products: Product[];
+  inventoryItems: InventoryItem[];
 }
 
 const transactionTypes = [
@@ -40,35 +56,56 @@ export default function AddTransactionModal({
   onClose, 
   onSubmit, 
   isLoading, 
-  products 
+  inventoryItems 
 }: AddTransactionModalProps) {
   const { user } = useAuth();
   const [formData, setFormData] = useState<{
     type: 'IN' | 'OUT' | 'MOVE' | 'RETURN' | 'ADJUSTMENT' | 'AUDIT';
-    productId: string;
+    inventoryItemId: string;
     quantity: number;
     date: string;
-    fromLocation: string;
-    toLocation: string;
+    storeId: string;
     notes: string;
   }>({
     type: 'IN',
-    productId: '',
+    inventoryItemId: '',
     quantity: 1,
     date: new Date().toISOString().split('T')[0],
-    fromLocation: '',
-    toLocation: '',
+    storeId: '',
     notes: '',
   });
+  const [stores, setStores] = useState<Store[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const selectedProduct = products.find(p => p.id === formData.productId);
+  const selectedInventoryItem = Array.isArray(inventoryItems) ? inventoryItems.find(item => item.id === formData.inventoryItemId) : undefined;
+
+  // Fetch stores on component mount
+  useEffect(() => {
+    fetch('/api/stores')
+      .then(res => res.json())
+      .then(data => {
+        // Ensure data is an array and not empty object
+        if (Array.isArray(data) && data.length > 0) {
+          setStores(data);
+        } else if (Array.isArray(data)) {
+          // Empty array is fine
+          setStores([]);
+        } else {
+          console.error('Stores API returned non-array data:', data);
+          setStores([]);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching stores:', error);
+        setStores([]);
+      });
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.productId) {
-      newErrors.productId = 'Product is required';
+    if (!formData.inventoryItemId) {
+      newErrors.inventoryItemId = 'Inventory item is required';
     }
 
     if (!formData.quantity || formData.quantity <= 0) {
@@ -76,12 +113,17 @@ export default function AddTransactionModal({
     }
 
     // Check if OUT transaction would exceed available stock
-    if (formData.type === 'OUT' && selectedProduct && formData.quantity > selectedProduct.quantity) {
-      newErrors.quantity = `Insufficient stock. Available: ${selectedProduct.quantity}`;
+    if (formData.type === 'OUT' && selectedInventoryItem && formData.quantity > selectedInventoryItem.quantity) {
+      newErrors.quantity = `Insufficient stock. Available: ${selectedInventoryItem.quantity}`;
     }
 
     if (!formData.date) {
       newErrors.date = 'Date is required';
+    }
+
+    // Validate store selection for OUT transactions
+    if (formData.type === 'OUT' && !formData.storeId) {
+      newErrors.storeId = 'Store selection is required for Stock Out transactions';
     }
 
     setErrors(newErrors);
@@ -103,11 +145,10 @@ export default function AddTransactionModal({
       onClose();
       setFormData({
         type: 'IN',
-        productId: '',
+        inventoryItemId: '',
         quantity: 1,
         date: new Date().toISOString().split('T')[0],
-        fromLocation: '',
-        toLocation: '',
+        storeId: '',
         notes: '',
       });
       setErrors({});
@@ -124,15 +165,15 @@ export default function AddTransactionModal({
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
     
-    // Real-time validation for quantity when product or quantity changes
-    if ((field === 'quantity' || field === 'productId' || field === 'type') && selectedProduct) {
+    // Real-time validation for quantity when inventory item or quantity changes
+    if ((field === 'quantity' || field === 'inventoryItemId' || field === 'type') && selectedInventoryItem) {
       const newQuantity = field === 'quantity' ? Number(value) : formData.quantity;
       const newType = field === 'type' ? value as string : formData.type;
       
-      if (newType === 'OUT' && newQuantity > selectedProduct.quantity) {
+      if (newType === 'OUT' && newQuantity > selectedInventoryItem.quantity) {
         setErrors(prev => ({ 
           ...prev, 
-          quantity: `Insufficient stock. Available: ${selectedProduct.quantity}` 
+          quantity: `Insufficient stock. Available: ${selectedInventoryItem.quantity}` 
         }));
       } else if (newQuantity <= 0) {
         setErrors(prev => ({ 
@@ -194,32 +235,32 @@ export default function AddTransactionModal({
             </select>
           </div>
 
-          {/* Product Selection */}
+          {/* Inventory Item Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Product
+              Inventory Item
             </label>
             <select
-              value={formData.productId}
-              onChange={(e) => handleInputChange('productId', e.target.value)}
+              value={formData.inventoryItemId}
+              onChange={(e) => handleInputChange('inventoryItemId', e.target.value)}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                errors.productId ? 'border-red-500' : 'border-gray-300'
+                errors.inventoryItemId ? 'border-red-500' : 'border-gray-300'
               }`}
             >
-              <option value="">Select a product</option>
-              {products.map(product => (
-                <option key={product.id} value={product.id}>
-                  {product.brand} - {product.name} (Qty: {product.quantity})
+              <option value="">Select an inventory item</option>
+              {Array.isArray(inventoryItems) && inventoryItems.map(item => (
+                <option key={item.id} value={item.id}>
+                  {item.product.brand} - {item.product.name} | SKU: {item.sku} | Size: {item.size} | Qty: {item.quantity}
                 </option>
               ))}
             </select>
-            {errors.productId && (
-              <p className="mt-1 text-sm text-red-600">{errors.productId}</p>
+            {errors.inventoryItemId && (
+              <p className="mt-1 text-sm text-red-600">{errors.inventoryItemId}</p>
             )}
-            {selectedProduct && formData.type === 'OUT' && selectedProduct.quantity === 0 && (
+            {selectedInventoryItem && formData.type === 'OUT' && selectedInventoryItem.quantity === 0 && (
               <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-700">
-                  ⚠️ This product is out of stock. You cannot create an OUT transaction for a product with 0 quantity.
+                  ⚠️ This inventory item is out of stock. You cannot create an OUT transaction for an item with 0 quantity.
                 </p>
               </div>
             )}
@@ -242,17 +283,17 @@ export default function AddTransactionModal({
             {errors.quantity && (
               <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>
             )}
-            {selectedProduct && (
+            {selectedInventoryItem && (
               <p className={`mt-1 text-sm ${
-                selectedProduct.quantity === 0 
+                selectedInventoryItem.quantity === 0 
                   ? 'text-red-600 font-medium' 
-                  : selectedProduct.quantity < 5 
+                  : selectedInventoryItem.quantity < 5 
                     ? 'text-yellow-600 font-medium' 
                     : 'text-gray-500'
               }`}>
-                Current stock: {selectedProduct.quantity}
-                {selectedProduct.quantity === 0 && ' (Out of stock)'}
-                {selectedProduct.quantity > 0 && selectedProduct.quantity < 5 && ' (Low stock)'}
+                Current stock: {selectedInventoryItem.quantity}
+                {selectedInventoryItem.quantity === 0 && ' (Out of stock)'}
+                {selectedInventoryItem.quantity > 0 && selectedInventoryItem.quantity < 5 && ' (Low stock)'}
               </p>
             )}
           </div>
@@ -275,32 +316,36 @@ export default function AddTransactionModal({
             )}
           </div>
 
-          {/* Location Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                From Location
-              </label>
-              <input
-                type="text"
-                value={formData.fromLocation}
-                onChange={(e) => handleInputChange('fromLocation', e.target.value)}
-                placeholder="Optional"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                To Location
-              </label>
-              <input
-                type="text"
-                value={formData.toLocation}
-                onChange={(e) => handleInputChange('toLocation', e.target.value)}
-                placeholder="Optional"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
+          {/* Store Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Store
+            </label>
+            <select
+              value={formData.storeId}
+              onChange={(e) => handleInputChange('storeId', e.target.value)}
+              disabled={formData.type === 'IN'}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                formData.type === 'IN' ? 'bg-gray-100 cursor-not-allowed' : ''
+              }`}
+            >
+              <option value="">Select a store</option>
+              {Array.isArray(stores) && stores.map(store => (
+                <option key={store.id} value={store.id}>
+                  {store.name}
+                </option>
+              ))}
+            </select>
+            {formData.type === 'IN' && (
+              <p className="mt-1 text-sm text-gray-500">
+                Store selection is disabled for Stock In transactions
+              </p>
+            )}
+            {formData.type === 'OUT' && !formData.storeId && (
+              <p className="mt-1 text-sm text-red-600">
+                Store selection is required for Stock Out transactions
+              </p>
+            )}
           </div>
 
           {/* Notes */}

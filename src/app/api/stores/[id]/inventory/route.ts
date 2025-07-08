@@ -1,0 +1,188 @@
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/db';
+
+// GET /api/stores/[id]/inventory - Get all inventory at specific store
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Check if store exists and is active
+    const store = await prisma.store.findFirst({
+      where: {
+        id: params.id,
+        deletedAt: null,
+        status: 'ACTIVE'
+      }
+    });
+
+    if (!store) {
+      return NextResponse.json(
+        { error: 'Store not found or inactive' },
+        { status: 404 }
+      );
+    }
+
+    // Get all inventory items at this store
+    const storeInventory = await prisma.storeInventory.findMany({
+      where: {
+        storeId: params.id,
+        deletedAt: null,
+        quantity: {
+          gt: 0
+        }
+      },
+      include: {
+        inventoryItem: {
+          include: {
+            product: true
+          }
+        }
+      },
+      orderBy: {
+        inventoryItem: {
+          product: {
+            brand: 'asc'
+          }
+        }
+      }
+    });
+
+    return NextResponse.json(storeInventory);
+  } catch (error) {
+    console.error('Error fetching store inventory:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch store inventory' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/stores/[id]/inventory - Add inventory to store (transfer from warehouse)
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { inventoryItemId, quantity, notes } = body;
+
+    if (!inventoryItemId || !quantity || quantity <= 0) {
+      return NextResponse.json(
+        { error: 'Valid inventory item ID and quantity are required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if store exists and is active
+    const store = await prisma.store.findFirst({
+      where: {
+        id: params.id,
+        deletedAt: null,
+        status: 'ACTIVE'
+      }
+    });
+
+    if (!store) {
+      return NextResponse.json(
+        { error: 'Store not found or inactive' },
+        { status: 404 }
+      );
+    }
+
+    // Check if inventory item exists in warehouse
+    const warehouseItem = await prisma.inventoryItem.findFirst({
+      where: {
+        id: inventoryItemId,
+        deletedAt: null,
+        quantity: {
+          gte: quantity
+        }
+      }
+    });
+
+    if (!warehouseItem) {
+      return NextResponse.json(
+        { error: 'Inventory item not found or insufficient quantity in warehouse' },
+        { status: 400 }
+      );
+    }
+
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Deduct from warehouse
+      const updatedWarehouseItem = await tx.inventoryItem.update({
+        where: { id: inventoryItemId },
+        data: {
+          quantity: {
+            decrement: quantity
+          }
+        }
+      });
+
+      // Add to store inventory
+      const existingStoreInventory = await tx.storeInventory.findUnique({
+        where: {
+          storeId_inventoryItemId: {
+            storeId: params.id,
+            inventoryItemId
+          }
+        }
+      });
+
+      let storeInventory;
+      if (existingStoreInventory) {
+        // Update existing store inventory
+        storeInventory = await tx.storeInventory.update({
+          where: {
+            storeId_inventoryItemId: {
+              storeId: params.id,
+              inventoryItemId
+            }
+          },
+          data: {
+            quantity: {
+              increment: quantity
+            }
+          }
+        });
+      } else {
+        // Create new store inventory record
+        storeInventory = await tx.storeInventory.create({
+          data: {
+            storeId: params.id,
+            inventoryItemId,
+            quantity
+          }
+        });
+      }
+
+      // Create transfer transaction
+      const transaction = await tx.stockTransaction.create({
+        data: {
+          type: 'TRANSFER_TO_STORE',
+          quantity,
+          date: new Date(),
+          fromStoreId: null, // warehouse
+          toStoreId: params.id,
+          inventoryItemId,
+          notes: notes || `Transferred ${quantity} units to ${store.name}`
+        }
+      });
+
+      return {
+        warehouseItem: updatedWarehouseItem,
+        storeInventory,
+        transaction
+      };
+    });
+
+    return NextResponse.json(result, { status: 201 });
+  } catch (error) {
+    console.error('Error adding inventory to store:', error);
+    return NextResponse.json(
+      { error: 'Failed to add inventory to store' },
+      { status: 500 }
+    );
+  }
+} 

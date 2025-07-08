@@ -142,7 +142,7 @@ export default function Products() {
         y: rect.bottom + 8
       });
       setOpenDropdown(productId);
-      const product = products.find((p: any) => p.id === productId);
+      const product = products.find((p: Product) => p.id === productId);
       setProductToDelete(product || null);
     }
   };

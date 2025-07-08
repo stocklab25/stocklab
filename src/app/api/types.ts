@@ -5,6 +5,9 @@ export interface Product {
   name: string;
   color?: string;
   sku?: string;
+  itemType: 'SHOE' | 'APPAREL';
+  cost?: number;
+  payout?: number;
 }
 
 // InventoryItem: each physical item in your warehouse
@@ -13,7 +16,7 @@ export interface InventoryItem {
   productId: string; // references Product.id
   sku: string;
   size: string;
-  condition: string;
+  condition: 'NEW' | 'PRE_OWNED';
   cost: number;
   consigner: string;
   consignDate: string;

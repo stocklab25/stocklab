@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { EditModal } from '@/components/EditModal';
+import AddInventoryModal from '@/components/AddInventoryModal';
 import { useInventory, useUpdateInventoryQuantity } from '@/hooks';
 
 interface Product {
@@ -25,12 +26,12 @@ interface InventoryItem {
   consigner: string;
   consignDate: string;
   status: string;
-  location?: string;
+  quantity: number;
   product?: Product;
 }
 
 export default function Inventory() {
-  const { data: inventory, isLoading, isError } = useInventory();
+  const { data: inventory, isLoading, isError, mutate } = useInventory();
   const { updateQuantity, isLoading: isUpdating } = useUpdateInventoryQuantity();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -38,6 +39,20 @@ export default function Inventory() {
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
+
+  // Low stock threshold - you can adjust this value
+  const LOW_STOCK_THRESHOLD = 5;
+
+  const getDynamicStatus = (quantity: number) => {
+    if (quantity === 0) {
+      return 'Out of Stock';
+    } else if (quantity <= LOW_STOCK_THRESHOLD) {
+      return 'Low Stock';
+    } else {
+      return 'In Stock';
+    }
+  };
 
   const filteredInventory = inventory.filter((item: InventoryItem) => {
     const matchesSearch = 
@@ -46,23 +61,19 @@ export default function Inventory() {
       item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.consigner.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === '' || item.status === statusFilter;
+    const dynamicStatus = getDynamicStatus(item.quantity);
+    const matchesStatus = statusFilter === '' || dynamicStatus === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'InStock':
-        return 'bg-green-100 text-green-800';
-      case 'Sold':
-        return 'bg-blue-100 text-blue-800';
-      case 'Returned':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'OutOfStock':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-accent text-accent-foreground';
+  const getStatusColor = (quantity: number) => {
+    if (quantity === 0) {
+      return 'bg-red-100 text-red-800';
+    } else if (quantity <= LOW_STOCK_THRESHOLD) {
+      return 'bg-yellow-100 text-yellow-800';
+    } else {
+      return 'bg-green-100 text-green-800';
     }
   };
 
@@ -83,7 +94,10 @@ export default function Inventory() {
     setOpenDropdown(null);
   };
 
-
+  const handleAddInventorySuccess = () => {
+    // Refresh the inventory data
+    mutate();
+  };
 
   const toggleDropdown = (itemId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent event bubbling
@@ -149,7 +163,10 @@ export default function Inventory() {
             <p className="text-muted-foreground mt-2">Manage your inventory items</p>
           </div>
           <div className="flex space-x-3">
-            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            <button 
+              onClick={() => setShowAddInventoryModal(true)}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
               📥 Stock In
             </button>
             <button className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors">
@@ -177,10 +194,9 @@ export default function Inventory() {
                 className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="">All Status</option>
-                <option value="InStock">In Stock</option>
-                <option value="Sold">Sold</option>
-                <option value="Returned">Returned</option>
-                <option value="OutOfStock">Out of Stock</option>
+                <option value="In Stock">In Stock</option>
+                <option value="Low Stock">Low Stock</option>
+                <option value="Out of Stock">Out of Stock</option>
               </select>
             </div>
           </div>
@@ -209,7 +225,7 @@ export default function Inventory() {
                     <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Cost</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-foreground">Location</th>
+
                     <th className="text-left py-3 px-4 font-medium text-foreground">Consigner</th>
                     <th className="text-right py-3 px-4 font-medium text-foreground">Actions</th>
                   </tr>
@@ -228,7 +244,7 @@ export default function Inventory() {
                         <span className="font-mono text-sm">{item.sku}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-mono text-sm flex justify-center">{item.product?.quantity ?? 0}</span>
+                        <span className="font-mono text-sm flex justify-center">{item.quantity}</span>
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-foreground">{item.size}</span>
@@ -242,13 +258,11 @@ export default function Inventory() {
                         <span className="font-medium text-foreground">${item.cost.toLocaleString()}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-                          {item.status.replace(/([A-Z])/g, ' $1').trim()}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.quantity)}`}>
+                          {getDynamicStatus(item.quantity)}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="text-muted-foreground">{item.location || '-'}</span>
-                      </td>
+
                       <td className="py-3 px-4">
                         <span className="text-muted-foreground">{item.consigner}</span>
                       </td>
@@ -294,7 +308,7 @@ export default function Inventory() {
               name: 'quantity',
               label: 'Quantity',
               type: 'number',
-              value: selectedItem?.product?.quantity ?? 0,
+              value: selectedItem?.quantity ?? 0,
               placeholder: 'Enter quantity',
               min: 0,
               required: true,
@@ -336,6 +350,13 @@ export default function Inventory() {
             </div>
           </>
         )}
+
+        {/* Add Inventory Modal */}
+        <AddInventoryModal
+          isOpen={showAddInventoryModal}
+          onClose={() => setShowAddInventoryModal(false)}
+          onSuccess={handleAddInventorySuccess}
+        />
       </div>
     </Layout>
   );

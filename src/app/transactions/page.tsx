@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
-import { useTransactions, useProducts } from '@/hooks';
+import { useTransactions } from '@/hooks';
+import { useInventoryItems } from '@/hooks/useInventoryItems';
 import useAddTransaction from '@/hooks/useAddTransaction';
 import { useDeleteTransaction } from '@/hooks/useDeleteTransaction';
 import AddTransactionModal from '@/components/AddTransactionModal';
@@ -15,6 +16,7 @@ import Badge from '@/components/Badge';
 import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import { format } from 'date-fns';
+import { TRANSACTION_TYPE } from '@/utils/constants';
 
 interface Product {
   id: string;
@@ -40,32 +42,44 @@ interface InventoryItem {
 
 interface StockTransaction {
   id: string;
-  productId: string;
+  inventoryItemId: string;
   type: string;
   quantity: number;
   date: string;
-  toLocation?: string;
-  fromLocation?: string;
+  fromStoreId?: string;
+  toStoreId?: string;
   userId?: string;
   notes?: string;
-  product?: {
+  InventoryItem?: {
     id: string;
-    brand: string;
-    name: string;
     sku: string;
-    color?: string;
-    quantity: number;
+    product?: {
+      id: string;
+      brand: string;
+      name: string;
+      sku: string;
+      color?: string;
+      quantity: number;
+    };
   };
   user?: {
     id: string;
     name: string;
     email: string;
   };
+  fromStore?: {
+    id: string;
+    name: string;
+  };
+  toStore?: {
+    id: string;
+    name: string;
+  };
 }
 
 export default function Transactions() {
   const { data: transactions, isLoading, isError, mutate } = useTransactions();
-  const { data: products } = useProducts();
+  const { data: inventoryItems } = useInventoryItems();
   const { addTransaction, isLoading: isAdding } = useAddTransaction();
   const { archiveTransaction, hardDeleteTransaction, loading } = useDeleteTransaction({
     onSuccess: () => {
@@ -86,18 +100,27 @@ export default function Transactions() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 20;
 
   const filteredTransactions = transactions.filter((txn: StockTransaction) => {
     const matchesSearch = 
-      txn.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      txn.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      txn.product?.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      txn.user?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      txn.InventoryItem?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      txn.InventoryItem?.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      txn.InventoryItem?.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      txn.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getStoreName(txn).toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = typeFilter === '' || txn.type.toLowerCase() === typeFilter;
     
     return matchesSearch && matchesType;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTransactions.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   const getTransactionIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -169,14 +192,26 @@ export default function Transactions() {
     }
   };
 
-  const getProductName = (productId: string) => {
-    const product = products?.find((p: any) => p.id === productId);
-    return product ? product.name : 'Unknown Product';
-  };
 
-  const getProductSku = (productId: string) => {
-    const product = products?.find((p: any) => p.id === productId);
-    return product ? product.sku : 'Unknown SKU';
+
+  const getStoreName = (txn: StockTransaction) => {
+    // For OUT transactions, show the destination store
+    if (txn.type === 'OUT' && txn.toStore) {
+      return txn.toStore.name;
+    }
+    // For IN transactions, show the source store
+    if (txn.type === 'IN' && txn.fromStore) {
+      return txn.fromStore.name;
+    }
+    // For transfer transactions
+    if (txn.type === 'TRANSFER_TO_STORE' && txn.toStore) {
+      return txn.toStore.name;
+    }
+    if (txn.type === 'TRANSFER_FROM_STORE' && txn.fromStore) {
+      return txn.fromStore.name;
+    }
+    // Default to Warehouse if no store is specified
+    return 'Warehouse';
   };
 
   const toggleDropdown = (transactionId: string, event: React.MouseEvent) => {
@@ -201,23 +236,25 @@ export default function Transactions() {
     { key: 'sku', label: 'SKU' },
     { key: 'type', label: 'Type' },
     { key: 'quantity', label: 'Quantity' },
+    { key: 'store', label: 'Store' },
     { key: 'notes', label: 'Notes' },
     { key: 'actions', label: 'Actions' }
   ];
 
-  const rows = filteredTransactions.map((txn: StockTransaction) => ({
+  const rows = paginatedTransactions.map((txn: any) => ({
     id: txn.id,
     date: formatDate(txn.date),
-    product: getProductName(txn.productId),
-    sku: getProductSku(txn.productId),
+    product: txn.InventoryItem?.product?.name || 'Unknown Product',
+    sku: txn.InventoryItem?.sku || 'Unknown SKU',
     type: (
       <Badge 
         variant={txn.type === 'IN' ? 'default' : txn.type === 'OUT' ? 'destructive' : 'secondary'}
       >
-        {txn.type.charAt(0).toUpperCase() + txn.type.slice(1).toLowerCase()}
+        {TRANSACTION_TYPE[txn.type as keyof typeof TRANSACTION_TYPE] || txn.type}
       </Badge>
     ),
     quantity: txn.quantity,
+    store: getStoreName(txn),
     notes: txn.notes || '-',
     actions: (
       <div className="relative">
@@ -311,7 +348,7 @@ export default function Transactions() {
                 Stock Transactions ({filteredTransactions.length})
               </h3>
               <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <span>Showing {filteredTransactions.length} of {transactions.length} transactions</span>
+                <span>Page {currentPage} of {totalPages} • Showing {paginatedTransactions.length} of {filteredTransactions.length} transactions</span>
               </div>
             </div>
 
@@ -330,18 +367,19 @@ export default function Transactions() {
                   {rows.length > 0 ? (
                     rows.map((row: any) => (
                       <tr key={row.id} className="border-b border-muted hover:bg-accent">
-                        <td className="py-3 px-4">{row.date}</td>
-                        <td className="py-3 px-4">{row.product}</td>
-                        <td className="py-3 px-4">{row.sku}</td>
-                        <td className="py-3 px-4">{row.type}</td>
-                        <td className="py-3 px-4">{row.quantity}</td>
-                        <td className="py-3 px-4">{row.notes}</td>
-                        <td className="py-3 px-4">{row.actions}</td>
+                        <td className="py-2 px-4 text-sm">{row.date}</td>
+                        <td className="py-2 px-4 text-sm">{row.product}</td>
+                        <td className="py-2 px-4 text-sm">{row.sku}</td>
+                        <td className="py-2 px-4 text-sm">{row.type}</td>
+                        <td className="py-2 px-4 text-sm">{row.quantity}</td>
+                        <td className="py-2 px-4 text-sm">{row.store}</td>
+                        <td className="py-2 px-4 text-sm">{row.notes}</td>
+                        <td className="py-2 px-4 text-sm">{row.actions}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center">
+                      <td colSpan={8} className="py-8 text-center">
                         <p className="text-muted-foreground">No transactions found</p>
                       </td>
                     </tr>
@@ -349,6 +387,34 @@ export default function Transactions() {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-input rounded-md hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-input rounded-md hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -359,7 +425,7 @@ export default function Transactions() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={addTransaction}
         isLoading={isAdding}
-        products={products || []}
+        inventoryItems={inventoryItems || []}
       />
 
       {/* Archive Confirmation Modal */}

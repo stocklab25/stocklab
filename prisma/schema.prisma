@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -22,18 +22,36 @@ model User {
   @@map("users")
 }
 
+model Store {
+  id        String      @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  status    StoreStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  storeInventory   StoreInventory[]
+  fromTransactions StockTransaction[] @relation("FromStore")
+  toTransactions   StockTransaction[] @relation("ToStore")
+
+  @@map("stores")
+}
+
 model Product {
   id                String             @id @default(cuid())
   brand             String
   name              String
   color             String?
   sku               String?            @unique
-  quantity          Int                @default(0)
+  itemType          ItemType
   createdAt         DateTime           @default(now())
   deletedAt         DateTime?
   updatedAt         DateTime           @default(now()) @updatedAt
   inventoryItems    InventoryItem[]
-  stockTransactions StockTransaction[]
 
   @@map("products")
 }
@@ -43,17 +61,19 @@ model InventoryItem {
   productId         String
   sku               String
   size              String
-  condition         String
+  condition         ItemCondition
   cost              Decimal            @db.Decimal(10, 2)
+  payout            Decimal            @db.Decimal(10, 2)
   consigner         String
   consignDate       DateTime
   status            InventoryStatus
-  location          String?
+  quantity          Int                @default(1)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
   product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   stockTransactions StockTransaction[]
+  storeInventory    StoreInventory[]
 
   @@map("inventory_items")
 }
@@ -63,25 +83,46 @@ model StockTransaction {
   type            TransactionType
   quantity        Int
   date            DateTime
-  fromLocation    String?
-  toLocation      String?
+  fromStoreId     String?
+  toStoreId       String?
   userId          String?
   notes           String?
   createdAt       DateTime        @default(now())
   inventoryItemId String?
-  productId       String
   deletedAt       DateTime?
   updatedAt       DateTime        @default(now()) @updatedAt
   InventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
-  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   user            User?           @relation(fields: [userId], references: [id])
+  fromStore       Store?          @relation("FromStore", fields: [fromStoreId], references: [id], onDelete: SetNull)
+  toStore         Store?          @relation("ToStore", fields: [toStoreId], references: [id], onDelete: SetNull)
 
   @@map("stock_transactions")
+}
+
+model StoreInventory {
+  id              String        @id @default(cuid())
+  storeId         String
+  inventoryItemId String
+  quantity        Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+  store           Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, inventoryItemId])
+  @@map("store_inventory")
 }
 
 enum UserRole {
   ADMIN
   USER
+}
+
+enum StoreStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
 }
 
 enum InventoryStatus {
@@ -99,4 +140,17 @@ enum TransactionType {
   RETURN
   ADJUSTMENT
   AUDIT
+  TRANSFER_TO_STORE
+  TRANSFER_FROM_STORE
+  SALE_AT_STORE
+}
+
+enum ItemCondition {
+  NEW
+  PRE_OWNED
+}
+
+enum ItemType {
+  SHOE
+  APPAREL
 }

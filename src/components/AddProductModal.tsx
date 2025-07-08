@@ -9,7 +9,7 @@ import useCheckSku from '@/hooks/useCheckSku';
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (product: { brand: string; name: string; color?: string; sku?: string }) => void;
+  onSubmit: (product: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' }) => void;
   isLoading?: boolean;
 }
 
@@ -26,6 +26,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
     name: '',
     color: '',
     sku: '',
+    itemType: 'SHOE' as 'SHOE' | 'APPAREL',
   });
   const [autoSku, setAutoSku] = useState(true);
   const [skuError, setSkuError] = useState('');
@@ -104,11 +105,12 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
       name: formData.name,
       color: formData.color || undefined,
       sku,
+      itemType: formData.itemType,
     });
   };
 
   const handleClose = () => {
-    setFormData({ brand: '', name: '', color: '', sku: '' });
+    setFormData({ brand: '', name: '', color: '', sku: '', itemType: 'SHOE' as 'SHOE' | 'APPAREL' });
     setAutoSku(true);
     setSkuError('');
     setGeneratedSku('');
@@ -174,6 +176,22 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, color: e.target.value })}
               placeholder="e.g., Red/Black, White/Black"
             />
+          </div>
+
+          <div>
+            <label htmlFor="itemType" className="block text-sm font-medium text-foreground mb-1">
+              Item Type *
+            </label>
+            <select
+              id="itemType"
+              value={formData.itemType}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, itemType: e.target.value as 'SHOE' | 'APPAREL' })}
+              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            >
+              <option value="SHOE">Shoe</option>
+              <option value="APPAREL">Apparel</option>
+            </select>
           </div>
 
           <div>
