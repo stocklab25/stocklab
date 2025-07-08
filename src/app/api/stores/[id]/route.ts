@@ -4,12 +4,13 @@ import prisma from '@/lib/db';
 // GET /api/stores/[id] - Get specific store
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const store = await prisma.store.findFirst({
       where: {
-        id: params.id,
+        id,
         deletedAt: null
       }
     });
@@ -34,15 +35,16 @@ export async function GET(
 // PUT /api/stores/[id] - Update store
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { name, address, phone, email, status } = body;
 
     const existingStore = await prisma.store.findFirst({
       where: {
-        id: params.id,
+        id,
         deletedAt: null
       }
     });
@@ -55,7 +57,7 @@ export async function PUT(
     }
 
     const updatedStore = await prisma.store.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         address,
@@ -78,12 +80,13 @@ export async function PUT(
 // DELETE /api/stores/[id] - Soft delete store
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const existingStore = await prisma.store.findFirst({
       where: {
-        id: params.id,
+        id,
         deletedAt: null
       }
     });
@@ -97,7 +100,7 @@ export async function DELETE(
 
     // Soft delete by setting deletedAt
     await prisma.store.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         deletedAt: new Date()
       }

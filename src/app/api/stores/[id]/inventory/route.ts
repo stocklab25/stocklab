@@ -4,13 +4,15 @@ import prisma from '@/lib/db';
 // GET /api/stores/[id]/inventory - Get all inventory at specific store
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Check if store exists and is active
     const store = await prisma.store.findFirst({
       where: {
-        id: params.id,
+        id,
         deletedAt: null,
         status: 'ACTIVE'
       }
@@ -26,7 +28,7 @@ export async function GET(
     // Get all inventory items at this store
     const storeInventory = await prisma.storeInventory.findMany({
       where: {
-        storeId: params.id,
+        storeId: id,
         deletedAt: null,
         quantity: {
           gt: 0
@@ -61,9 +63,10 @@ export async function GET(
 // POST /api/stores/[id]/inventory - Add inventory to store (transfer from warehouse)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { inventoryItemId, quantity, notes } = body;
 
@@ -77,7 +80,7 @@ export async function POST(
     // Check if store exists and is active
     const store = await prisma.store.findFirst({
       where: {
-        id: params.id,
+        id,
         deletedAt: null,
         status: 'ACTIVE'
       }
@@ -124,7 +127,7 @@ export async function POST(
       const existingStoreInventory = await tx.storeInventory.findUnique({
         where: {
           storeId_inventoryItemId: {
-            storeId: params.id,
+            storeId: id,
             inventoryItemId
           }
         }
@@ -136,7 +139,7 @@ export async function POST(
         storeInventory = await tx.storeInventory.update({
           where: {
             storeId_inventoryItemId: {
-              storeId: params.id,
+              storeId: id,
               inventoryItemId
             }
           },
@@ -150,7 +153,7 @@ export async function POST(
         // Create new store inventory record
         storeInventory = await tx.storeInventory.create({
           data: {
-            storeId: params.id,
+            storeId: id,
             inventoryItemId,
             quantity
           }
@@ -164,7 +167,7 @@ export async function POST(
           quantity,
           date: new Date(),
           fromStoreId: null, // warehouse
-          toStoreId: params.id,
+          toStoreId: id,
           inventoryItemId,
           notes: notes || `Transferred ${quantity} units to ${store.name}`
         }
