@@ -1,4 +1,4 @@
-import { PrismaClient, InventoryItem, InventoryStatus } from '@prisma/client';
+import { PrismaClient, InventoryItem, InventoryStatus, ItemCondition } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
@@ -13,7 +13,6 @@ export interface CreateInventoryItemData {
   consigner: string;
   consignDate: Date;
   status?: InventoryStatus;
-  location?: string;
   quantity?: number;
 }
 
@@ -26,7 +25,6 @@ export interface UpdateInventoryItemData {
   consigner?: string;
   consignDate?: Date;
   status?: InventoryStatus;
-  location?: string;
   quantity?: number;
 }
 
@@ -68,13 +66,12 @@ export class InventoryService {
         productId: data.productId,
         sku: data.sku,
         size: data.size,
-        condition: data.condition,
+        condition: data.condition as ItemCondition,
         cost: new Decimal(data.cost),
         payout: new Decimal(data.payout),
         consigner: data.consigner,
         consignDate: data.consignDate,
         status: data.status || InventoryStatus.InStock,
-        location: data.location,
         quantity: data.quantity || 1,
       },
       include: {
