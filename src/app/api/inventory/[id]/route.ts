@@ -65,18 +65,13 @@ export async function PATCH(
       );
     }
 
-    // Update the product quantity (not the inventory item quantity)
-    await prisma.product.update({
-      where: { id: existingItem.productId },
+    // Update the inventory item quantity
+    const updatedItem = await prisma.inventoryItem.update({
+      where: { id },
       data: {
         quantity,
         updatedAt: new Date(),
       },
-    });
-
-    // Return the updated inventory item with the updated product
-    const updatedItem = await prisma.inventoryItem.findFirst({
-      where: { id },
       include: {
         product: true,
       },

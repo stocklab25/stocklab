@@ -301,7 +301,11 @@ export class UserService {
           where: { deletedAt: null },
           orderBy: { date: 'desc' },
           include: {
-            product: true,
+            InventoryItem: {
+              include: {
+                product: true,
+              },
+            },
           },
         },
       },

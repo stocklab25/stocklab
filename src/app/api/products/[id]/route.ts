@@ -77,11 +77,6 @@ export async function DELETE(
       where: { 
         id,
         deletedAt: null
-      },
-      include: {
-        stockTransactions: {
-          where: { deletedAt: null }
-        }
       }
     });
 
@@ -92,27 +87,31 @@ export async function DELETE(
       );
     }
 
-    // For hard delete, check if there are active transactions (unless force delete)
-    if (isHardDelete && !forceDelete && existingProduct.stockTransactions.length > 0) {
-      return NextResponse.json(
-        { 
-          error: 'Cannot hard delete product with active transactions. Use force=true to delete everything.',
-          transactionCount: existingProduct.stockTransactions.length,
-          suggestion: 'Add ?force=true to delete product and all related data'
-        },
-        { status: 400 }
-      );
+    // For hard delete, check if there are active inventory items (unless force delete)
+    if (isHardDelete && !forceDelete) {
+      const inventoryItems = await prisma.inventoryItem.findMany({
+        where: { 
+          productId: id,
+          deletedAt: null
+        }
+      });
+      
+      if (inventoryItems.length > 0) {
+        return NextResponse.json(
+          { 
+            error: 'Cannot hard delete product with active inventory items. Use force=true to delete everything.',
+            inventoryCount: inventoryItems.length,
+            suggestion: 'Add ?force=true to delete product and all related data'
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (isHardDelete) {
       // Hard delete - permanently remove the product and related data
       await prisma.$transaction(async (tx: any) => {
-        // Delete related transactions first
-        await tx.stockTransaction.deleteMany({
-          where: { productId: id }
-        });
-        
-        // Delete related inventory items
+        // Delete related inventory items first (this will cascade to transactions)
         await tx.inventoryItem.deleteMany({
           where: { productId: id }
         });
