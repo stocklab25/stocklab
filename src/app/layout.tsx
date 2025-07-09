@@ -1,35 +1,38 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { NavigationProvider } from '@/contexts/NavigationContext';
-import SWRProvider from '@/components/SWRProvider';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { NavigationProvider } from "@/contexts/NavigationContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import SWRProvider from "@/components/SWRProvider";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Stock Lab - Inventory Management System',
-  description: 'Professional inventory management system for tracking products, stock, and transactions.',
+  title: "Stock Lab",
+  description: "Inventory management system",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SWRProvider>
+        <AuthProvider>
           <ThemeProvider>
-            <AuthProvider>
+            <CurrencyProvider>
               <NavigationProvider>
-                {children}
+                <SWRProvider>
+                  {children}
+                </SWRProvider>
               </NavigationProvider>
-            </AuthProvider>
+            </CurrencyProvider>
           </ThemeProvider>
-        </SWRProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -53,13 +53,13 @@ interface StockTransaction {
   InventoryItem?: {
     id: string;
     sku: string;
-    product?: {
-      id: string;
-      brand: string;
-      name: string;
-      sku: string;
-      color?: string;
-      quantity: number;
+  product?: {
+    id: string;
+    brand: string;
+    name: string;
+    sku: string;
+    color?: string;
+    quantity: number;
     };
   };
   user?: {

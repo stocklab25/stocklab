@@ -13,10 +13,10 @@ interface InventoryItem {
   status: string;
   quantity: number;
   product: {
-    id: string;
-    brand: string;
-    name: string;
-    sku?: string;
+  id: string;
+  brand: string;
+  name: string;
+  sku?: string;
   };
 }
 
@@ -317,10 +317,10 @@ export default function AddTransactionModal({
           </div>
 
           {/* Store Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
               Store
-            </label>
+              </label>
             <select
               value={formData.storeId}
               onChange={(e) => handleInputChange('storeId', e.target.value)}

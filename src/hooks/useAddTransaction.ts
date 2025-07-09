@@ -72,29 +72,29 @@ const useAddTransaction = () => {
         return result;
       } else {
         // Regular transaction (not store transfer)
-        const response = await fetch('/api/transactions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : '',
-          },
-          body: JSON.stringify(transactionData),
-        });
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify(transactionData),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to add transaction');
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add transaction');
+      }
 
-        const result = await response.json();
-        
-        // Update both transactions and products cache
-        await Promise.all([
-          mutateTransactions(),
-          mutateProducts()
-        ]);
-        
-        return result;
+      const result = await response.json();
+      
+      // Update both transactions and products cache
+      await Promise.all([
+        mutateTransactions(),
+        mutateProducts()
+      ]);
+      
+      return result;
       }
     } catch (error) {
       console.error('Error adding transaction:', error);

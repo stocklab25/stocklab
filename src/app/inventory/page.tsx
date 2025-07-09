@@ -73,7 +73,7 @@ export default function Inventory() {
     } else if (quantity <= LOW_STOCK_THRESHOLD) {
       return 'bg-yellow-100 text-yellow-800';
     } else {
-      return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800';
     }
   };
 

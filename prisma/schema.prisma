@@ -37,6 +37,7 @@ model Store {
   storeInventory   StoreInventory[]
   fromTransactions StockTransaction[] @relation("FromStore")
   toTransactions   StockTransaction[] @relation("ToStore")
+  sales            Sale[]
 
   @@map("stores")
 }
@@ -74,6 +75,7 @@ model InventoryItem {
   product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   stockTransactions StockTransaction[]
   storeInventory    StoreInventory[]
+  sales             Sale[]
 
   @@map("inventory_items")
 }
@@ -112,6 +114,28 @@ model StoreInventory {
 
   @@unique([storeId, inventoryItemId])
   @@map("store_inventory")
+}
+
+model Sale {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  storeId         String
+  inventoryItemId String
+  quantity        Int           @default(1)
+  cost            Decimal       @db.Decimal(10, 2)
+  payout          Decimal       @db.Decimal(10, 2)
+  discount        Decimal?      @db.Decimal(10, 2)
+  saleDate        DateTime      @default(now())
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  store           Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@map("sales")
 }
 
 enum UserRole {

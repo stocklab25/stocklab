@@ -4,10 +4,12 @@ import { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import WipeDataModal from '@/components/WipeDataModal';
 
 export default function Settings() {
   const { user } = useAuth();
+  const { currency, setCurrency } = useCurrency();
   const [showWipeDataModal, setShowWipeDataModal] = useState(false);
   const [notifications, setNotifications] = useState({
     lowStock: true,
@@ -18,7 +20,6 @@ export default function Settings() {
 
   const [displaySettings, setDisplaySettings] = useState({
     theme: 'light',
-    currency: 'USD',
     dateFormat: 'MM/DD/YYYY',
     timezone: 'UTC',
   });
@@ -60,14 +61,22 @@ export default function Settings() {
                   Default Currency
                 </label>
                 <select 
-                  value={displaySettings.currency}
-                  onChange={(e) => setDisplaySettings({...displaySettings, currency: e.target.value})}
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
                   className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="USD">USD ($)</option>
                   <option value="EUR">EUR (€)</option>
                   <option value="GBP">GBP (£)</option>
                   <option value="JPY">JPY (¥)</option>
+                  <option value="CAD">CAD (C$)</option>
+                  <option value="AUD">AUD (A$)</option>
+                  <option value="PHP">PHP (₱)</option>
+                  <option value="SGD">SGD (S$)</option>
+                  <option value="HKD">HKD (HK$)</option>
+                  <option value="KRW">KRW (₩)</option>
+                  <option value="CNY">CNY (¥)</option>
+                  <option value="INR">INR (₹)</option>
                 </select>
               </div>
 

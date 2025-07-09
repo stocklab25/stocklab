@@ -14,9 +14,10 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: '📊' },
   { name: 'Products', href: '/products', icon: '👟' },
+  { name: 'Transactions', href: '/transactions', icon: '🔄' },
   { name: 'Inventory', href: '/inventory', icon: '📦' },
   { name: 'Store Inventory', href: '/store-inventory', icon: '🏪' },
-  { name: 'Transactions', href: '/transactions', icon: '🔄' },
+  { name: 'Store Sales', href: '/store-sales', icon: '🛍️' },
   { name: 'Reports', href: '/reports', icon: '📈' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
