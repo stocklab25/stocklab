@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useProducts, useAddProduct } from '@/hooks';
+import { useProducts, useAddProduct, useImportProducts } from '@/hooks';
 import { useDeleteProduct } from '@/hooks/useDeleteProduct';
 import { useRestoreProduct } from '@/hooks/useRestoreProduct';
 import { useEditProduct } from '@/hooks/useEditProduct';
@@ -13,6 +13,7 @@ import EditProductModal from '@/components/EditProductModal';
 import PromptModal from '@/components/PromptModal';
 import { PageLoader } from '@/components/Loader';
 import Button from '@/components/Button';
+import Modal from '@/components/Modal';
 
 interface Product {
   id: string;
@@ -20,6 +21,7 @@ interface Product {
   name: string;
   color?: string;
   sku?: string;
+  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
   deletedAt?: string;
 }
 
@@ -55,6 +57,10 @@ export default function Products() {
   const [showForcePrompt, setShowForcePrompt] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importResults, setImportResults] = useState<any>(null);
+  const { importProducts, isLoading: isImporting, error: importError } = useImportProducts();
 
   // Filter products based on archived status
   const filteredProducts = products.filter((product: Product) => {
@@ -66,7 +72,7 @@ export default function Products() {
     return matchesSearch && (showArchived ? isArchived : !isArchived);
   });
 
-  const handleAddProduct = async (productData: { brand: string; name: string; color?: string; sku?: string }) => {
+  const handleAddProduct = async (productData: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'MERCH' }) => {
     try {
       await addProduct(productData);
       setIsModalOpen(false);
@@ -123,11 +129,35 @@ export default function Products() {
     setOpenDropdown(null);
   };
 
-  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; color?: string; sku?: string }) => {
+  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'MERCH' }) => {
     try {
       await editProduct(productId, productData);
     } catch (error) {
       console.error('Error editing product:', error);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setImportResults(null);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
+
+    try {
+      const results = await importProducts(selectedFile);
+      setImportResults(results);
+      if (results.errors.length === 0) {
+        setIsImportModalOpen(false);
+        setSelectedFile(null);
+        mutate(); // Refresh products list
+      }
+    } catch (error) {
+      console.error('Import error:', error);
     }
   };
 
@@ -152,6 +182,7 @@ export default function Products() {
     { key: 'name', label: 'Name' },
     { key: 'color', label: 'Color' },
     { key: 'sku', label: 'SKU' },
+    { key: 'itemType', label: 'Type' },
   ];
 
   if (isLoading) {
@@ -194,7 +225,7 @@ export default function Products() {
               {showArchived ? 'View and restore archived products' : 'Manage your product catalog'}
             </p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex space-x-2">
             <button 
               onClick={() => setShowArchived(!showArchived)}
               className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors"
@@ -202,12 +233,16 @@ export default function Products() {
               {showArchived ? 'View Active' : 'View Archived'}
             </button>
             {!showArchived && (
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                + Add Product
-              </button>
+              <>
+                <Button onClick={() => setIsModalOpen(true)}>
+                  <span className="mr-2">+</span>
+                  Add Product
+                </Button>
+                <Button onClick={() => setIsImportModalOpen(true)}>
+                  <span className="mr-2">📁</span>
+                  Import Products
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -285,6 +320,15 @@ export default function Products() {
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-sm text-muted-foreground font-mono">{product.sku}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          product.itemType === 'SHOE' ? 'bg-blue-100 text-blue-800' :
+                          product.itemType === 'APPAREL' ? 'bg-green-100 text-green-800' :
+                          'bg-purple-100 text-purple-800'
+                        }`}>
+                          {product.itemType}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="relative">
@@ -491,6 +535,76 @@ export default function Products() {
             </div>
           </div>
         </>
+      )}
+
+      {isImportModalOpen && (
+        <Modal open={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold mb-2">Import Products from CSV</h2>
+            <p className="text-muted-foreground text-sm mb-2">
+              Upload a CSV file with product and inventory details. You can download a template below.
+            </p>
+            <a
+              href="/import-products-template.csv"
+              download
+              className="inline-block mb-2 text-blue-600 hover:underline text-sm"
+            >
+              Download CSV Template
+            </a>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              className="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:outline-none"
+            />
+            {selectedFile && (
+              <p className="text-sm text-green-600">Selected: {selectedFile.name}</p>
+            )}
+            {importError && (
+              <p className="text-sm text-red-600">Error: {importError}</p>
+            )}
+            {importResults && (
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <h3 className="font-semibold mb-2">Import Results:</h3>
+                <ul className="text-sm space-y-1">
+                  <li>Products created: {importResults.productsCreated}</li>
+                  <li>Products updated: {importResults.productsUpdated}</li>
+                  <li>Inventory items created: {importResults.inventoryItemsCreated}</li>
+                </ul>
+                {importResults.errors.length > 0 && (
+                  <div className="mt-2">
+                    <h4 className="font-semibold text-red-600">Errors:</h4>
+                    <ul className="text-sm text-red-600 space-y-1">
+                      {importResults.errors.map((error: string, index: number) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setSelectedFile(null);
+                  setImportResults(null);
+                }}
+                disabled={isImporting}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                onClick={handleImport}
+                disabled={!selectedFile || isImporting}
+              >
+                {isImporting ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
       </Layout>
     </ProtectedRoute>

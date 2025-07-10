@@ -1,0 +1,5 @@
+Type,Quantity,Date,Notes,InventoryItemSKU,InventoryItemSize,InventoryItemCondition,FromStore,ToStore
+OUT,2,2024-01-16,Sold to customer,M12345,8,NEW,,Store A
+TRANSFER_TO_STORE,3,2024-01-17,Transfer to store,M12345,8,NEW,,Store B
+RETURN,1,2024-01-18,Customer return,M12345,8,NEW,Store A,
+ADJUSTMENT,1,2024-01-19,Quantity adjustment,M12345,8,NEW,,, 

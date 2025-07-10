@@ -1,5 +1,4 @@
 import { PrismaClient, InventoryItem, InventoryStatus, ItemCondition } from '@prisma/client';
-import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
@@ -7,34 +6,35 @@ export interface CreateInventoryItemData {
   productId: string;
   sku: string;
   size: string;
-  condition: string;
+  condition: ItemCondition;
   cost: number;
-  payout: number;
-  consigner: string;
-  consignDate: Date;
-  status?: InventoryStatus;
+  status: InventoryStatus;
   quantity?: number;
+  vendor: string;
+  paymentMethod: string;
+  userId: string;
 }
 
 export interface UpdateInventoryItemData {
+  productId?: string;
   sku?: string;
   size?: string;
-  condition?: string;
+  condition?: ItemCondition;
   cost?: number;
-  payout?: number;
-  consigner?: string;
-  consignDate?: Date;
   status?: InventoryStatus;
   quantity?: number;
 }
 
 export interface InventoryFilters {
   productId?: string;
-  status?: InventoryStatus;
+  sku?: string;
   size?: string;
-  condition?: string;
-  consigner?: string;
-  showDeleted?: boolean;
+  condition?: ItemCondition;
+  status?: InventoryStatus;
+  minCost?: number;
+  maxCost?: number;
+  minQuantity?: number;
+  maxQuantity?: number;
 }
 
 export interface PaginationOptions {
@@ -43,37 +43,213 @@ export interface PaginationOptions {
 }
 
 export class InventoryService {
-  /**
-   * Create a new inventory item
-   */
-  static async createInventoryItem(data: CreateInventoryItemData): Promise<InventoryItem> {
-    // Check if SKU is unique (if provided)
-    if (data.sku) {
+  static async createInventoryItemWithInitialStock(data: CreateInventoryItemData) {
+    let newItem: any = null;
+    let initialTransaction: any = null;
+    let purchase: any = null;
+
+    try {
+      // Check for existing inventory item with same product, size, and condition
       const existingItem = await prisma.inventoryItem.findFirst({
         where: {
-          sku: data.sku,
+          productId: data.productId,
+          size: data.size,
+          condition: data.condition,
           deletedAt: null,
         },
+        include: { product: true }
       });
 
       if (existingItem) {
-        throw new Error('SKU already exists');
-      }
-    }
+        // Update quantity
+        const updatedItem = await prisma.inventoryItem.update({
+          where: { id: existingItem.id },
+          data: {
+            quantity: existingItem.quantity + (data.quantity || 1),
+            cost: data.cost, // Optionally update cost
+            status: data.status,
+            updatedAt: new Date(),
+          },
+          include: { product: true }
+        });
 
-    return await prisma.inventoryItem.create({
-      data: {
-        productId: data.productId,
-        sku: data.sku,
-        size: data.size,
-        condition: data.condition as ItemCondition,
-        cost: new Decimal(data.cost),
-        payout: new Decimal(data.payout),
-        consigner: data.consigner,
-        consignDate: data.consignDate,
-        status: data.status || InventoryStatus.InStock,
-        quantity: data.quantity || 1,
-      },
+        // Create stock in transaction
+        initialTransaction = await prisma.stockTransaction.create({
+          data: {
+            type: 'IN',
+            quantity: data.quantity || 1,
+            date: new Date(),
+            notes: `Stock in - ${updatedItem.product.name} ${updatedItem.size} (${updatedItem.condition})`,
+            inventoryItemId: updatedItem.id,
+            userId: data.userId,
+          },
+          include: {
+            InventoryItem: { include: { product: true } },
+            user: true
+          }
+        });
+
+        // Generate R3V PO number
+        const lastPurchase = await prisma.purchase.findFirst({
+          orderBy: { r3vPurchaseOrderNumber: 'desc' },
+          select: { r3vPurchaseOrderNumber: true },
+        });
+        let r3vPurchaseOrderNumber = 'R3VPO1';
+        if (lastPurchase) {
+          const lastNumber = parseInt(lastPurchase.r3vPurchaseOrderNumber.replace('R3VPO', ''));
+          const nextNumber = lastNumber + 1;
+          r3vPurchaseOrderNumber = `R3VPO${nextNumber}`;
+        }
+        // Create purchase record
+        purchase = await prisma.purchase.create({
+          data: {
+            r3vPurchaseOrderNumber,
+            inventoryItemId: updatedItem.id,
+            vendor: data.vendor,
+            paymentMethod: data.paymentMethod,
+            orderNumber: data.sku,
+            quantity: data.quantity || 1,
+            cost: data.cost,
+            purchaseDate: new Date(),
+            notes: `Stock in for inventory item ${updatedItem.id}`
+          }
+        });
+
+        return {
+          success: true,
+          data: {
+            inventoryItem: updatedItem,
+            transaction: initialTransaction,
+            purchase: purchase
+          }
+        };
+      }
+
+      // Step 1: Create the inventory item
+      newItem = await prisma.inventoryItem.create({
+        data: {
+          productId: data.productId,
+          sku: data.sku,
+          size: data.size,
+          condition: data.condition,
+          cost: data.cost,
+          status: data.status,
+          quantity: data.quantity || 1,
+        },
+        include: {
+          product: true
+        }
+      });
+
+      // Step 2: Create initial stock transaction
+      initialTransaction = await prisma.stockTransaction.create({
+        data: {
+          type: 'IN',
+          quantity: newItem.quantity,
+          date: new Date(),
+          notes: `Initial stock in - ${newItem.product.name} ${newItem.size} (${newItem.condition})`,
+          inventoryItemId: newItem.id,
+          userId: data.userId,
+        },
+        include: {
+          InventoryItem: {
+            include: {
+              product: true
+            }
+          },
+          user: true
+        }
+      });
+
+      // Step 3: Generate R3V PO number
+      const lastPurchase = await prisma.purchase.findFirst({
+        orderBy: {
+          r3vPurchaseOrderNumber: 'desc',
+        },
+        select: {
+          r3vPurchaseOrderNumber: true,
+        },
+      });
+
+      let r3vPurchaseOrderNumber = 'R3VPO1';
+      if (lastPurchase) {
+        const lastNumber = parseInt(lastPurchase.r3vPurchaseOrderNumber.replace('R3VPO', ''));
+        const nextNumber = lastNumber + 1;
+        r3vPurchaseOrderNumber = `R3VPO${nextNumber}`;
+      }
+
+      // Step 4: Create purchase record
+      purchase = await prisma.purchase.create({
+        data: {
+          r3vPurchaseOrderNumber,
+          inventoryItemId: newItem.id,
+          vendor: data.vendor,
+          paymentMethod: data.paymentMethod,
+          orderNumber: data.sku,
+          quantity: newItem.quantity,
+          cost: data.cost,
+          purchaseDate: new Date(),
+          notes: `Initial purchase for inventory item ${newItem.id}`
+        }
+      });
+
+      return {
+        success: true,
+        data: {
+          inventoryItem: newItem,
+          transaction: initialTransaction,
+          purchase: purchase
+        }
+      };
+
+    } catch (error) {
+      console.error('Error creating inventory item with initial stock:', error);
+      
+      // Cleanup on failure
+      if (newItem) {
+        try {
+          await prisma.inventoryItem.delete({
+            where: { id: newItem.id }
+          });
+        } catch (cleanupError) {
+          console.error('Failed to cleanup inventory item:', cleanupError);
+        }
+      }
+
+      if (initialTransaction) {
+        try {
+          await prisma.stockTransaction.delete({
+            where: { id: initialTransaction.id }
+          });
+        } catch (cleanupError) {
+          console.error('Failed to cleanup stock transaction:', cleanupError);
+        }
+      }
+
+      if (purchase) {
+        try {
+          await prisma.purchase.delete({
+            where: { id: purchase.id }
+          });
+        } catch (cleanupError) {
+          console.error('Failed to cleanup purchase:', cleanupError);
+        }
+      }
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * Update an inventory item
+   */
+  static async updateInventoryItem(id: string, data: UpdateInventoryItemData): Promise<InventoryItem> {
+    return await prisma.inventoryItem.update({
+      where: { id },
+      data,
       include: {
         product: true,
       },
@@ -81,28 +257,19 @@ export class InventoryService {
   }
 
   /**
-   * Get inventory items with filtering and pagination
+   * Get all inventory items with optional filters
    */
-  static async getInventoryItems(
-    filters: InventoryFilters = {},
-    pagination: PaginationOptions = {}
-  ): Promise<{ data: InventoryItem[]; total: number; pagination: any }> {
-    const { page = 1, limit = 10 } = pagination;
-    const skip = (page - 1) * limit;
-
-    // Build where clause
-    const whereClause: any = {};
-
-    if (!filters.showDeleted) {
-      whereClause.deletedAt = null;
-    }
+  static async getInventoryItems(filters: InventoryFilters = {}): Promise<InventoryItem[]> {
+    const whereClause: any = {
+      deletedAt: null,
+    };
 
     if (filters.productId) {
       whereClause.productId = filters.productId;
     }
 
-    if (filters.status) {
-      whereClause.status = filters.status;
+    if (filters.sku) {
+      whereClause.sku = { contains: filters.sku, mode: 'insensitive' };
     }
 
     if (filters.size) {
@@ -110,48 +277,58 @@ export class InventoryService {
     }
 
     if (filters.condition) {
-      whereClause.condition = { contains: filters.condition, mode: 'insensitive' };
+      whereClause.condition = filters.condition;
     }
 
-    if (filters.consigner) {
-      whereClause.consigner = { contains: filters.consigner, mode: 'insensitive' };
+    if (filters.status) {
+      whereClause.status = filters.status;
     }
 
-    const [inventoryItems, total] = await Promise.all([
-      prisma.inventoryItem.findMany({
-        where: whereClause,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          product: true,
-        },
-      }),
-      prisma.inventoryItem.count({ where: whereClause }),
-    ]);
+    if (filters.minCost || filters.maxCost) {
+      whereClause.cost = {};
+      if (filters.minCost) whereClause.cost.gte = filters.minCost;
+      if (filters.maxCost) whereClause.cost.lte = filters.maxCost;
+    }
 
-    const totalPages = Math.ceil(total / limit);
+    if (filters.minQuantity || filters.maxQuantity) {
+      whereClause.quantity = {};
+      if (filters.minQuantity) whereClause.quantity.gte = filters.minQuantity;
+      if (filters.maxQuantity) whereClause.quantity.lte = filters.maxQuantity;
+    }
 
-    return {
-      data: inventoryItems,
-      total,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
+    return await prisma.inventoryItem.findMany({
+      where: whereClause,
+      include: {
+        product: true,
       },
-    };
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   /**
-   * Get a single inventory item by ID
+   * Get inventory item by ID
    */
   static async getInventoryItemById(id: string): Promise<InventoryItem | null> {
+    return await prisma.inventoryItem.findUnique({
+      where: { id },
+      include: {
+        product: true,
+      },
+    });
+  }
+
+  /**
+   * Get inventory item by SKU and size
+   */
+  static async getInventoryItemBySkuAndSize(sku: string, size: string): Promise<InventoryItem | null> {
     return await prisma.inventoryItem.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        sku,
+        size,
+        deletedAt: null,
+      },
       include: {
         product: true,
       },
@@ -159,79 +336,67 @@ export class InventoryService {
   }
 
   /**
-   * Update an inventory item
+   * Delete inventory item (soft delete)
    */
-  static async updateInventoryItem(id: string, data: UpdateInventoryItemData): Promise<InventoryItem> {
-    // Check if SKU is unique (if provided)
-    if (data.sku) {
-      const existingItem = await prisma.inventoryItem.findFirst({
-        where: {
-          sku: data.sku,
-          deletedAt: null,
-          id: { not: id },
-        },
-      });
-
-      if (existingItem) {
-        throw new Error('SKU already exists');
-      }
-    }
-
-    const updateData: any = { ...data };
-    
-    // Convert cost to Decimal if provided
-    if (data.cost !== undefined) {
-      updateData.cost = new Decimal(data.cost);
-    }
-
-    // Convert payout to Decimal if provided
-    if (data.payout !== undefined) {
-      updateData.payout = new Decimal(data.payout);
-    }
-
+  static async deleteInventoryItem(id: string): Promise<InventoryItem> {
     return await prisma.inventoryItem.update({
       where: { id },
-      data: updateData,
-      include: {
-        product: true,
-      },
-    });
-  }
-
-  /**
-   * Soft delete an inventory item
-   */
-  static async softDeleteInventoryItem(id: string): Promise<InventoryItem> {
-    return await prisma.inventoryItem.update({
-      where: { id },
-      data: { 
+      data: {
         deletedAt: new Date(),
-        updatedAt: new Date()
-      }
+      },
+      include: {
+        product: true,
+      },
     });
   }
 
   /**
-   * Hard delete an inventory item
+   * Restore deleted inventory item
    */
-  static async hardDeleteInventoryItem(id: string): Promise<InventoryItem> {
-    return await prisma.inventoryItem.delete({
-      where: { id }
+  static async restoreInventoryItem(id: string): Promise<InventoryItem> {
+    return await prisma.inventoryItem.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+      },
+      include: {
+        product: true,
+      },
     });
   }
 
   /**
-   * Get inventory items by product ID
+   * Get inventory items by product
    */
   static async getInventoryItemsByProduct(productId: string): Promise<InventoryItem[]> {
     return await prisma.inventoryItem.findMany({
-      where: { 
+      where: {
         productId,
-        deletedAt: null 
+        deletedAt: null,
       },
-      orderBy: { createdAt: 'desc' },
       include: {
         product: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Get inventory items by condition
+   */
+  static async getInventoryItemsByCondition(condition: ItemCondition): Promise<InventoryItem[]> {
+    return await prisma.inventoryItem.findMany({
+      where: {
+        condition,
+        deletedAt: null,
+      },
+      include: {
+        product: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
   }
@@ -241,142 +406,92 @@ export class InventoryService {
    */
   static async getInventoryItemsByStatus(status: InventoryStatus): Promise<InventoryItem[]> {
     return await prisma.inventoryItem.findMany({
-      where: { 
+      where: {
         status,
-        deletedAt: null 
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        product: true,
-      },
-    });
-  }
-
-  /**
-   * Get inventory items by consigner
-   */
-  static async getInventoryItemsByConsigner(consigner: string): Promise<InventoryItem[]> {
-    return await prisma.inventoryItem.findMany({
-      where: { 
-        consigner: { contains: consigner, mode: 'insensitive' },
-        deletedAt: null 
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        product: true,
-      },
-    });
-  }
-
-  /**
-   * Update inventory quantity
-   */
-  static async updateInventoryQuantity(id: string, quantity: number): Promise<InventoryItem> {
-    return await prisma.inventoryItem.update({
-      where: { id },
-      data: { 
-        quantity,
-        updatedAt: new Date()
+        deletedAt: null,
       },
       include: {
         product: true,
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
   }
 
   /**
-   * Get total inventory count
-   */
-  static async getTotalInventoryCount(): Promise<number> {
-    const result = await prisma.inventoryItem.aggregate({
-      where: { 
-        status: InventoryStatus.InStock,
-        deletedAt: null 
-      },
-      _sum: {
-        quantity: true,
-      },
-    });
-
-    return result._sum.quantity || 0;
-  }
-
-  /**
-   * Get inventory value by consigner
-   */
-  static async getInventoryValueByConsigner(consigner: string): Promise<number> {
-    const inventoryItems = await prisma.inventoryItem.findMany({
-      where: { 
-        consigner: { contains: consigner, mode: 'insensitive' },
-        status: InventoryStatus.InStock,
-        deletedAt: null 
-      },
-      select: {
-        cost: true,
-        quantity: true,
-      },
-    });
-
-    return inventoryItems.reduce((sum, item) => {
-      return sum + (Number(item.cost) * item.quantity);
-    }, 0);
-  }
-
-  /**
-   * Get low stock inventory items
+   * Get low stock items (quantity <= 5)
    */
   static async getLowStockItems(threshold: number = 5): Promise<InventoryItem[]> {
     return await prisma.inventoryItem.findMany({
-      where: { 
-        quantity: { lte: threshold },
-        status: InventoryStatus.InStock,
-        deletedAt: null 
+      where: {
+        quantity: {
+          lte: threshold,
+        },
+        deletedAt: null,
       },
-      orderBy: { quantity: 'asc' },
       include: {
         product: true,
+      },
+      orderBy: {
+        quantity: 'asc',
       },
     });
   }
 
   /**
-   * Get inventory summary
+   * Get total inventory value
    */
-  static async getInventorySummary(): Promise<{
-    totalItems: number;
-    totalValue: number;
-    byStatus: Record<InventoryStatus, number>;
-    byCondition: Record<string, number>;
-  }> {
-    const inventoryItems = await prisma.inventoryItem.findMany({
-      where: { deletedAt: null },
-      select: {
-        status: true,
-        condition: true,
+  static async getTotalInventoryValue(): Promise<number> {
+    const result = await prisma.inventoryItem.aggregate({
+      where: {
+        deletedAt: null,
+      },
+      _sum: {
         cost: true,
-        quantity: true,
       },
     });
 
-    const summary = {
-      totalItems: 0,
-      totalValue: 0,
-      byStatus: {} as Record<InventoryStatus, number>,
-      byCondition: {} as Record<string, number>,
-    };
+    return Number(result._sum.cost) || 0;
+  }
 
-    inventoryItems.forEach(item => {
-      // Count by status
-      summary.byStatus[item.status] = (summary.byStatus[item.status] || 0) + item.quantity;
-      
-      // Count by condition
-      summary.byCondition[item.condition] = (summary.byCondition[item.condition] || 0) + item.quantity;
-      
-      // Total items and value
-      summary.totalItems += item.quantity;
-      summary.totalValue += Number(item.cost) * item.quantity;
+  /**
+   * Get inventory count by status
+   */
+  static async getInventoryCountByStatus(): Promise<{ status: InventoryStatus; count: number }[]> {
+    const result = await prisma.inventoryItem.groupBy({
+      by: ['status'],
+      where: {
+        deletedAt: null,
+      },
+      _count: {
+        status: true,
+      },
     });
 
-    return summary;
+    return result.map((item) => ({
+      status: item.status,
+      count: item._count.status,
+    }));
+  }
+
+  /**
+   * Get inventory count by condition
+   */
+  static async getInventoryCountByCondition(): Promise<{ condition: ItemCondition; count: number }[]> {
+    const result = await prisma.inventoryItem.groupBy({
+      by: ['condition'],
+      where: {
+        deletedAt: null,
+      },
+      _count: {
+        condition: true,
+      },
+    });
+
+    return result.map((item) => ({
+      condition: item.condition,
+      count: item._count.condition,
+    }));
   }
 } 

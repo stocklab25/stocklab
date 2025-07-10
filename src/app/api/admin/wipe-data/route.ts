@@ -62,30 +62,52 @@ export async function POST(req: NextRequest) {
     // Wipe all data in the correct order (respecting foreign key constraints)
     console.log('🧹 Starting data wipe process...');
     
-    // 1. Delete all stock transactions first
+    // 1. Delete all sales
+    const deletedSales = await prisma.sale.deleteMany({});
+    console.log(`🗑️ Deleted ${deletedSales.count} sales`);
+    
+    // 2. Delete all purchases
+    const deletedPurchases = await prisma.purchase.deleteMany({});
+    console.log(`🗑️ Deleted ${deletedPurchases.count} purchases`);
+    
+    // 3. Delete all store inventory
+    const deletedStoreInventory = await prisma.storeInventory.deleteMany({});
+    console.log(`🗑️ Deleted ${deletedStoreInventory.count} store inventory items`);
+    
+    // 4. Delete all stock transactions
     const deletedTransactions = await prisma.stockTransaction.deleteMany({});
     console.log(`🗑️ Deleted ${deletedTransactions.count} transactions`);
     
-    // 2. Delete all inventory items
+    // 5. Delete all inventory items
     const deletedInventoryItems = await prisma.inventoryItem.deleteMany({});
     console.log(`🗑️ Deleted ${deletedInventoryItems.count} inventory items`);
     
-    // 3. Delete all products
+    // 6. Delete all stores
+    const deletedStores = await prisma.store.deleteMany({});
+    console.log(`🗑️ Deleted ${deletedStores.count} stores`);
+    
+    // 7. Delete all products
     const deletedProducts = await prisma.product.deleteMany({});
     console.log(`🗑️ Deleted ${deletedProducts.count} products`);
     
     // Note: We don't delete users as they are needed for the system to function
     
-    const totalDeleted = deletedTransactions.count + deletedInventoryItems.count + deletedProducts.count;
+    const totalDeleted = deletedSales.count + deletedPurchases.count + deletedStoreInventory.count + 
+                        deletedTransactions.count + deletedInventoryItems.count + deletedStores.count + 
+                        deletedProducts.count;
     
     console.log('✅ Data wipe completed successfully');
     
     return NextResponse.json({
       success: true,
-      message: 'All data has been wiped successfully',
+      message: 'All data has been wiped successfully (users preserved)',
       deleted: {
+        sales: deletedSales.count,
+        purchases: deletedPurchases.count,
+        storeInventory: deletedStoreInventory.count,
         transactions: deletedTransactions.count,
         inventoryItems: deletedInventoryItems.count,
+        stores: deletedStores.count,
         products: deletedProducts.count,
         total: totalDeleted
       }

@@ -2,20 +2,19 @@ import useSWR from 'swr';
 
 interface InventoryItem {
   id: string;
+  productId: string;
   sku: string;
   size: string;
   condition: string;
   cost: number;
-  payout: number;
-  consigner: string;
-  consignDate: string;
   status: string;
   quantity: number;
   product: {
     id: string;
     brand: string;
     name: string;
-    sku?: string;
+    color: string;
+    sku: string;
   };
 }
 

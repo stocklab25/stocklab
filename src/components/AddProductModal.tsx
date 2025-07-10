@@ -9,7 +9,7 @@ import useCheckSku from '@/hooks/useCheckSku';
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (product: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' }) => void;
+  onSubmit: (product: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'MERCH' }) => void;
   isLoading?: boolean;
 }
 
@@ -26,7 +26,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
     name: '',
     color: '',
     sku: '',
-    itemType: 'SHOE' as 'SHOE' | 'APPAREL',
+    itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'MERCH',
   });
   const [autoSku, setAutoSku] = useState(true);
   const [skuError, setSkuError] = useState('');
@@ -110,7 +110,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
   };
 
   const handleClose = () => {
-    setFormData({ brand: '', name: '', color: '', sku: '', itemType: 'SHOE' as 'SHOE' | 'APPAREL' });
+    setFormData({ brand: '', name: '', color: '', sku: '', itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'MERCH' });
     setAutoSku(true);
     setSkuError('');
     setGeneratedSku('');
@@ -185,13 +185,17 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
             <select
               id="itemType"
               value={formData.itemType}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, itemType: e.target.value as 'SHOE' | 'APPAREL' })}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, itemType: e.target.value as 'SHOE' | 'APPAREL' | 'MERCH' })}
               className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             >
               <option value="SHOE">Shoe</option>
               <option value="APPAREL">Apparel</option>
+              <option value="MERCH">Merchandise</option>
             </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Shoe & Apparel items typically have sizes. Merchandise items (caps, bags, accessories) usually don't have sizes.
+            </p>
           </div>
 
           <div>

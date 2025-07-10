@@ -5,6 +5,10 @@ import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { PageLoader } from '@/components/Loader';
 import { useInventory, useProducts, useTransactions } from '@/hooks';
+import InventorySummaryChart from '@/components/charts/InventorySummaryChart';
+import ValueReportChart from '@/components/charts/ValueReportChart';
+import SalesByStoreChart from '@/components/charts/SalesByStoreChart';
+import TrendsAnalysisChart from '@/components/charts/TrendsAnalysisChart';
 
 interface ReportData {
   totalValue: number;
@@ -18,6 +22,7 @@ interface InventoryItem {
   id: string;
   productId: string;
   cost: number;
+  quantity: number;
   product?: {
     id: string;
     brand: string;
@@ -41,6 +46,8 @@ export default function Reports() {
   const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
   const { data: products, isLoading: productsLoading, isError: productsError } = useProducts();
   const { data: transactions, isLoading: transactionsLoading, isError: transactionsError } = useTransactions();
+  const [selectedReport, setSelectedReport] = useState<string>('summary');
+  const [salesData, setSalesData] = useState<any[]>([]);
   
   const [reportData, setReportData] = useState<ReportData>({
     totalValue: 0,
@@ -49,6 +56,22 @@ export default function Reports() {
     topBrands: [],
     recentActivity: [],
   });
+
+  // Fetch sales data
+  useEffect(() => {
+    const fetchSales = async () => {
+      try {
+        const response = await fetch('/api/sales');
+        if (response.ok) {
+          const data = await response.json();
+          setSalesData(Array.isArray(data) ? data : data?.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching sales data:', error);
+      }
+    };
+    fetchSales();
+  }, []);
 
   // Calculate report data when data is available
   useEffect(() => {
@@ -60,8 +83,11 @@ export default function Reports() {
           return;
         }
 
-        // Calculate report data
-        const totalValue = inventory.reduce((sum: number, item: InventoryItem) => sum + (item.cost || 0), 0);
+        // Calculate report data - multiply cost by quantity for each item
+        const totalValue = inventory.reduce((sum: number, item: InventoryItem) => {
+          const itemValue = (item.cost || 0) * (item.quantity || 1);
+          return sum + itemValue;
+        }, 0);
         const totalItems = inventory.length;
         
         // Count items by brand
@@ -199,63 +225,21 @@ export default function Reports() {
           </Card>
         </div>
 
-        {/* Detailed Reports */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Brands */}
-          <Card>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Top Brands by Item Count</h3>
-              <div className="space-y-3">
-                {reportData.topBrands.length > 0 ? (
-                  reportData.topBrands.map((brand, index) => (
-                    <div key={brand.brand} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
-                        <span className="font-medium text-foreground">{brand.brand}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">{brand.count} items</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground">No brand data available</p>
-                )}
-              </div>
-            </div>
-          </Card>
 
-          {/* Recent Activity */}
-          <Card>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Transaction Activity</h3>
-              <div className="space-y-3">
-                {reportData.recentActivity.length > 0 ? (
-                  reportData.recentActivity.map((activity) => (
-                    <div key={activity.type} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-lg">
-                          {activity.type === 'in' ? '📥' : 
-                           activity.type === 'out' ? '📤' : 
-                           activity.type === 'transfer' ? '🔄' : '📋'}
-                        </span>
-                        <span className="font-medium text-foreground capitalize">{activity.type}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">{activity.count} transactions</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground">No transaction data available</p>
-                )}
-              </div>
-            </div>
-          </Card>
-        </div>
 
-        {/* Report Types */}
+        {/* Report Selection */}
         <Card>
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Available Reports</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <button className="p-4 text-left border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Select Report Type</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <button 
+                onClick={() => setSelectedReport('summary')}
+                className={`p-4 text-left border rounded-lg transition-colors ${
+                  selectedReport === 'summary' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary hover:bg-accent'
+                }`}
+              >
                 <div className="flex items-center space-x-3">
                   <span className="text-2xl">📊</span>
                   <div>
@@ -265,7 +249,14 @@ export default function Reports() {
                 </div>
               </button>
 
-              <button className="p-4 text-left border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors">
+              <button 
+                onClick={() => setSelectedReport('value')}
+                className={`p-4 text-left border rounded-lg transition-colors ${
+                  selectedReport === 'value' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary hover:bg-accent'
+                }`}
+              >
                 <div className="flex items-center space-x-3">
                   <span className="text-2xl">💰</span>
                   <div>
@@ -275,37 +266,31 @@ export default function Reports() {
                 </div>
               </button>
 
-              <button className="p-4 text-left border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors">
+              <button 
+                onClick={() => setSelectedReport('sales')}
+                className={`p-4 text-left border rounded-lg transition-colors ${
+                  selectedReport === 'sales' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary hover:bg-accent'
+                }`}
+              >
                 <div className="flex items-center space-x-3">
-                  <span className="text-2xl">🔄</span>
+                  <span className="text-2xl">🏪</span>
                   <div>
-                    <p className="font-medium text-foreground">Transaction History</p>
-                    <p className="text-sm text-muted-foreground">All stock movements</p>
+                    <p className="font-medium text-foreground">Sales by Store</p>
+                    <p className="text-sm text-muted-foreground">Store performance</p>
                   </div>
                 </div>
               </button>
 
-              <button className="p-4 text-left border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">👥</span>
-                  <div>
-                    <p className="font-medium text-foreground">Consigner Report</p>
-                    <p className="text-sm text-muted-foreground">Items by consigner</p>
-                  </div>
-                </div>
-              </button>
-
-              <button className="p-4 text-left border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">📍</span>
-                  <div>
-                    <p className="font-medium text-foreground">Location Report</p>
-                    <p className="text-sm text-muted-foreground">Items by location</p>
-                  </div>
-                </div>
-              </button>
-
-              <button className="p-4 text-left border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors">
+              <button 
+                onClick={() => setSelectedReport('trends')}
+                className={`p-4 text-left border rounded-lg transition-colors ${
+                  selectedReport === 'trends' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary hover:bg-accent'
+                }`}
+              >
                 <div className="flex items-center space-x-3">
                   <span className="text-2xl">📈</span>
                   <div>
@@ -317,6 +302,43 @@ export default function Reports() {
             </div>
           </div>
         </Card>
+
+        {/* Chart Display */}
+        {selectedReport === 'summary' && inventory && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Inventory Summary</h3>
+              <InventorySummaryChart inventory={inventory} />
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'value' && inventory && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Value Report</h3>
+              <ValueReportChart inventory={inventory} />
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'sales' && salesData.length > 0 && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Sales by Store</h3>
+              <SalesByStoreChart sales={salesData} />
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'trends' && salesData.length > 0 && transactions && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Trends Analysis</h3>
+              <TrendsAnalysisChart sales={salesData} transactions={transactions} />
+            </div>
+          </Card>
+        )}
       </div>
     </Layout>
   );

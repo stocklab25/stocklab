@@ -37,15 +37,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { quantity } = await request.json();
-
-    // Validate quantity
-    if (typeof quantity !== 'number' || quantity < 0) {
-      return NextResponse.json(
-        { error: 'Quantity must be a non-negative number' },
-        { status: 400 }
-      );
-    }
+    const updateData = await request.json();
 
     // Check if inventory item exists
     const existingItem = await prisma.inventoryItem.findFirst({
@@ -65,13 +57,38 @@ export async function PATCH(
       );
     }
 
-    // Update the inventory item quantity
+    // Prepare update data
+    const dataToUpdate: any = {
+      updatedAt: new Date(),
+    };
+
+    // Handle different update scenarios
+    if (updateData.quantity !== undefined) {
+      // Simple quantity update (backward compatibility)
+      if (typeof updateData.quantity !== 'number' || updateData.quantity < 0) {
+        return NextResponse.json(
+          { error: 'Quantity must be a non-negative number' },
+          { status: 400 }
+        );
+      }
+      dataToUpdate.quantity = updateData.quantity;
+    } else {
+      // Full inventory item update
+      if (updateData.productId) dataToUpdate.productId = updateData.productId;
+      if (updateData.sku) dataToUpdate.sku = updateData.sku;
+      if (updateData.size) dataToUpdate.size = updateData.size;
+      if (updateData.condition) dataToUpdate.condition = updateData.condition;
+      if (updateData.cost !== undefined) dataToUpdate.cost = updateData.cost;
+      if (updateData.quantity !== undefined) dataToUpdate.quantity = updateData.quantity;
+      if (updateData.status) dataToUpdate.status = updateData.status;
+      if (updateData.vendor) dataToUpdate.vendor = updateData.vendor;
+      if (updateData.paymentMethod) dataToUpdate.paymentMethod = updateData.paymentMethod;
+    }
+
+    // Update the inventory item
     const updatedItem = await prisma.inventoryItem.update({
       where: { id },
-      data: {
-        quantity,
-        updatedAt: new Date(),
-      },
+      data: dataToUpdate,
       include: {
         product: true,
       },
@@ -82,7 +99,7 @@ export async function PATCH(
       success: true
     });
   } catch (error) {
-    console.error('Error updating inventory quantity:', error);
+    console.error('Error updating inventory item:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

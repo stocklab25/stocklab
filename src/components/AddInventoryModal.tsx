@@ -17,7 +17,7 @@ interface Product {
   name: string;
   color: string;
   sku: string;
-  itemType: 'SHOE' | 'APPAREL';
+  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
 }
 
 export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInventoryModalProps) {
@@ -31,14 +31,13 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
     size: '',
     condition: 'NEW',
     cost: '',
-    payout: '',
-    consigner: '',
-    consignDate: new Date().toISOString().split('T')[0],
     status: 'InStock',
-    quantity: '1'
+    quantity: '1',
+    vendor: '',
+    paymentMethod: ''
   });
 
-  const [selectedProductType, setSelectedProductType] = useState<'SHOE' | 'APPAREL'>('SHOE');
+  const [selectedProductType, setSelectedProductType] = useState<'SHOE' | 'APPAREL' | 'MERCH'>('SHOE');
   const [validationError, setValidationError] = useState<string>('');
 
   // Check for duplicate size when product or size changes
@@ -46,8 +45,15 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
     console.log('🔍 Validation check triggered:', {
       productId: formData.productId,
       size: formData.size,
+      selectedProductType,
       inventoryItemsCount: inventoryItems?.length || 0
     });
+    
+    // For MERCH items, we don't need size validation since they don't have sizes
+    if (selectedProductType === 'MERCH') {
+      setValidationError('');
+      return;
+    }
     
     if (formData.sku && formData.size) {
       console.log('🔍 Checking for duplicates...');
@@ -86,22 +92,33 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
       console.log('🔍 Missing productId or size, clearing validation error');
       setValidationError('');
     }
-  }, [formData.sku, formData.size, inventoryItems]);
+  }, [formData.sku, formData.size, selectedProductType, inventoryItems]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check for duplicate before submitting
-    if (validationError) {
+    // Check for duplicate before submitting (only for non-MERCH items)
+    if (validationError && selectedProductType !== 'MERCH') {
       return;
     }
     
+    // For MERCH items, set size to "N/A" if not provided
+    const sizeValue = selectedProductType === 'MERCH' ? 'N/A' : formData.size;
+    
+    // Require vendor and paymentMethod
+    if (!formData.vendor || !formData.paymentMethod) {
+      setValidationError('Vendor and Payment Method are required.');
+      return;
+    }
+
     const result = await addInventory({
       ...formData,
+      size: sizeValue,
       condition: formData.condition as 'NEW' | 'PRE_OWNED',
       cost: parseFloat(formData.cost),
-      payout: parseFloat(formData.payout),
-      quantity: parseInt(formData.quantity)
+      quantity: parseInt(formData.quantity),
+      vendor: formData.vendor,
+      paymentMethod: formData.paymentMethod
     });
 
     if (result?.success) {
@@ -114,11 +131,10 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
         size: '',
         condition: 'NEW',
         cost: '',
-        payout: '',
-        consigner: '',
-        consignDate: new Date().toISOString().split('T')[0],
         status: 'InStock',
-        quantity: '1'
+        quantity: '1',
+        vendor: '',
+        paymentMethod: ''
       });
       setSelectedProductType('SHOE');
       setValidationError('');
@@ -153,11 +169,10 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
       size: '',
       condition: 'NEW',
       cost: '',
-      payout: '',
-      consigner: '',
-      consignDate: new Date().toISOString().split('T')[0],
       status: 'InStock',
-      quantity: '1'
+      quantity: '1',
+      vendor: '',
+      paymentMethod: ''
     });
     setSelectedProductType('SHOE');
     setValidationError('');
@@ -215,50 +230,61 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
             />
           </div>
 
-          {/* Size */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Size * ({selectedProductType === 'SHOE' ? 'Shoe' : 'Apparel'})
-            </label>
-            {selectedProductType === 'SHOE' ? (
-              <select
-                value={formData.size}
-                onChange={(e) => handleSizeChange(e.target.value)}
-                required
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  validationError ? 'border-red-500' : 'border-input'
-                }`}
-              >
-                <option value="">Select shoe size</option>
-                {Array.from({ length: 14 }, (_, i) => i + 1).map(size => (
-                  <option key={size} value={size.toString()}>{size}</option>
-                ))}
-                {Array.from({ length: 13 }, (_, i) => i + 1.5).map(size => (
-                  <option key={size} value={size.toString()}>{size}</option>
-                ))}
-              </select>
-            ) : (
-              <select
-                value={formData.size}
-                onChange={(e) => handleSizeChange(e.target.value)}
-                required
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  validationError ? 'border-red-500' : 'border-input'
-                }`}
-              >
-                <option value="">Select apparel size</option>
-                <option value="XS">XS</option>
-                <option value="S">S</option>
-                <option value="M">M</option>
-                <option value="L">L</option>
-                <option value="XL">XL</option>
-                <option value="XXL">XXL</option>
-              </select>
-            )}
-            {validationError && (
-              <p className="text-red-500 text-sm mt-1">{validationError}</p>
-            )}
-          </div>
+          {/* Size - Only show for SHOE and APPAREL items */}
+          {selectedProductType !== 'MERCH' && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Size * ({selectedProductType === 'SHOE' ? 'Shoe' : 'Apparel'})
+              </label>
+              {selectedProductType === 'SHOE' ? (
+                <select
+                  value={formData.size}
+                  onChange={(e) => handleSizeChange(e.target.value)}
+                  required
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    validationError ? 'border-red-500' : 'border-input'
+                  }`}
+                >
+                  <option value="">Select shoe size</option>
+                  {Array.from({ length: 14 }, (_, i) => i + 1).map(size => (
+                    <option key={size} value={size.toString()}>{size}</option>
+                  ))}
+                  {Array.from({ length: 13 }, (_, i) => i + 1.5).map(size => (
+                    <option key={size} value={size.toString()}>{size}</option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={formData.size}
+                  onChange={(e) => handleSizeChange(e.target.value)}
+                  required
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    validationError ? 'border-red-500' : 'border-input'
+                  }`}
+                >
+                  <option value="">Select apparel size</option>
+                  <option value="XS">XS</option>
+                  <option value="S">S</option>
+                  <option value="M">M</option>
+                  <option value="L">L</option>
+                  <option value="XL">XL</option>
+                  <option value="XXL">XXL</option>
+                </select>
+              )}
+              {validationError && (
+                <p className="text-red-500 text-sm mt-1">{validationError}</p>
+              )}
+            </div>
+          )}
+
+          {/* Size field for MERCH items - hidden but required for database */}
+          {selectedProductType === 'MERCH' && (
+            <input
+              type="hidden"
+              value="N/A"
+              onChange={(e) => handleSizeChange(e.target.value)}
+            />
+          )}
 
           {/* Condition */}
           <div>
@@ -276,66 +302,19 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
             </select>
           </div>
 
-          {/* Cost and Payout */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Cost ($) *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.cost}
-                onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Payout ($) *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.payout}
-                onChange={(e) => setFormData({ ...formData, payout: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-
-          {/* Consigner */}
+          {/* Cost */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              Consigner *
+              Cost *
             </label>
             <input
-              type="text"
-              value={formData.consigner}
-              onChange={(e) => setFormData({ ...formData, consigner: e.target.value })}
+              type="number"
+              step="0.01"
+              value={formData.cost}
+              onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
               required
               className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              placeholder="Consigner name"
-            />
-          </div>
-
-          {/* Consign Date */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Consign Date *
-            </label>
-            <input
-              type="date"
-              value={formData.consignDate}
-              onChange={(e) => setFormData({ ...formData, consignDate: e.target.value })}
-              required
-              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder="0.00"
             />
           </div>
 
@@ -358,18 +337,47 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
           </div>
 
           {/* Quantity */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Quantity
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="1"
-              />
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Quantity
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder="1"
+            />
+          </div>
+
+          {/* Vendor */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Vendor *
+            </label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              value={formData.vendor}
+              onChange={e => setFormData({ ...formData, vendor: e.target.value })}
+              required
+              placeholder="Consigner name"
+            />
+          </div>
+          {/* Payment Method */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Payment Method *
+            </label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              value={formData.paymentMethod}
+              onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}
+              required
+              placeholder="Payment Method"
+            />
           </div>
 
           {error && (

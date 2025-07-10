@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
-import { useTransactions } from '@/hooks';
+import { useTransactions, useImportTransactions } from '@/hooks';
 import { useInventoryItems } from '@/hooks/useInventoryItems';
 import useAddTransaction from '@/hooks/useAddTransaction';
 import { useDeleteTransaction } from '@/hooks/useDeleteTransaction';
@@ -36,7 +36,6 @@ interface InventoryItem {
   cost: number;
   status: string;
   location?: string;
-  consigner: string;
   product?: Product;
 }
 
@@ -102,6 +101,10 @@ export default function Transactions() {
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 20;
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importResults, setImportResults] = useState<any>(null);
+  const { importTransactions, isLoading: isImporting, error: importError } = useImportTransactions();
 
   const filteredTransactions = transactions.filter((txn: StockTransaction) => {
     const matchesSearch = 
@@ -189,6 +192,30 @@ export default function Transactions() {
       } catch (error) {
         // Error is handled by the hook
       }
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setImportResults(null);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
+
+    try {
+      const results = await importTransactions(selectedFile);
+      setImportResults(results);
+      if (results.errors.length === 0) {
+        setIsImportModalOpen(false);
+        setSelectedFile(null);
+        mutate(); // Refresh transactions list
+      }
+    } catch (error) {
+      console.error('Import error:', error);
     }
   };
 
@@ -302,12 +329,16 @@ export default function Transactions() {
             <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
             <p className="text-muted-foreground mt-2">Track all stock movements</p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            + New Transaction
-          </button>
+          <div className="flex space-x-2">
+            <Button onClick={() => setIsImportModalOpen(true)}>
+              <span className="mr-2">📁</span>
+              Import Transactions
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)}>
+              <span className="mr-2">+</span>
+              New Transaction
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -482,6 +513,75 @@ export default function Transactions() {
           </div>
         </div>
       </PromptModal>
+
+      {/* Import Transactions Modal */}
+      {isImportModalOpen && (
+        <Modal open={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold mb-2">Import Transactions from CSV</h2>
+            <p className="text-muted-foreground text-sm mb-2">
+              Upload a CSV file with transaction details. Note: Stock IN transactions are handled through the Inventory system. You can download a template below.
+            </p>
+            <a
+              href="/import-transactions-template.csv"
+              download
+              className="inline-block mb-2 text-blue-600 hover:underline text-sm"
+            >
+              Download CSV Template
+            </a>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              className="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:outline-none"
+            />
+            {selectedFile && (
+              <p className="text-sm text-green-600">Selected: {selectedFile.name}</p>
+            )}
+            {importError && (
+              <p className="text-sm text-red-600">Error: {importError}</p>
+            )}
+            {importResults && (
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <h3 className="font-semibold mb-2">Import Results:</h3>
+                <ul className="text-sm space-y-1">
+                  <li>Transactions created: {importResults.transactionsCreated}</li>
+                </ul>
+                {importResults.errors.length > 0 && (
+                  <div className="mt-2">
+                    <h4 className="font-semibold text-red-600">Errors:</h4>
+                    <ul className="text-sm text-red-600 space-y-1">
+                      {importResults.errors.map((error: string, index: number) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setSelectedFile(null);
+                  setImportResults(null);
+                }}
+                disabled={isImporting}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                onClick={handleImport}
+                disabled={!selectedFile || isImporting}
+              >
+                {isImporting ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Toast */}
       {toast && (

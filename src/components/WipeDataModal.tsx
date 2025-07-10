@@ -54,14 +54,21 @@ export default function WipeDataModal({ isOpen, onClose, onSuccess }: WipeDataMo
             
             <div className="mb-6">
               <p className="text-foreground mb-4">
-                This action will <strong>permanently delete</strong> all data from your system:
+                This action will <strong>permanently delete</strong> all data from your system except users:
               </p>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-4">
                 <li>All products</li>
                 <li>All inventory items</li>
                 <li>All transactions</li>
+                <li>All sales</li>
+                <li>All purchases</li>
+                <li>All stores</li>
+                <li>All store inventory</li>
                 <li>All historical data</li>
               </ul>
+              <p className="text-sm text-green-600 font-medium mb-2">
+                ✅ User accounts will be preserved
+              </p>
               <p className="text-sm text-red-600 font-medium">
                 ⚠️ This action cannot be undone!
               </p>

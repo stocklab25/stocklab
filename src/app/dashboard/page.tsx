@@ -1,39 +1,218 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useProducts, useInventory, useTransactions } from '@/hooks';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface DashboardStats {
-  totalProducts: number;
+  totalRevenue: number;
   totalInventory: number;
   totalValue: number;
-  recentTransactions: number;
+  totalProfit: number;
 }
 
 export default function Dashboard() {
   const { data: products, isLoading: productsLoading } = useProducts();
   const { data: inventory, isLoading: inventoryLoading } = useInventory();
   const { data: transactions, isLoading: transactionsLoading } = useTransactions();
+  const [salesData, setSalesData] = useState<any[]>([]);
+
+  // Fetch sales data
+  useEffect(() => {
+    const fetchSales = async () => {
+      try {
+        const response = await fetch('/api/sales');
+        if (response.ok) {
+          const data = await response.json();
+          setSalesData(Array.isArray(data) ? data : data?.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching sales data:', error);
+      }
+    };
+    fetchSales();
+  }, []);
 
   const stats = useMemo<DashboardStats>(() => {
     const totalValue = inventory.reduce((sum: number, item: any) => sum + Number(item.cost), 0);
-    const recentTransactions = transactions.filter((txn: any) => {
-      const txnDate = new Date(txn.date);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return txnDate >= weekAgo;
-    }).length;
+
+    // Calculate total revenue and profit from sales
+    const totalRevenue = salesData.reduce((sum: number, sale: any) => {
+      const revenue = (sale.payout || 0) - (sale.discount || 0);
+      return sum + revenue;
+    }, 0);
+
+    const totalProfit = salesData.reduce((sum: number, sale: any) => {
+      const revenue = (sale.payout || 0) - (sale.discount || 0);
+      const cost = (sale.cost || 0) * (sale.quantity || 1);
+      return sum + (revenue - cost);
+    }, 0);
 
     return {
-      totalProducts: products.length,
+      totalRevenue,
       totalInventory: inventory.length,
       totalValue,
-      recentTransactions,
+      totalProfit,
     };
-  }, [products, inventory, transactions]);
+  }, [products, inventory, transactions, salesData]);
+
+  // Process sales data for store chart
+  const storeChartData = useMemo(() => {
+    const storeSales = salesData.reduce((acc: { [key: string]: { revenue: number; profit: number; count: number } }, sale: any) => {
+      const storeName = sale.store?.name || 'Unknown Store';
+      const revenue = (sale.payout || 0) - (sale.discount || 0);
+      const profit = revenue - ((sale.cost || 0) * (sale.quantity || 1));
+      
+      if (!acc[storeName]) {
+        acc[storeName] = { revenue: 0, profit: 0, count: 0 };
+      }
+      
+      acc[storeName].revenue += revenue;
+      acc[storeName].profit += profit;
+      acc[storeName].count += 1;
+      
+      return acc;
+    }, {});
+
+    const storeLabels = Object.keys(storeSales);
+    const revenueData = Object.values(storeSales).map((store: any) => store.revenue);
+    const profitData = Object.values(storeSales).map((store: any) => store.profit);
+
+    return {
+      labels: storeLabels,
+      datasets: [
+        {
+          label: 'Revenue ($)',
+          data: revenueData,
+          backgroundColor: 'rgba(34, 197, 94, 0.8)',
+          borderColor: 'rgba(34, 197, 94, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Profit ($)',
+          data: profitData,
+          backgroundColor: 'rgba(16, 185, 129, 0.8)',
+          borderColor: 'rgba(16, 185, 129, 1)',
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [salesData]);
+
+  // Process sales data for product chart
+  const productChartData = useMemo(() => {
+    const productSales = salesData.reduce((acc: { [key: string]: { revenue: number; quantity: number; count: number } }, sale: any) => {
+      const productName = sale.inventoryItem?.product?.name || 'Unknown Product';
+      const revenue = (sale.payout || 0) - (sale.discount || 0);
+      const quantity = sale.quantity || 1;
+      
+      if (!acc[productName]) {
+        acc[productName] = { revenue: 0, quantity: 0, count: 0 };
+      }
+      
+      acc[productName].revenue += revenue;
+      acc[productName].quantity += quantity;
+      acc[productName].count += 1;
+      
+      return acc;
+    }, {});
+
+    // Sort by revenue and take top 10
+    const sortedProducts = Object.entries(productSales)
+      .sort(([, a], [, b]) => b.revenue - a.revenue)
+      .slice(0, 10);
+
+    const productLabels = sortedProducts.map(([name]) => name);
+    const revenueData = sortedProducts.map(([, data]) => data.revenue);
+    const quantityData = sortedProducts.map(([, data]) => data.quantity);
+
+    return {
+      labels: productLabels,
+      datasets: [
+        {
+          label: 'Revenue ($)',
+          data: revenueData,
+          backgroundColor: 'rgba(59, 130, 246, 0.8)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Quantity Sold',
+          data: quantityData,
+          backgroundColor: 'rgba(168, 85, 247, 0.8)',
+          borderColor: 'rgba(168, 85, 247, 1)',
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [salesData]);
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Store Sales Performance',
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value: any) {
+            return '$' + value.toLocaleString();
+          },
+        },
+      },
+    },
+  };
+
+  const productChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Top Products by Sales',
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value: any) {
+            return '$' + value.toLocaleString();
+          },
+        },
+      },
+    },
+  };
 
   const isLoading = productsLoading || inventoryLoading || transactionsLoading;
 
@@ -63,19 +242,19 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <span className="text-2xl">👟</span>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <span className="text-2xl">💰</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Products</p>
-                <p className="text-2xl font-bold text-foreground">{stats.totalProducts}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold text-foreground">${stats.totalRevenue.toLocaleString()}</p>
               </div>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
+              <div className="p-3 bg-blue-100 rounded-lg">
                 <span className="text-2xl">📦</span>
               </div>
               <div className="ml-4">
@@ -88,7 +267,7 @@ export default function Dashboard() {
           <Card>
             <div className="flex items-center">
               <div className="p-3 bg-yellow-100 rounded-lg">
-                <span className="text-2xl">💰</span>
+                <span className="text-2xl">💎</span>
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Total Value</p>
@@ -99,62 +278,42 @@ export default function Dashboard() {
 
           <Card>
             <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <span className="text-2xl">🔄</span>
+              <div className="p-3 bg-emerald-100 rounded-lg">
+                <span className="text-2xl">📈</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Recent Transactions</p>
-                <p className="text-2xl font-bold text-foreground">{stats.recentTransactions}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Profit</p>
+                <p className="text-2xl font-bold text-foreground">${stats.totalProfit.toLocaleString()}</p>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Recent Activity */}
+        {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Recent Transactions</h3>
-            <div className="space-y-3">
-              {transactions.slice(0, 5).map((txn: any) => (
-                <div key={txn.id} className="flex items-center justify-between p-3 bg-accent rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <span className={txn.type.toLowerCase() === 'in' ? 'text-green-500' : 'text-red-500'}>
-                      {txn.type.toLowerCase() === 'in' ? '📥' : '📤'}
-                    </span>
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {txn.type.charAt(0).toUpperCase() + txn.type.slice(1).toLowerCase()}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {txn.inventoryItem?.product?.name || 'Unknown Product'}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(txn.date).toLocaleDateString()}
-                  </span>
+          {/* Store Sales Chart */}
+          {salesData.length > 0 && (
+            <Card>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Store Sales Performance</h3>
+                <div className="h-80">
+                  <Bar data={storeChartData} options={chartOptions} />
                 </div>
-              ))}
-            </div>
-          </Card>
+              </div>
+            </Card>
+          )}
 
-          <Card>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button className="w-full p-3 text-left bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-                + Add New Product
-              </button>
-              <button className="w-full p-3 text-left bg-accent text-accent-foreground rounded-lg hover:bg-accent/80 transition-colors">
-                📥 Stock In Items
-              </button>
-              <button className="w-full p-3 text-left bg-accent text-accent-foreground rounded-lg hover:bg-accent/80 transition-colors">
-                📤 Stock Out Items
-              </button>
-              <button className="w-full p-3 text-left bg-accent text-accent-foreground rounded-lg hover:bg-accent/80 transition-colors">
-                📊 Generate Report
-              </button>
-            </div>
-          </Card>
+          {/* Product Sales Chart */}
+          {salesData.length > 0 && (
+            <Card>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Top Products by Sales</h3>
+                <div className="h-80">
+                  <Bar data={productChartData} options={productChartOptions} />
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
       </Layout>

@@ -7,12 +7,11 @@ interface AddInventoryData {
   size: string;
   condition: 'NEW' | 'PRE_OWNED';
   cost: number;
-  payout: number;
-  consigner: string;
-  consignDate: string;
   status: string;
   location?: string;
   quantity?: number;
+  vendor: string;
+  paymentMethod: string;
 }
 
 interface AddInventoryResponse {

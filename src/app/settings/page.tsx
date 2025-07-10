@@ -205,17 +205,7 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground mt-1">Minimum quantity before low stock alert</p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Default Location
-                </label>
-                <input
-                  type="text"
-                  defaultValue="A1"
-                  className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
-                <p className="text-sm text-muted-foreground mt-1">Default location for new inventory items</p>
-              </div>
+
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { NextRequest } from 'next/server';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '24h';
@@ -48,6 +49,16 @@ export function verifyToken(token: string): AuthenticatedUser | null {
     console.error('Token verification error:', error);
     return null;
   }
+}
+
+// Helper to extract Bearer token from Authorization header
+export function getTokenFromHeader(req: NextRequest): string | null {
+  const authHeader = req.headers.get('authorization');
+  console.log('Authorization header:', authHeader);
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  return null;
 }
 
 // Hash password

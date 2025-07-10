@@ -7,31 +7,13 @@ import { useNavigation } from '@/contexts/NavigationContext';
 import Loader from './Loader';
 
 export default function Header() {
-  const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { isNavigating } = useNavigation();
 
   return (
     <header className="bg-background border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
-        {/* Search Bar */}
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search products, inventory, or transactions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-muted-foreground">🔍</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side Actions */}
+      <div className="flex items-center justify-end">
         <div className="flex items-center space-x-4">
           {/* Navigation Loading Indicator */}
           {isNavigating && (

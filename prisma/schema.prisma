@@ -23,36 +23,34 @@ model User {
 }
 
 model Store {
-  id        String      @id @default(cuid())
-  name      String
-  address   String?
-  phone     String?
-  email     String?
-  status    StoreStatus @default(ACTIVE)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  deletedAt DateTime?
-
-  // Relations
-  storeInventory   StoreInventory[]
+  id               String             @id @default(cuid())
+  name             String
+  address          String?
+  phone            String?
+  email            String?
+  status           StoreStatus        @default(ACTIVE)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  deletedAt        DateTime?
+  sales            Sale[]
   fromTransactions StockTransaction[] @relation("FromStore")
   toTransactions   StockTransaction[] @relation("ToStore")
-  sales            Sale[]
+  storeInventory   StoreInventory[]
 
   @@map("stores")
 }
 
 model Product {
-  id                String             @id @default(cuid())
-  brand             String
-  name              String
-  color             String?
-  sku               String?            @unique
-  itemType          ItemType
-  createdAt         DateTime           @default(now())
-  deletedAt         DateTime?
-  updatedAt         DateTime           @default(now()) @updatedAt
-  inventoryItems    InventoryItem[]
+  id             String          @id @default(cuid())
+  brand          String
+  name           String
+  color          String?
+  sku            String?         @unique
+  createdAt      DateTime        @default(now())
+  deletedAt      DateTime?
+  updatedAt      DateTime        @default(now()) @updatedAt
+  itemType       ItemType
+  inventoryItems InventoryItem[]
 
   @@map("products")
 }
@@ -62,20 +60,18 @@ model InventoryItem {
   productId         String
   sku               String
   size              String
-  condition         ItemCondition
   cost              Decimal            @db.Decimal(10, 2)
-  payout            Decimal            @db.Decimal(10, 2)
-  consigner         String
-  consignDate       DateTime
   status            InventoryStatus
-  quantity          Int                @default(1)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
+  quantity          Int                @default(1)
+  condition         ItemCondition
   product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purchases         Purchase[]
+  sales             Sale[]
   stockTransactions StockTransaction[]
   storeInventory    StoreInventory[]
-  sales             Sale[]
 
   @@map("inventory_items")
 }
@@ -85,18 +81,18 @@ model StockTransaction {
   type            TransactionType
   quantity        Int
   date            DateTime
-  fromStoreId     String?
-  toStoreId       String?
   userId          String?
   notes           String?
   createdAt       DateTime        @default(now())
   inventoryItemId String?
   deletedAt       DateTime?
   updatedAt       DateTime        @default(now()) @updatedAt
+  fromStoreId     String?
+  toStoreId       String?
+  fromStore       Store?          @relation("FromStore", fields: [fromStoreId], references: [id])
   InventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+  toStore         Store?          @relation("ToStore", fields: [toStoreId], references: [id])
   user            User?           @relation(fields: [userId], references: [id])
-  fromStore       Store?          @relation("FromStore", fields: [fromStoreId], references: [id], onDelete: SetNull)
-  toStore         Store?          @relation("ToStore", fields: [toStoreId], references: [id], onDelete: SetNull)
 
   @@map("stock_transactions")
 }
@@ -109,8 +105,8 @@ model StoreInventory {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
-  store           Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  store           Store         @relation(fields: [storeId], references: [id])
 
   @@unique([storeId, inventoryItemId])
   @@map("store_inventory")
@@ -130,12 +126,55 @@ model Sale {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
-
-  // Relations
-  store           Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  store           Store         @relation(fields: [storeId], references: [id])
 
   @@map("sales")
+}
+
+model Purchase {
+  id                     String        @id @default(cuid())
+  r3vPurchaseOrderNumber String        @unique
+  inventoryItemId        String
+  vendor                 String
+  paymentMethod          String
+  orderNumber            String?
+  quantity               Int           @default(1)
+  cost                   Decimal       @db.Decimal(10, 2)
+  purchaseDate           DateTime      @default(now())
+  notes                  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  deletedAt              DateTime?
+  inventoryItem          InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("purchases")
+}
+
+model Card {
+  id        String    @id @default(cuid())
+  name      String
+  last4     String?
+  bank      String?
+  type      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  expenses  Expense[]
+}
+
+model Expense {
+  id              String          @id @default(cuid())
+  transactionDate DateTime
+  description     String
+  amount          Decimal         @db.Decimal(10, 2)
+  type            String
+  category        ExpenseCategory
+  cardId          String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  card            Card            @relation(fields: [cardId], references: [id])
 }
 
 enum UserRole {
@@ -177,4 +216,14 @@ enum ItemCondition {
 enum ItemType {
   SHOE
   APPAREL
+  MERCH
+}
+
+enum ExpenseCategory {
+  Parking
+  Travel
+  Inventory
+  Supplies
+  BusinessServices
+  Payment
 }

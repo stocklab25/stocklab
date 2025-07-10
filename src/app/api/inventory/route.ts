@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { purchaseService } from '../../../../prisma/services/purchase.service';
+import { InventoryService } from '../../../../prisma/services/inventory.service';
 
 interface User {
   id: string;
@@ -56,8 +58,6 @@ export async function GET(req: NextRequest) {
           size: true,
           condition: true,
           cost: true,
-          consigner: true,
-          consignDate: true,
           status: true,
           quantity: true,
           createdAt: true,
@@ -99,8 +99,6 @@ export async function GET(req: NextRequest) {
             size: true,
             condition: true,
             cost: true,
-            consigner: true,
-            consignDate: true,
             status: true,
             quantity: true,
             createdAt: true,
@@ -153,9 +151,9 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     
     // Validate required fields
-    if (!data.productId || !data.sku || !data.size || !data.condition || !data.cost || !data.payout || !data.consigner || !data.consignDate || !data.status) {
+    if (!data.productId || !data.sku || !data.size || !data.condition || !data.cost || !data.status || !data.vendor || !data.paymentMethod) {
       return NextResponse.json(
-        { error: 'Missing required fields: productId, sku, size, condition, cost, payout, consigner, consignDate, status' },
+        { error: 'Missing required fields: productId, sku, size, condition, cost, status, vendor, paymentMethod' },
         { status: 400 }
       );
     }
@@ -172,55 +170,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create inventory item and initial transaction in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the inventory item
-      const newItem = await tx.inventoryItem.create({
-      data: {
-        productId: data.productId,
-        sku: data.sku,
-        size: data.size,
-        condition: data.condition,
-        cost: parseFloat(data.cost),
-          payout: parseFloat(data.payout),
-        consigner: data.consigner,
-        consignDate: new Date(data.consignDate),
-        status: data.status,
-  
-          quantity: data.quantity || 1, // Default to 1 if not specified
-      },
-      include: {
-        product: true
-      }
-      });
-
-      // 2. Create initial stock transaction
-      const initialTransaction = await tx.stockTransaction.create({
-        data: {
-          type: 'IN',
-          quantity: newItem.quantity,
-          date: new Date(data.consignDate),
-          notes: `Initial consignment - ${newItem.product.name} ${newItem.size} (${newItem.condition})`,
-          inventoryItemId: newItem.id,
-          userId: dbUser.id, // Use the verified database user ID
-
-        },
-        include: {
-          InventoryItem: {
-            include: {
-              product: true
-            }
-          },
-          user: true
-        }
-      });
-
-      return { newItem, initialTransaction };
+    // Use the inventory service to create inventory item with initial stock
+    const result = await InventoryService.createInventoryItemWithInitialStock({
+      productId: data.productId,
+      sku: data.sku,
+      size: data.size,
+      condition: data.condition,
+      cost: parseFloat(data.cost),
+      status: data.status,
+      quantity: data.quantity || 1,
+      vendor: data.vendor,
+      paymentMethod: data.paymentMethod,
+      userId: dbUser.id
     });
+
+    if (!result.success || !result.data) {
+      return NextResponse.json(
+        { error: result.error || 'Failed to create inventory item' },
+        { status: 500 }
+      );
+    }
     
     return NextResponse.json({
-      data: result.newItem,
-      transaction: result.initialTransaction,
+      data: result.data.inventoryItem,
+      transaction: result.data.transaction,
+      purchase: result.data.purchase,
       success: true,
       message: 'Inventory item created with initial transaction'
     }, { status: 201 });

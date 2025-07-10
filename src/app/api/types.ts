@@ -7,7 +7,6 @@ export interface Product {
   sku?: string;
   itemType: 'SHOE' | 'APPAREL';
   cost?: number;
-  payout?: number;
 }
 
 // InventoryItem: each physical item in your warehouse
@@ -16,12 +15,19 @@ export interface InventoryItem {
   productId: string; // references Product.id
   sku: string;
   size: string;
-  condition: 'NEW' | 'PRE_OWNED';
+  condition: string;
   cost: number;
-  consigner: string;
-  consignDate: string;
-  status: 'In-Stock' | 'Returned' | 'Out-of-Stock' | 'Discontinued' | 'Sold';
-  location?: string;
+  status: string;
+  quantity: number;
+  createdAt: string;
+  updatedAt: string;
+  product: {
+    id: string;
+    brand: string;
+    name: string;
+    color: string;
+    sku: string;
+  };
 }
 
 // StockTransaction: every movement/change for traceability

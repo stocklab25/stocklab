@@ -36,17 +36,27 @@ prisma.$use(async (params, next) => {
   let lastError: any;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-  try {
-    return await next(params);
-  } catch (error: any) {
+    try {
+      return await next(params);
+    } catch (error: any) {
       lastError = error;
       
-    // Handle prepared statement conflicts
-    if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+      // Handle transaction errors
+      if (error?.code === 'P2028' || error?.message?.includes('Transaction not found')) {
+        console.warn(`Transaction error detected, retrying... (attempt ${attempt}/${maxRetries})`);
+        // Disconnect and reconnect to clear transaction state
+        await prisma.$disconnect();
+        await prisma.$connect();
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt)); // Short delay
+        continue;
+      }
+      
+      // Handle prepared statement conflicts
+      if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
         console.warn(`Prepared statement conflict detected, retrying... (attempt ${attempt}/${maxRetries})`);
-      // Disconnect and reconnect to clear prepared statements
-      await prisma.$disconnect();
-      await prisma.$connect();
+        // Disconnect and reconnect to clear prepared statements
+        await prisma.$disconnect();
+        await prisma.$connect();
         continue;
       }
       
@@ -57,8 +67,8 @@ prisma.$use(async (params, next) => {
         continue;
       }
       
-    throw error;
-  }
+      throw error;
+    }
   }
   
   throw lastError;

@@ -6,6 +6,7 @@ interface EditProductData {
   name: string;
   color?: string;
   sku?: string;
+  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
 }
 
 interface EditProductOptions {

@@ -344,31 +344,11 @@ export class ProductService {
       return sum + (Number(item.cost) * item.quantity);
     }, 0);
 
-    // For payout, we need to get it from the product
-    const productsWithPayout = await prisma.product.findMany({
-      where: { 
-        deletedAt: null,
-      },
-      include: {
-        inventoryItems: {
-          where: { 
-            status: 'InStock',
-            deletedAt: null 
-          },
-          select: {
-            quantity: true,
-            payout: true,
-          },
-        },
-      },
-    });
 
-    const totalPayout = productsWithPayout.reduce((sum: number, product) => {
-      const productQuantity = product.inventoryItems.reduce((itemSum: number, item: any) => {
-        return itemSum + (item.quantity * (item.payout ? Number(item.payout) : 0));
-      }, 0);
-      return sum + productQuantity;
-    }, 0);
+
+    // Since payout is not stored in inventory items, we'll return 0 for totalPayout
+    // Payout is only available in sales records
+    const totalPayout = 0;
 
     return { totalCost, totalPayout };
   }

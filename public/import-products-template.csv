@@ -1,0 +1,4 @@
+Brand,Name,Color,SKU,ItemType,Size,Condition,Quantity,Cost,Vendor,PaymentMethod
+Nike,Kobe 6 Grinch,Green,M12345,SHOE,8,NEW,2,20000,Nike PH,Cash
+Nike,Kobe 6 Grinch,Green,M12345,SHOE,9,PRE_OWNED,1,18000,Nike PH,Cash
+Adidas,Superstar,White,A54321,SHOE,10,NEW,3,7000,Adidas Store,Card 

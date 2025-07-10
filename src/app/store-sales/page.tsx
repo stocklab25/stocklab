@@ -4,8 +4,10 @@ import React, { useState, useCallback } from "react";
 import Layout from "@/components/Layout";
 import { Card } from "@/components/Card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/Table";
+import Button from '@/components/Button';
 import useSWR from "swr";
 import AddSaleModal from '@/components/AddSaleModal';
+import ImportSalesModal from '@/components/ImportSalesModal';
 import { useStores } from '@/hooks/useStores';
 import { useStoreInventory } from '@/hooks/useStoreInventory';
 import { useAddSale } from '@/hooks/useAddSale';
@@ -17,6 +19,7 @@ export default function StoreSalesPage() {
   const { data, error, isLoading, mutate } = useSWR("/api/sales", fetcher);
   const { data: stores, isLoading: storesLoading } = useStores();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [storeFilter, setStoreFilter] = useState<string>('all');
@@ -101,12 +104,16 @@ export default function StoreSalesPage() {
             <h1 className="text-3xl font-bold text-foreground">Store Sales</h1>
             <p className="text-muted-foreground mt-2">All sales per store</p>
           </div>
-          <button
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            onClick={() => setIsModalOpen(true)}
-          >
-            + Add Sale
-          </button>
+          <div className="flex space-x-2">
+            <Button onClick={() => setIsImportModalOpen(true)}>
+              <span className="mr-2">📁</span>
+              Import Sales
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)}>
+              <span className="mr-2">+</span>
+              Add Sale
+            </Button>
+          </div>
         </div>
 
         {/* Store Filter */}
@@ -184,6 +191,14 @@ export default function StoreSalesPage() {
         stores={stores || []}
         fetchInventory={fetchInventory}
         isLoading={isAdding}
+      />
+      <ImportSalesModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          setIsImportModalOpen(false);
+          mutate();
+        }}
       />
     </Layout>
   );

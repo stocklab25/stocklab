@@ -21,18 +21,32 @@ interface Product {
 
 interface StoreInventoryItem {
   id: string;
+  storeId: string;
+  inventoryItemId: string;
   quantity: number;
+  createdAt: string;
+  updatedAt: string;
   inventoryItem: {
     id: string;
+    productId: string;
     sku: string;
     size: string;
     condition: string;
     cost: number;
-    payout: number;
-    consigner: string;
-    consignDate: string;
     status: string;
-    product: Product;
+    quantity: number;
+    product: {
+      id: string;
+      brand: string;
+      name: string;
+      color: string;
+      sku: string;
+    };
+  };
+  store: {
+    id: string;
+    name: string;
+    address: string;
   };
 }
 
@@ -158,8 +172,9 @@ export default function StoreInventoryPage() {
                         <th className="text-center py-3 px-4 font-medium text-foreground">Quantity</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
-                        <th className="text-left py-3 px-4 font-medium text-foreground">Status</th>
-                        <th className="text-left py-3 px-4 font-medium text-foreground">Consigner</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground">Cost</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground">Store Quantity</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -190,10 +205,13 @@ export default function StoreInventoryPage() {
                               <span>{item.inventoryItem.condition}</span>
                             </td>
                             <td className="py-2 px-4 text-sm">
-                              <span>{item.inventoryItem.status}</span>
+                              <span>{item.inventoryItem.cost}</span>
                             </td>
                             <td className="py-2 px-4 text-sm">
-                              <span>{item.inventoryItem.consigner}</span>
+                              <span>{item.quantity}</span>
+                            </td>
+                            <td className="py-2 px-4 text-sm">
+                              {/* Actions will be added here if needed */}
                             </td>
                           </tr>
                         ))

@@ -5,6 +5,7 @@ import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { EditModal } from '@/components/EditModal';
 import AddInventoryModal from '@/components/AddInventoryModal';
+import EditInventoryModal from '@/components/EditInventoryModal';
 import { useInventory, useUpdateInventoryQuantity } from '@/hooks';
 
 interface Product {
@@ -23,11 +24,17 @@ interface InventoryItem {
   size: string;
   condition: string;
   cost: number;
-  consigner: string;
-  consignDate: string;
   status: string;
   quantity: number;
-  product?: Product;
+  createdAt: string;
+  updatedAt: string;
+  product: {
+    id: string;
+    brand: string;
+    name: string;
+    color: string;
+    sku: string;
+  };
 }
 
 export default function Inventory() {
@@ -40,6 +47,8 @@ export default function Inventory() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
+  const [showEditInventoryModal, setShowEditInventoryModal] = useState(false);
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
 
   // Low stock threshold - you can adjust this value
   const LOW_STOCK_THRESHOLD = 5;
@@ -59,7 +68,7 @@ export default function Inventory() {
       item.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.consigner.toLowerCase().includes(searchTerm.toLowerCase());
+      item.size.toLowerCase().includes(searchTerm.toLowerCase());
     
     const dynamicStatus = getDynamicStatus(item.quantity);
     const matchesStatus = statusFilter === '' || dynamicStatus === statusFilter;
@@ -91,6 +100,12 @@ export default function Inventory() {
   const handleEditQuantity = (item: InventoryItem) => {
     setSelectedItem(item);
     setEditModalOpen(true);
+    setOpenDropdown(null);
+  };
+
+  const handleEditInventory = (item: InventoryItem) => {
+    setSelectedInventoryItem(item);
+    setShowEditInventoryModal(true);
     setOpenDropdown(null);
   };
 
@@ -169,9 +184,6 @@ export default function Inventory() {
             >
               📥 Stock In
             </button>
-            <button className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors">
-              📤 Stock Out
-            </button>
           </div>
         </div>
 
@@ -182,7 +194,7 @@ export default function Inventory() {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Search by product name, brand, SKU, or consigner..."
+                  placeholder="Search by product name, brand, SKU, or size..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -225,9 +237,8 @@ export default function Inventory() {
                     <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Cost</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Status</th>
-
-                    <th className="text-left py-3 px-4 font-medium text-foreground">Consigner</th>
-                    <th className="text-right py-3 px-4 font-medium text-foreground">Actions</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Quantity</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -262,9 +273,8 @@ export default function Inventory() {
                           {getDynamicStatus(item.quantity)}
                         </span>
                       </td>
-
                       <td className="py-3 px-4">
-                        <span className="text-muted-foreground">{item.consigner}</span>
+                        <span className="text-muted-foreground">{item.quantity}</span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <button
@@ -336,13 +346,26 @@ export default function Inventory() {
                   onClick={(e) => {
                     e.stopPropagation();
                     const item = filteredInventory.find((item: InventoryItem) => item.id === openDropdown);
-                    if (item) handleEditQuantity(item);
+                    if (item) handleEditInventory(item);
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                  disabled={isUpdating}
                 >
                   <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const item = filteredInventory.find((item: InventoryItem) => item.id === openDropdown);
+                    if (item) handleEditQuantity(item);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                  disabled={isUpdating}
+                >
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                   Edit Quantity
                 </button>
@@ -356,6 +379,14 @@ export default function Inventory() {
           isOpen={showAddInventoryModal}
           onClose={() => setShowAddInventoryModal(false)}
           onSuccess={handleAddInventorySuccess}
+        />
+
+        {/* Edit Inventory Modal */}
+        <EditInventoryModal
+          isOpen={showEditInventoryModal}
+          onClose={() => setShowEditInventoryModal(false)}
+          onSuccess={handleAddInventorySuccess}
+          inventoryItem={selectedInventoryItem}
         />
       </div>
     </Layout>

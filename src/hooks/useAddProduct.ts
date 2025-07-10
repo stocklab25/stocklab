@@ -23,7 +23,7 @@ const useAddProduct = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { mutate } = useSWR('/api/products', fetcher);
 
-  const addProduct = async (productData: { brand: string; name: string; color?: string; sku?: string }) => {
+  const addProduct = async (productData: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'MERCH' }) => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('authToken');

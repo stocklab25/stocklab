@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if inventory item exists and has sufficient quantity
+    // Check if inventory item exists
     const inventoryItem = await prisma.inventoryItem.findUnique({
       where: { id: inventoryItemId },
     });
@@ -80,9 +80,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (inventoryItem.quantity < quantity) {
+    // Check if store inventory exists and has sufficient quantity
+    const storeInventory = await prisma.storeInventory.findUnique({
+      where: {
+        storeId_inventoryItemId: {
+          storeId,
+          inventoryItemId
+        }
+      }
+    });
+
+    if (!storeInventory) {
       return NextResponse.json(
-        { error: 'Insufficient inventory quantity' },
+        { error: 'This item is not available at the selected store' },
+        { status: 400 }
+      );
+    }
+
+    if (storeInventory.quantity < quantity) {
+      return NextResponse.json(
+        { error: `Insufficient store inventory. Available: ${storeInventory.quantity}, Requested: ${quantity}` },
         { status: 400 }
       );
     }
@@ -113,9 +130,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Update inventory quantity
-    await prisma.inventoryItem.update({
-      where: { id: inventoryItemId },
+    // Update store inventory quantity (not warehouse inventory)
+    await prisma.storeInventory.update({
+      where: {
+        storeId_inventoryItemId: {
+          storeId,
+          inventoryItemId
+        }
+      },
       data: {
         quantity: {
           decrement: quantity,
