@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'USER';
+  role: string;
   isActive: boolean;
 }
 
@@ -19,11 +20,12 @@ interface EditUserModalProps {
 }
 
 export default function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModalProps) {
+  const { getAuthToken } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'USER' as 'ADMIN' | 'USER',
+    role: 'USER' as string,
     isActive: true,
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +38,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
         name: user.name,
         email: user.email,
         password: '',
-        role: user.role,
+        role: user.role as string,
         isActive: user.isActive,
       });
     }
@@ -50,10 +52,12 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     setError('');
 
     try {
+      const token = getAuthToken();
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });
@@ -81,8 +85,12 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     setError('');
 
     try {
+      const token = getAuthToken();
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
