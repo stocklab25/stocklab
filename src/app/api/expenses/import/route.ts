@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
         results.created++;
       } catch (error) {
-        console.error('Error creating expense:', error);
+        
         results.errors.push(`Failed to create expense: ${JSON.stringify(expenseData)}`);
         results.skipped++;
       }
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('Error importing expenses:', error);
+    
     return NextResponse.json(
       { error: 'Failed to import expenses' },
       { status: 500 }

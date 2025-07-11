@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error verifying token:', error);
+    
     return NextResponse.json(
       { error: 'Token verification failed' },
       { status: 500 }

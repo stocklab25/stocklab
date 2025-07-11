@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       });
     } catch (dbError) {
-      console.error('Database error fetching products:', dbError);
+      
       const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
       if (errorMessage.includes('prepared statement') || errorMessage.includes('connection')) {
         await prisma.$disconnect();
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         where: whereClause,
       });
     } catch (countError) {
-      console.error('Database error counting products:', countError);
+      
       const errorMessage = countError instanceof Error ? countError.message : String(countError);
       if (errorMessage.includes('prepared statement') || errorMessage.includes('connection')) {
         await prisma.$disconnect();
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching products:', error);
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -128,19 +128,14 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     
     // Debug: Log the received data
-    console.log('=== PRODUCT CREATION DEBUG ===');
-    console.log('Received data:', JSON.stringify(data, null, 2));
-    console.log('Data type:', typeof data);
-    console.log('Data keys:', Object.keys(data));
-    console.log('Brand:', data.brand, 'Type:', typeof data.brand);
-    console.log('Name:', data.name, 'Type:', typeof data.name);
-    console.log('Color:', data.color, 'Type:', typeof data.color);
-    console.log('SKU:', data.sku, 'Type:', typeof data.sku);
-    console.log('================================');
+    
+    );
+    
+    );
 
     // Validate required fields
     if (!data.brand || !data.name) {
-      console.log('Validation failed: Missing brand or name');
+      
       return NextResponse.json(
         { error: 'Brand and name are required' },
         { status: 400 }
@@ -165,15 +160,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Debug: Log what we're about to create
-    console.log('=== DATABASE CREATION DEBUG ===');
-    console.log('Creating product with data:', {
-      brand: data.brand,
-      name: data.name,
-      color: data.color,
-      sku: data.sku,
-    });
-    console.log('================================');
-
+    
     const product = await prisma.product.create({
       data: {
         brand: data.brand,
@@ -184,14 +171,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log('Product created successfully:', product.id);
-
     return NextResponse.json({
       ...product,
       message: 'Product created successfully. Add inventory items to manage stock.'
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating product:', error);
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -235,7 +220,7 @@ export async function DELETE(req: NextRequest) {
       message: 'Product soft deleted successfully'
     });
   } catch (error) {
-    console.error('Error soft deleting product:', error);
+    
     return NextResponse.json(
       { error: 'Failed to delete product' },
       { status: 500 }

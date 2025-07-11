@@ -97,7 +97,7 @@ const useAddTransaction = () => {
       return result;
       }
     } catch (error) {
-      console.error('Error adding transaction:', error);
+      
       throw error;
     } finally {
       setIsLoading(false);

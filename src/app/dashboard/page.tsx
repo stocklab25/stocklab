@@ -46,7 +46,7 @@ export default function Dashboard() {
       try {
         const token = await getAuthToken();
         if (!token) {
-          console.error('No authentication token available');
+          
           return;
         }
         
@@ -60,7 +60,7 @@ export default function Dashboard() {
           setSalesData(Array.isArray(data) ? data : data?.data || []);
         }
       } catch (error) {
-        console.error('Error fetching sales data:', error);
+        
       }
     };
     fetchSales();

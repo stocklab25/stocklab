@@ -24,7 +24,6 @@ export async function GET(
 
     return NextResponse.json(store);
   } catch (error) {
-    console.error('Error fetching store:', error);
     return NextResponse.json(
       { error: 'Failed to fetch store' },
       { status: 500 }
@@ -69,7 +68,6 @@ export async function PUT(
 
     return NextResponse.json(updatedStore);
   } catch (error) {
-    console.error('Error updating store:', error);
     return NextResponse.json(
       { error: 'Failed to update store' },
       { status: 500 }
@@ -108,7 +106,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Store deleted successfully' });
   } catch (error) {
-    console.error('Error deleting store:', error);
     return NextResponse.json(
       { error: 'Failed to delete store' },
       { status: 500 }

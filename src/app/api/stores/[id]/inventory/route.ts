@@ -52,7 +52,6 @@ export async function GET(
 
     return NextResponse.json(storeInventory);
   } catch (error) {
-    console.error('Error fetching store inventory:', error);
     return NextResponse.json(
       { error: 'Failed to fetch store inventory' },
       { status: 500 }
@@ -182,7 +181,6 @@ export async function POST(
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('Error adding inventory to store:', error);
     return NextResponse.json(
       { error: 'Failed to add inventory to store' },
       { status: 500 }

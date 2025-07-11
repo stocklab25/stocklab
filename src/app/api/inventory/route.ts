@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         }
       });
     } catch (dbError) {
-      console.error('Database error fetching inventory:', dbError);
+      
       const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
       if (errorMessage.includes('prepared statement') || errorMessage.includes('connection')) {
         await prisma.$disconnect();
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
       success: true
     });
   } catch (error) {
-    console.error('Error fetching inventory:', error);
+    
     return NextResponse.json(
       { error: 'Failed to fetch inventory' },
       { status: 500 }
@@ -170,8 +170,7 @@ export async function POST(req: NextRequest) {
       message: 'Inventory item created with initial transaction'
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating inventory item:', error);
-    
+
     // Check if it's a foreign key constraint error
     if (error instanceof Error && error.message.includes('Foreign key constraint')) {
       return NextResponse.json(

@@ -78,7 +78,7 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
       onClose();
       setSelectedReports([]);
     } catch (error) {
-      console.error('Export failed:', error);
+      
     } finally {
       setIsExporting(false);
     }
@@ -109,7 +109,7 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
-      console.error(`Error downloading ${reportId}:`, error);
+      
       throw error;
     }
   };

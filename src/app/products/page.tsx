@@ -31,11 +31,11 @@ export default function Products() {
   const { addProduct, isLoading: isAdding } = useAddProduct();
   const { archiveProduct, hardDeleteProduct, loading: isDeleting } = useDeleteProduct({
     onSuccess: () => mutate(),
-    onError: (error) => console.error('Delete error:', error)
+    onError: (error) => 
   });
   const { restoreProduct, loading: isRestoring } = useRestoreProduct({
     onSuccess: () => mutate(),
-    onError: (error) => console.error('Restore error:', error)
+    onError: (error) => 
   });
   const { editProduct, loading: isEditing } = useEditProduct({
     onSuccess: () => {
@@ -43,7 +43,7 @@ export default function Products() {
       setIsEditModalOpen(false);
       setProductToEdit(null);
     },
-    onError: (error) => console.error('Edit error:', error)
+    onError: (error) => 
   });
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +77,7 @@ export default function Products() {
       await addProduct(productData);
       setIsModalOpen(false);
     } catch (error) {
-      console.error('Error adding product:', error);
+      
     }
   };
 
@@ -105,7 +105,7 @@ export default function Products() {
         await archiveProduct(productToDelete.id);
       }
     } catch (error) {
-      console.error('Error deleting product:', error);
+      
     } finally {
       setDeletingId(null);
       setShowPrompt(false);
@@ -119,7 +119,7 @@ export default function Products() {
       await restoreProduct(productId);
       setOpenDropdown(null);
     } catch (error) {
-      console.error('Error restoring product:', error);
+      
     }
   };
 
@@ -133,7 +133,7 @@ export default function Products() {
     try {
       await editProduct(productId, productData);
     } catch (error) {
-      console.error('Error editing product:', error);
+      
     }
   };
 
@@ -157,7 +157,7 @@ export default function Products() {
         mutate(); // Refresh products list
       }
     } catch (error) {
-      console.error('Import error:', error);
+      
     }
   };
 

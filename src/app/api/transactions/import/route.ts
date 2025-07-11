@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
         results.created++;
       } catch (error) {
-        console.error('Error creating transaction:', error);
+        
         results.errors.push(`Failed to create transaction: ${JSON.stringify(transactionData)}`);
         results.skipped++;
       }
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('Error importing transactions:', error);
+    
     return NextResponse.json(
       { error: 'Failed to import transactions' },
       { status: 500 }

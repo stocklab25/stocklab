@@ -127,7 +127,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
         setValidationError(errorData.error || 'Failed to update inventory item');
       }
     } catch (error) {
-      console.error('Error updating inventory:', error);
+      
       setValidationError('Failed to update inventory item');
     } finally {
       setIsLoading(false);

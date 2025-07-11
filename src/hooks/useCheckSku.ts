@@ -12,7 +12,7 @@ const useCheckSku = () => {
       const data = await response.json();
       return data.exists;
     } catch (error) {
-      console.error('Error checking SKU:', error);
+      
       return false;
     } finally {
       setIsChecking(false);

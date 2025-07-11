@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       message: 'All data has been permanently deleted'
     });
   } catch (error) {
-    console.error('Error wiping data:', error);
+    
     return NextResponse.json(
       { error: 'Failed to wipe data' },
       { status: 500 }

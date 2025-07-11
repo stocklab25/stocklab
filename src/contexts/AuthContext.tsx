@@ -1,11 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/supabase';
-import type { User, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
-interface AuthUser {
+interface User {
   id: string;
   email: string;
   name: string;
@@ -13,43 +11,35 @@ interface AuthUser {
 }
 
 interface AuthContextType {
-  user: AuthUser | null;
-  isAuthenticated: boolean;
+  user: User | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  loading: boolean;
   getAuthToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  // Convert Supabase user to our app's user format
-  const convertSupabaseUser = (supabaseUser: User | null): AuthUser | null => {
-    if (!supabaseUser) return null;
-    
-    return {
-      id: supabaseUser.id,
-      email: supabaseUser.email || '',
-      name: supabaseUser.user_metadata?.name || 'Unknown User',
-      role: supabaseUser.user_metadata?.role || 'USER',
-    };
-  };
 
   useEffect(() => {
-    // Check if user is logged in on app start
+    // Check initial auth state
     const checkAuth = async () => {
       try {
-        const { session } = await auth.getCurrentSession();
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          setUser(convertSupabaseUser(session.user));
+          const convertedUser: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || 'Unknown User',
+            role: session.user.user_metadata?.role || 'USER',
+          };
+          setUser(convertedUser);
         }
       } catch (error) {
-        console.error('Auth check error:', error);
+        // Handle error silently
       } finally {
         setLoading(false);
       }
@@ -57,17 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     checkAuth();
 
-    // Listen to auth state changes
-    const { data: { subscription } } = auth.onAuthStateChange(
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(convertSupabaseUser(session.user));
-        } else if (event === 'SIGNED_OUT') {
+        if (session?.user) {
+          const convertedUser: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || 'Unknown User',
+            role: session.user.user_metadata?.role || 'USER',
+          };
+          setUser(convertedUser);
+        } else {
           setUser(null);
         }
-        
         setLoading(false);
       }
     );
@@ -77,73 +70,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('Attempting login with:', { email, password: '***' });
-      
-      const { data, error } = await auth.signIn(email, password);
-      
-      console.log('Login response:', { data: data ? 'success' : 'no data', error });
-      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
       if (error) {
-        console.error('Login failed:', error.message);
-        console.error('Error details:', error);
         return false;
       }
 
       if (data?.user) {
-        console.log('Login successful, user:', data.user.email);
-        const convertedUser = convertSupabaseUser(data.user);
-        console.log('Converted user:', convertedUser);
+        const convertedUser: User = {
+          id: data.user.id,
+          email: data.user.email || '',
+          name: data.user.user_metadata?.name || 'Unknown User',
+          role: data.user.user_metadata?.role || 'USER',
+        };
         setUser(convertedUser);
         return true;
       }
-      
-      console.log('No user data returned from login');
+
       return false;
     } catch (error) {
-      console.error('Login error:', error);
       return false;
     }
   };
 
   const logout = async () => {
     try {
-      const { error } = await auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      await supabase.auth.signOut();
       setUser(null);
-      router.push('/login');
+    } catch (error) {
+      // Handle error silently
     }
   };
 
   const getAuthToken = async (): Promise<string | null> => {
     try {
-      // Get the current session from Supabase
-      const { session } = await auth.getCurrentSession();
+      const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.access_token) {
-        console.log('🔑 Frontend Debug - Token generated (first 20 chars):', session.access_token.substring(0, 20) + '...');
-        console.log('🔑 Frontend Debug - Token length:', session.access_token.length);
         return session.access_token;
-      } else {
-        console.log('❌ Frontend Debug - No session or access token found');
-        return null;
       }
+      
+      return null;
     } catch (error) {
-      console.error('❌ Frontend Debug - Error getting auth token:', error);
       return null;
     }
   };
 
   const value = {
     user,
-    isAuthenticated: !!user,
+    loading,
     login,
     logout,
-    loading,
     getAuthToken,
   };
 

@@ -56,7 +56,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const parsedSettings = JSON.parse(savedSettings);
         setSettings({ ...defaultSettings, ...parsedSettings });
       } catch (error) {
-        console.error('Error parsing saved settings:', error);
+        
       }
     }
     isInitialized.current = true;

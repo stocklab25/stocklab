@@ -34,8 +34,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(inventoryItems);
   } catch (error: any) {
-    console.error('Error fetching inventory items:', error);
-    
+
     // Check if it's a database connection error
     if (error?.code === 'P1001' || error?.message?.includes('database server')) {
       return NextResponse.json(

@@ -91,7 +91,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
         setErrors({ submit: data.error || 'Failed to create user' });
       }
     } catch (error) {
-      console.error('Error creating user:', error);
+      
       setErrors({ submit: 'Failed to create user. Please try again.' });
     } finally {
       setIsLoading(false);

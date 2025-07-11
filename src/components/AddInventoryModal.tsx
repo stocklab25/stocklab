@@ -42,13 +42,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
 
   // Check for duplicate size when product or size changes
   useEffect(() => {
-    console.log('🔍 Validation check triggered:', {
-      productId: formData.productId,
-      size: formData.size,
-      selectedProductType,
-      inventoryItemsCount: inventoryItems?.length || 0
-    });
-    
     // For MERCH items, we don't need size validation since they don't have sizes
     if (selectedProductType === 'MERCH') {
       setValidationError('');
@@ -56,40 +49,19 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
     }
     
     if (formData.sku && formData.size) {
-      console.log('🔍 Checking for duplicates...');
-      console.log('🔍 Current inventory items:', inventoryItems);
-      console.log('🔍 First inventory item structure:', inventoryItems?.[0]);
-      
       const existingItem = inventoryItems?.find((item: any) => {
         const matches = item.sku === formData.sku && 
-                       item.size === formData.size; // Remove deletedAt check since it's not in the data
-        
-        console.log('🔍 Checking item:', {
-          itemId: item.id,
-          itemSku: item.sku,
-          itemSize: item.size,
-          formSku: formData.sku,
-          formSize: formData.size,
-          skuMatch: item.sku === formData.sku,
-          sizeMatch: item.size === formData.size,
-          matches
-        });
-        
+                       item.size === formData.size;
         return matches;
       });
       
-      console.log('🔍 Found existing item:', existingItem);
-      
       if (existingItem) {
         const errorMsg = `An inventory item with size ${formData.size} already exists for this product.`;
-        console.log('🔍 Setting validation error:', errorMsg);
         setValidationError(errorMsg);
       } else {
-        console.log('🔍 No duplicate found, clearing validation error');
         setValidationError('');
       }
     } else {
-      console.log('🔍 Missing productId or size, clearing validation error');
       setValidationError('');
     }
   }, [formData.sku, formData.size, selectedProductType, inventoryItems]);
@@ -142,10 +114,8 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
   };
 
   const handleProductChange = (productId: string) => {
-    console.log('🔍 Product changed to:', productId);
     const selectedProduct = products?.find((product: Product) => product.id === productId);
     if (selectedProduct) {
-      console.log('🔍 Selected product:', selectedProduct);
       // Use the product's SKU and itemType
       setFormData({ ...formData, productId, sku: selectedProduct.sku || '' });
       setSelectedProductType(selectedProduct.itemType);
@@ -156,7 +126,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
   };
 
   const handleSizeChange = (size: string) => {
-    console.log('🔍 Size changed to:', size);
     setFormData({ ...formData, size });
   };
 

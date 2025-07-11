@@ -1,15 +1,12 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
 
-declare global {
-  var prisma: PrismaClient | undefined;
-}
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
-let prisma: PrismaClient;
-
-// Enhanced configuration with better error handling
 const createPrismaClient = () => {
   const client = new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: ['error'],
     datasources: {
       db: {
         url: process.env.DIRECT_URL || process.env.DATABASE_URL,
@@ -17,93 +14,75 @@ const createPrismaClient = () => {
     },
   });
 
+  // Add retry logic for database operations
+  const originalQuery = client.$queryRaw;
+  const originalExecute = client.$executeRaw;
+
+  client.$queryRaw = async (...args: any[]) => {
+    const maxRetries = 3;
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await originalQuery.apply(client, args);
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a retryable error
+        const isRetryable = 
+          error.code === 'P2034' || // Transaction error
+          error.code === 'P2037' || // Prepared statement conflict
+          error.code === 'P1001' || // Connection error
+          error.code === 'P1017';   // Authentication error
+
+        if (!isRetryable || attempt === maxRetries) {
+          throw error;
+        }
+
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100));
+      }
+    }
+
+    throw lastError;
+  };
+
+  client.$executeRaw = async (...args: any[]) => {
+    const maxRetries = 3;
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await originalExecute.apply(client, args);
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a retryable error
+        const isRetryable = 
+          error.code === 'P2034' || // Transaction error
+          error.code === 'P2037' || // Prepared statement conflict
+          error.code === 'P1001' || // Connection error
+          error.code === 'P1017';   // Authentication error
+
+        if (!isRetryable || attempt === maxRetries) {
+          throw error;
+        }
+
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100));
+      }
+    }
+
+    throw lastError;
+  };
+
   return client;
 };
 
-if (process.env.NODE_ENV === 'production') {
-  prisma = createPrismaClient();
-} else {
-  if (!global.prisma) {
-    global.prisma = createPrismaClient();
-  }
-  prisma = global.prisma;
+const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
 }
-
-// Enhanced error handling and connection management
-prisma.$use(async (params, next) => {
-  const maxRetries = 3;
-  let lastError: any;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await next(params);
-    } catch (error: any) {
-      lastError = error;
-      
-      console.error(`Database operation failed (attempt ${attempt}/${maxRetries}):`, {
-        operation: params.action,
-        model: params.model,
-        error: error.message,
-        code: error.code
-      });
-      
-      // Handle transaction errors
-      if (error?.code === 'P2028' || error?.message?.includes('Transaction not found')) {
-        console.warn(`Transaction error detected, retrying... (attempt ${attempt}/${maxRetries})`);
-        // Disconnect and reconnect to clear transaction state
-        await prisma.$disconnect();
-        await prisma.$connect();
-        await new Promise(resolve => setTimeout(resolve, 500 * attempt)); // Short delay
-        continue;
-      }
-      
-      // Handle prepared statement conflicts
-      if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
-        console.warn(`Prepared statement conflict detected, retrying... (attempt ${attempt}/${maxRetries})`);
-        // Disconnect and reconnect to clear prepared statements
-        await prisma.$disconnect();
-        await prisma.$connect();
-        continue;
-      }
-      
-      // Handle connection errors
-      if (error?.code === 'P1001' && attempt < maxRetries) {
-        console.warn(`Database connection failed, retrying... (attempt ${attempt}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
-        continue;
-      }
-      
-      // Handle authentication errors
-      if (error?.code === 'P1017' && attempt < maxRetries) {
-        console.warn(`Database authentication failed, retrying... (attempt ${attempt}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        continue;
-      }
-      
-      throw error;
-    }
-  }
-  
-  throw lastError;
-});
-
-// Handle connection errors and reconnect
-prisma.$connect()
-  .then(() => {
-    console.log('✅ Database connected successfully');
-    console.log('🔗 Using connection:', process.env.DIRECT_URL ? 'DIRECT_URL' : 'DATABASE_URL');
-  })
-  .catch((error) => {
-    console.error('❌ Database connection failed:', error);
-    console.error('🔧 Please check your environment variables:');
-    console.error('   - DIRECT_URL or DATABASE_URL should be set');
-    console.error('   - Make sure the database credentials are correct');
-    console.error('   - Verify the database server is accessible');
-  });
-
-// Graceful shutdown
-process.on('beforeExit', async () => {
-  await prisma.$disconnect();
-});
 
 export default prisma; 

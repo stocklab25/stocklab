@@ -13,8 +13,7 @@ export async function GET() {
       environment: process.env.NODE_ENV,
     });
   } catch (error: any) {
-    console.error('Health check failed:', error);
-    
+
     return NextResponse.json({
       status: 'unhealthy',
       database: 'disconnected',

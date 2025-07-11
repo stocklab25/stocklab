@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json({ data: cards, success: true });
   } catch (error) {
-    console.error('Error fetching cards:', error);
+    
     return NextResponse.json({ error: 'Failed to fetch cards' }, { status: 500 });
   }
 }
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ data: card, success: true, message: 'Card created' }, { status: 201 });
   } catch (error) {
-    console.error('Error creating card:', error);
+    
     return NextResponse.json({ error: 'Failed to create card' }, { status: 500 });
   }
 } 

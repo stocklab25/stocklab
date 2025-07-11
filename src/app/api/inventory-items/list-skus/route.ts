@@ -30,7 +30,7 @@ export async function GET() {
       data: inventoryItems
     });
   } catch (error) {
-    console.error('Error fetching inventory item SKUs:', error);
+    
     return NextResponse.json(
       { error: 'Failed to fetch inventory item SKUs' },
       { status: 500 }

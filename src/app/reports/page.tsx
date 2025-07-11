@@ -69,7 +69,7 @@ export default function Reports() {
       try {
         const token = await getAuthToken();
         if (!token) {
-          console.error('No authentication token available');
+          
           return;
         }
 
@@ -83,7 +83,7 @@ export default function Reports() {
           setSalesData(Array.isArray(data) ? data : data?.data || []);
         }
       } catch (error) {
-        console.error('Error fetching sales data:', error);
+        
       }
     };
     fetchSales();
@@ -95,7 +95,7 @@ export default function Reports() {
       try {
         // Ensure inventory is an array
         if (!Array.isArray(inventory)) {
-          console.error('Inventory is not an array:', inventory);
+          
           return;
         }
 
@@ -148,7 +148,7 @@ export default function Reports() {
           recentActivity,
         });
       } catch (error) {
-        console.error('Error calculating report data:', error);
+        
       }
     }
   }, [inventory?.length, products?.length, transactions?.length, settings.lowStockThreshold]);
@@ -248,8 +248,6 @@ export default function Reports() {
             </div>
           </Card>
         </div>
-
-
 
         {/* Report Selection */}
         <Card>

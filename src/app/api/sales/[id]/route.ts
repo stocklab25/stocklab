@@ -33,7 +33,6 @@ export async function GET(
 
     return NextResponse.json(sale);
   } catch (error) {
-    console.error('Error fetching sale:', error);
     return NextResponse.json(
       { error: 'Failed to fetch sale' },
       { status: 500 }
@@ -88,7 +87,6 @@ export async function PUT(
 
     return NextResponse.json(updatedSale);
   } catch (error) {
-    console.error('Error updating sale:', error);
     return NextResponse.json(
       { error: 'Failed to update sale' },
       { status: 500 }
@@ -129,7 +127,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Sale deleted successfully' });
   } catch (error) {
-    console.error('Error deleting sale:', error);
     return NextResponse.json(
       { error: 'Failed to delete sale' },
       { status: 500 }

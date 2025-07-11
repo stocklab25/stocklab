@@ -46,7 +46,7 @@ export function verifyToken(token: string): AuthenticatedUser | null {
       role: decoded.role,
     };
   } catch (error) {
-    console.error('Token verification error:', error);
+    
     return null;
   }
 }
@@ -54,7 +54,7 @@ export function verifyToken(token: string): AuthenticatedUser | null {
 // Helper to extract Bearer token from Authorization header
 export function getTokenFromHeader(req: NextRequest): string | null {
   const authHeader = req.headers.get('authorization');
-  console.log('Authorization header:', authHeader);
+  
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.substring(7);
   }
@@ -71,4 +71,3 @@ export async function comparePassword(password: string, hashedPassword: string):
   return bcrypt.compare(password, hashedPassword);
 }
 
- 

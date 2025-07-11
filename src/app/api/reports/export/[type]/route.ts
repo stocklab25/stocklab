@@ -115,7 +115,6 @@ export async function GET(
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Error generating report:', error);
     return NextResponse.json(
       { error: 'Failed to generate report' },
       { status: 500 }

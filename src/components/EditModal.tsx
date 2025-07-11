@@ -99,7 +99,7 @@ export function EditModal({
       onClose();
     } catch (err) {
       // Handle error - you might want to show a toast or set a general error
-      console.error('Error saving:', err);
+      
     }
   };
 

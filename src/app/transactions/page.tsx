@@ -215,11 +215,9 @@ export default function Transactions() {
         mutate(); // Refresh transactions list
       }
     } catch (error) {
-      console.error('Import error:', error);
+      
     }
   };
-
-
 
   const getStoreName = (txn: StockTransaction) => {
     // For OUT transactions, show the destination store

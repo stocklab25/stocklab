@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
         results.created++;
       } catch (error) {
-        console.error('Error creating sale:', error);
+        
         results.errors.push(`Failed to create sale: ${JSON.stringify(saleData)}`);
         results.skipped++;
       }
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('Error importing sales:', error);
+    
     return NextResponse.json(
       { error: 'Failed to import sales' },
       { status: 500 }

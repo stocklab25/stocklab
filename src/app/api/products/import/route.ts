@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
         results.created++;
       } catch (error) {
-        console.error('Error creating product:', error);
+        
         results.errors.push(`Failed to create product: ${JSON.stringify(productData)}`);
         results.skipped++;
       }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('Error importing products:', error);
+    
     return NextResponse.json(
       { error: 'Failed to import products' },
       { status: 500 }

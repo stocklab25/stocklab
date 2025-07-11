@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       success: true
     });
   } catch (error) {
-    console.error('Error checking SKU:', error);
+    
     return NextResponse.json(
       { error: 'Failed to check SKU' },
       { status: 500 }

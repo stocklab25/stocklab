@@ -49,7 +49,7 @@ const useAddProduct = () => {
       
       return result;
     } catch (error) {
-      console.error('Error adding product:', error);
+      
       throw error;
     } finally {
       setIsLoading(false);

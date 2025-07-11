@@ -86,7 +86,7 @@ export default function AddTransactionModal({
       try {
         const token = await getAuthToken();
         if (!token) {
-          console.error('No authentication token available');
+          
           setStores([]);
           return;
         }
@@ -98,7 +98,7 @@ export default function AddTransactionModal({
         });
 
         if (!response.ok) {
-          console.error('Failed to fetch stores:', response.status);
+          
           setStores([]);
           return;
         }
@@ -112,11 +112,11 @@ export default function AddTransactionModal({
           // Empty array is fine
           setStores([]);
         } else {
-          console.error('Stores API returned non-array data:', data);
+          
           setStores([]);
         }
       } catch (error) {
-        console.error('Error fetching stores:', error);
+        
         setStores([]);
       }
     };
@@ -178,7 +178,7 @@ export default function AddTransactionModal({
       });
       setErrors({});
     } catch (error) {
-      console.error('Error submitting transaction:', error);
+      
     }
   };
 

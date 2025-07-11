@@ -71,7 +71,7 @@ export default function StoreInventoryPage() {
       try {
         const token = await getAuthToken();
         if (!token) {
-          console.error('No authentication token available');
+          
           setStores([]);
           return;
         }
@@ -83,7 +83,7 @@ export default function StoreInventoryPage() {
         });
 
         if (!response.ok) {
-          console.error('Failed to fetch stores:', response.status);
+          
           setStores([]);
           return;
         }
@@ -97,11 +97,11 @@ export default function StoreInventoryPage() {
           // Empty array is fine
           setStores([]);
         } else {
-          console.error('Stores API returned non-array data:', data);
+          
           setStores([]);
         }
       } catch (error) {
-        console.error('Error fetching stores:', error);
+        
         setStores([]);
       }
     };
@@ -120,7 +120,7 @@ export default function StoreInventoryPage() {
       try {
         const token = await getAuthToken();
         if (!token) {
-          console.error('No authentication token available');
+          
           setInventory([]);
           return;
         }
@@ -132,7 +132,7 @@ export default function StoreInventoryPage() {
         });
 
         if (!response.ok) {
-          console.error('Failed to fetch inventory:', response.status);
+          
           setInventory([]);
           return;
         }
@@ -140,7 +140,7 @@ export default function StoreInventoryPage() {
         const data = await response.json();
         setInventory(data);
       } catch (error) {
-        console.error('Error fetching inventory:', error);
+        
         setInventory([]);
       } finally {
         setLoading(false);
@@ -158,7 +158,7 @@ export default function StoreInventoryPage() {
     try {
       const token = await getAuthToken();
       if (!token) {
-        console.error('No authentication token available');
+        
         return;
       }
 
@@ -177,10 +177,10 @@ export default function StoreInventoryPage() {
         setNewStore({ name: '', address: '', phone: '', email: '' });
         setShowAddStoreModal(false);
       } else {
-        console.error('Failed to create store');
+        
       }
     } catch (error) {
-      console.error('Error creating store:', error);
+      
     } finally {
       setAddingStore(false);
     }

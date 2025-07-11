@@ -26,13 +26,13 @@ export default function Settings() {
 
   const handleWipeDataSuccess = () => {
     // You could add a toast notification here
-    console.log('Data wiped successfully');
+    
   };
 
   const handleAddUserSuccess = () => {
     // Refresh the users list
     refreshUsers();
-    console.log('User created successfully');
+    
   };
 
   const handleEditUser = (user: any) => {
@@ -43,7 +43,7 @@ export default function Settings() {
   const handleEditUserSuccess = () => {
     // Refresh the users list
     refreshUsers();
-    console.log('User updated successfully');
+    
   };
 
   return (
@@ -220,8 +220,6 @@ export default function Settings() {
                 />
                 <p className="text-sm text-muted-foreground mt-1">Minimum quantity before low stock alert</p>
               </div>
-
-
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
