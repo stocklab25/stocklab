@@ -6,27 +6,26 @@ declare global {
 
 let prisma: PrismaClient;
 
-if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient({
-    log: ['error', 'warn'],
+// Enhanced configuration with better error handling
+const createPrismaClient = () => {
+  const client = new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     datasources: {
       db: {
-        url: process.env.DIRECT_URL,
+        url: process.env.DIRECT_URL || process.env.DATABASE_URL,
       },
     },
   });
+
+  return client;
+};
+
+if (process.env.NODE_ENV === 'production') {
+  prisma = createPrismaClient();
 } else {
   if (!global.prisma) {
-    global.prisma = new PrismaClient({
-      log: ['error', 'warn'],
-      datasources: {
-        db: {
-          url: process.env.DIRECT_URL,
-        },
-      },
-    });
+    global.prisma = createPrismaClient();
   }
-
   prisma = global.prisma;
 }
 
@@ -40,6 +39,13 @@ prisma.$use(async (params, next) => {
       return await next(params);
     } catch (error: any) {
       lastError = error;
+      
+      console.error(`Database operation failed (attempt ${attempt}/${maxRetries}):`, {
+        operation: params.action,
+        model: params.model,
+        error: error.message,
+        code: error.code
+      });
       
       // Handle transaction errors
       if (error?.code === 'P2028' || error?.message?.includes('Transaction not found')) {
@@ -67,6 +73,13 @@ prisma.$use(async (params, next) => {
         continue;
       }
       
+      // Handle authentication errors
+      if (error?.code === 'P1017' && attempt < maxRetries) {
+        console.warn(`Database authentication failed, retrying... (attempt ${attempt}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
+      
       throw error;
     }
   }
@@ -77,10 +90,15 @@ prisma.$use(async (params, next) => {
 // Handle connection errors and reconnect
 prisma.$connect()
   .then(() => {
-    console.log('Database connected successfully (using direct connection)');
+    console.log('✅ Database connected successfully');
+    console.log('🔗 Using connection:', process.env.DIRECT_URL ? 'DIRECT_URL' : 'DATABASE_URL');
   })
   .catch((error) => {
-    console.error('Database connection failed:', error);
+    console.error('❌ Database connection failed:', error);
+    console.error('🔧 Please check your environment variables:');
+    console.error('   - DIRECT_URL or DATABASE_URL should be set');
+    console.error('   - Make sure the database credentials are correct');
+    console.error('   - Verify the database server is accessible');
   });
 
 // Graceful shutdown

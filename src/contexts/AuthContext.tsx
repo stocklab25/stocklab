@@ -106,6 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const getAuthToken = (): string | null => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
     return localStorage.getItem('authToken');
   };
 

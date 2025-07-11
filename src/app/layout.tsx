@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { NavigationProvider } from "@/contexts/NavigationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import SWRProvider from "@/components/SWRProvider";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,11 +26,13 @@ export default function RootLayout({
         <AuthProvider>
           <ThemeProvider>
             <CurrencyProvider>
-              <NavigationProvider>
-                <SWRProvider>
-                  {children}
-                </SWRProvider>
-              </NavigationProvider>
+              <SettingsProvider>
+                <NavigationProvider>
+                  <SWRProvider>
+                    {children}
+                  </SWRProvider>
+                </NavigationProvider>
+              </SettingsProvider>
             </CurrencyProvider>
           </ThemeProvider>
         </AuthProvider>

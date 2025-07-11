@@ -5,6 +5,7 @@ import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { PageLoader } from '@/components/Loader';
 import { useInventory, useProducts, useTransactions } from '@/hooks';
+import { useSettings } from '@/contexts/SettingsContext';
 import InventorySummaryChart from '@/components/charts/InventorySummaryChart';
 import ValueReportChart from '@/components/charts/ValueReportChart';
 import SalesByStoreChart from '@/components/charts/SalesByStoreChart';
@@ -47,6 +48,7 @@ export default function Reports() {
   const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
   const { data: products, isLoading: productsLoading, isError: productsError } = useProducts();
   const { data: transactions, isLoading: transactionsLoading, isError: transactionsError } = useTransactions();
+  const { settings } = useSettings();
   const [selectedReport, setSelectedReport] = useState<string>('summary');
   const [salesData, setSalesData] = useState<any[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -121,10 +123,15 @@ export default function Reports() {
           .map(([type, count]) => ({ type, count }))
           .sort((a, b) => b.count - a.count);
 
+        // Calculate low stock items
+        const lowStockItems = inventory.filter((item: InventoryItem) => 
+          item.quantity <= settings.lowStockThreshold
+        ).length;
+
         setReportData({
           totalValue,
           totalItems,
-          lowStockItems: 0, // Would need business logic to determine
+          lowStockItems,
           topBrands,
           recentActivity,
         });
@@ -132,7 +139,7 @@ export default function Reports() {
         console.error('Error calculating report data:', error);
       }
     }
-  }, [inventory, products, transactions]);
+  }, [inventory?.length, products?.length, transactions?.length, settings.lowStockThreshold]);
 
   // Check if any data is loading
   const isLoading = inventoryLoading || productsLoading || transactionsLoading;

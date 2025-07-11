@@ -10,6 +10,7 @@ import { useImportProducts } from './useImportProducts';
 import { useImportTransactions } from './useImportTransactions';
 import { useImportSales } from './useImportSales';
 import { useImportExpenses } from './useImportExpenses';
+import { useUsers } from './useUsers';
 
 export {
   useProducts,
@@ -24,4 +25,5 @@ export {
   useImportTransactions,
   useImportSales,
   useImportExpenses,
+  useUsers,
 }; 

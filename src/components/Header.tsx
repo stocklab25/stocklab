@@ -12,7 +12,7 @@ export default function Header() {
   const { isNavigating } = useNavigation();
 
   return (
-    <header className="bg-background border-b border-border px-6 py-4">
+    <header className="bg-background border-b border-border px-6 py-4 h-16">
       <div className="flex items-center justify-end">
         <div className="flex items-center space-x-4">
           {/* Navigation Loading Indicator */}

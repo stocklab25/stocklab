@@ -197,7 +197,7 @@ export default function AddTransactionModal({
       />
       
       {/* Modal */}
-      <div className="relative w-1/2 bg-white rounded-lg shadow-xl border border-gray-200">
+      <div className="relative w-1/2 max-h-[90vh] bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -215,7 +215,7 @@ export default function AddTransactionModal({
         </div>
         
         {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {/* Transaction Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -7,6 +7,7 @@ import { EditModal } from '@/components/EditModal';
 import AddInventoryModal from '@/components/AddInventoryModal';
 import EditInventoryModal from '@/components/EditInventoryModal';
 import { useInventory, useUpdateInventoryQuantity } from '@/hooks';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface Product {
   id: string;
@@ -40,6 +41,7 @@ interface InventoryItem {
 export default function Inventory() {
   const { data: inventory, isLoading, isError, mutate } = useInventory();
   const { updateQuantity, isLoading: isUpdating } = useUpdateInventoryQuantity();
+  const { settings } = useSettings();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -50,13 +52,10 @@ export default function Inventory() {
   const [showEditInventoryModal, setShowEditInventoryModal] = useState(false);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
 
-  // Low stock threshold - you can adjust this value
-  const LOW_STOCK_THRESHOLD = 5;
-
   const getDynamicStatus = (quantity: number) => {
     if (quantity === 0) {
       return 'Out of Stock';
-    } else if (quantity <= LOW_STOCK_THRESHOLD) {
+    } else if (quantity <= settings.lowStockThreshold) {
       return 'Low Stock';
     } else {
       return 'In Stock';
@@ -79,7 +78,7 @@ export default function Inventory() {
   const getStatusColor = (quantity: number) => {
     if (quantity === 0) {
       return 'bg-red-100 text-red-800';
-    } else if (quantity <= LOW_STOCK_THRESHOLD) {
+    } else if (quantity <= settings.lowStockThreshold) {
       return 'bg-yellow-100 text-yellow-800';
     } else {
         return 'bg-green-100 text-green-800';

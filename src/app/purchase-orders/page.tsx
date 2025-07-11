@@ -40,6 +40,8 @@ export default function PurchaseOrdersPage() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [vendorFilter, setVendorFilter] = useState('');
   const { getAuthToken } = useAuth();
 
   useEffect(() => {
@@ -93,6 +95,23 @@ export default function PurchaseOrdersPage() {
     // You can add logic here to determine status based on your business rules
     return <Badge variant="default">Active</Badge>;
   };
+
+  // Filter purchase orders based on search term and vendor filter
+  const filteredPurchaseOrders = purchaseOrders.filter((po) => {
+    const matchesSearch = 
+      po.inventoryItem?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      po.inventoryItem?.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      po.inventoryItem?.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      po.vendor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      po.r3vPurchaseOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesVendor = vendorFilter === '' || po.vendor === vendorFilter;
+    
+    return matchesSearch && matchesVendor;
+  });
+
+  // Get unique vendors for filter dropdown
+  const uniqueVendors = [...new Set(purchaseOrders.map(po => po.vendor))];
 
   const columns = [
     {
@@ -189,10 +208,6 @@ export default function PurchaseOrdersPage() {
                 Manage and track all purchase orders
               </p>
             </div>
-            <Button onClick={() => {}}>
-              <span className="mr-2">+</span>
-              New Purchase Order
-            </Button>
           </div>
 
           {/* Stats Cards */}
@@ -202,7 +217,7 @@ export default function PurchaseOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                    <p className="text-2xl font-bold text-foreground">{purchaseOrders.length}</p>
+                    <p className="text-2xl font-bold text-foreground">{filteredPurchaseOrders.length}</p>
                   </div>
                   <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                     <span className="text-blue-600 text-lg">📋</span>
@@ -218,7 +233,7 @@ export default function PurchaseOrdersPage() {
                     <p className="text-sm font-medium text-muted-foreground">Total Value</p>
                     <p className="text-2xl font-bold text-foreground">
                       {formatCurrency(
-                        purchaseOrders.reduce((sum, po) => sum + (po.cost * po.quantity), 0)
+                        filteredPurchaseOrders.reduce((sum, po) => sum + (po.cost * po.quantity), 0)
                       )}
                     </p>
                   </div>
@@ -235,7 +250,7 @@ export default function PurchaseOrdersPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">This Month</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {purchaseOrders.filter(po => {
+                      {filteredPurchaseOrders.filter(po => {
                         const poDate = new Date(po.purchaseDate);
                         const now = new Date();
                         return poDate.getMonth() === now.getMonth() && 
@@ -256,7 +271,7 @@ export default function PurchaseOrdersPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Active Vendors</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {new Set(purchaseOrders.map(po => po.vendor)).size}
+                      {new Set(filteredPurchaseOrders.map(po => po.vendor)).size}
                     </p>
                   </div>
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -267,19 +282,40 @@ export default function PurchaseOrdersPage() {
             </Card>
           </div>
 
+          {/* Search and Filters */}
+          <Card>
+            <div className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search by product name, brand, SKU, vendor, or order number..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+                <select 
+                  value={vendorFilter}
+                  onChange={(e) => setVendorFilter(e.target.value)}
+                  className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="">All Vendors</option>
+                  {uniqueVendors.map(vendor => (
+                    <option key={vendor} value={vendor}>
+                      {vendor}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </Card>
+
           {/* Purchase Orders Table */}
           <Card>
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-foreground">Purchase Orders</h2>
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">
-                    Export
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Filter
-                  </Button>
-                </div>
               </div>
 
               {error ? (
@@ -289,7 +325,7 @@ export default function PurchaseOrdersPage() {
                     Retry
                   </Button>
                 </div>
-              ) : purchaseOrders.length === 0 ? (
+              ) : filteredPurchaseOrders.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                     <span className="text-2xl">📋</span>
@@ -314,7 +350,7 @@ export default function PurchaseOrdersPage() {
                      </TableRow>
                    </TableHeader>
                    <TableBody>
-                     {purchaseOrders.map((purchaseOrder) => (
+                     {filteredPurchaseOrders.map((purchaseOrder) => (
                        <TableRow key={purchaseOrder.id} className="hover:bg-muted/50">
                          {columns.map((column) => (
                            <TableCell key={column.key}>

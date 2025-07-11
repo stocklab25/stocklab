@@ -5,30 +5,45 @@ import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useUsers } from '@/hooks';
 import WipeDataModal from '@/components/WipeDataModal';
+import AddUserModal from '@/components/AddUserModal';
+import EditUserModal from '@/components/EditUserModal';
 
 export default function Settings() {
   const { user } = useAuth();
   const { currency, setCurrency } = useCurrency();
+  const { settings, updateLowStockThreshold, updateNotificationSettings, updateDisplaySettings } = useSettings();
+  const { users, isLoading: usersLoading, mutate: refreshUsers } = useUsers();
   const [showWipeDataModal, setShowWipeDataModal] = useState(false);
-  const [notifications, setNotifications] = useState({
-    lowStock: true,
-    newItems: true,
-    transactions: false,
-    reports: true,
-  });
-
-  const [displaySettings, setDisplaySettings] = useState({
-    theme: 'light',
-    dateFormat: 'MM/DD/YYYY',
-    timezone: 'UTC',
-  });
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN';
 
   const handleWipeDataSuccess = () => {
     // You could add a toast notification here
     console.log('Data wiped successfully');
+  };
+
+  const handleAddUserSuccess = () => {
+    // Refresh the users list
+    refreshUsers();
+    console.log('User created successfully');
+  };
+
+  const handleEditUser = (user: any) => {
+    setSelectedUser(user);
+    setShowEditUserModal(true);
+  };
+
+  const handleEditUserSuccess = () => {
+    // Refresh the users list
+    refreshUsers();
+    console.log('User updated successfully');
   };
 
   return (
@@ -85,8 +100,8 @@ export default function Settings() {
                   Date Format
                 </label>
                 <select 
-                  value={displaySettings.dateFormat}
-                  onChange={(e) => setDisplaySettings({...displaySettings, dateFormat: e.target.value})}
+                  value={settings.display.dateFormat}
+                  onChange={(e) => updateDisplaySettings({ dateFormat: e.target.value })}
                   className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -100,8 +115,8 @@ export default function Settings() {
                   Timezone
                 </label>
                 <select 
-                  value={displaySettings.timezone}
-                  onChange={(e) => setDisplaySettings({...displaySettings, timezone: e.target.value})}
+                  value={settings.display.timezone}
+                  onChange={(e) => updateDisplaySettings({ timezone: e.target.value })}
                   className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="UTC">UTC</option>
@@ -128,8 +143,8 @@ export default function Settings() {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifications.lowStock}
-                    onChange={(e) => setNotifications({...notifications, lowStock: e.target.checked})}
+                    checked={settings.notifications.lowStock}
+                    onChange={(e) => updateNotificationSettings({ lowStock: e.target.checked })}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-input after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -144,8 +159,8 @@ export default function Settings() {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifications.newItems}
-                    onChange={(e) => setNotifications({...notifications, newItems: e.target.checked})}
+                    checked={settings.notifications.newItems}
+                    onChange={(e) => updateNotificationSettings({ newItems: e.target.checked })}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-input after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -160,8 +175,8 @@ export default function Settings() {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifications.transactions}
-                    onChange={(e) => setNotifications({...notifications, transactions: e.target.checked})}
+                    checked={settings.notifications.transactions}
+                    onChange={(e) => updateNotificationSettings({ transactions: e.target.checked })}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-input after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -176,8 +191,8 @@ export default function Settings() {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifications.reports}
-                    onChange={(e) => setNotifications({...notifications, reports: e.target.checked})}
+                    checked={settings.notifications.reports}
+                    onChange={(e) => updateNotificationSettings({ reports: e.target.checked })}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-input after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -198,7 +213,8 @@ export default function Settings() {
                 </label>
                 <input
                   type="number"
-                  defaultValue="5"
+                  value={settings.lowStockThreshold}
+                  onChange={(e) => updateLowStockThreshold(parseInt(e.target.value) || 1)}
                   min="1"
                   className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
@@ -221,32 +237,57 @@ export default function Settings() {
           </div>
         </Card>
 
-        {/* User Management */}
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">User Management</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-accent rounded-lg">
-                <div>
-                  <p className="font-medium text-foreground">Admin User</p>
-                  <p className="text-sm text-muted-foreground">admin@stocklab.com</p>
+        {/* User Management - Admin Only */}
+        {isAdmin && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">User Management</h3>
+              
+              {usersLoading ? (
+                <div className="text-center py-8">
+                  <div className="text-muted-foreground">Loading users...</div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                    Administrator
-                  </span>
-                  <button className="text-sm text-muted-foreground hover:text-foreground">
-                    Edit
+              ) : (
+                <div className="space-y-4">
+                  {/* Users List */}
+                  <div className="space-y-3">
+                    {users.map((userItem) => (
+                      <div key={userItem.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
+                        <div>
+                          <p className="font-medium text-foreground">{userItem.name}</p>
+                          <p className="text-sm text-muted-foreground">{userItem.email}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            userItem.role === 'ADMIN' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {userItem.role === 'ADMIN' ? 'Administrator' : 'User'}
+                          </span>
+                          <button 
+                            onClick={() => handleEditUser(userItem)}
+                            className="text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add User Button */}
+                  <button 
+                    onClick={() => setShowAddUserModal(true)}
+                    className="w-full px-4 py-2 border border-input rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+                  >
+                    + Add New User
                   </button>
                 </div>
-              </div>
-
-              <button className="w-full px-4 py-2 border border-input rounded-lg text-muted-foreground hover:bg-accent transition-colors">
-                + Add New User
-              </button>
+              )}
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Admin Only - Danger Zone */}
         {isAdmin && (
@@ -292,6 +333,21 @@ export default function Settings() {
         isOpen={showWipeDataModal}
         onClose={() => setShowWipeDataModal(false)}
         onSuccess={handleWipeDataSuccess}
+      />
+
+      {/* Add User Modal */}
+      <AddUserModal
+        isOpen={showAddUserModal}
+        onClose={() => setShowAddUserModal(false)}
+        onSuccess={handleAddUserSuccess}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={showEditUserModal}
+        onClose={() => setShowEditUserModal(false)}
+        onSuccess={handleEditUserSuccess}
+        user={selectedUser}
       />
     </Layout>
   );
