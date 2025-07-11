@@ -31,7 +31,7 @@ export function useAddInventory() {
     setError(null);
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) {
         throw new Error('No authentication token found');
       }

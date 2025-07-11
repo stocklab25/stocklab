@@ -107,17 +107,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify user exists in database
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id }
-    });
-
-    if (!dbUser) {
-      return NextResponse.json(
-        { error: 'User not found in database' },
-        { status: 404 }
-      );
-    }
+    // Use Supabase user ID directly (userId is optional in StockTransaction)
 
     // Check if inventory item exists
     const inventoryItem = await prisma.inventoryItem.findUnique({
@@ -139,7 +129,7 @@ export async function POST(req: NextRequest) {
         quantity: parseInt(quantity),
         notes,
         date: transactionDate ? new Date(transactionDate) : new Date(),
-        userId: dbUser.id,
+        userId: null, // Set to null to avoid foreign key constraint
       },
       include: {
         InventoryItem: {

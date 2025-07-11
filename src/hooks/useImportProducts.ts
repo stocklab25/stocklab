@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ImportResult {
   productsCreated: number;
@@ -16,13 +17,14 @@ interface UseImportProductsReturn {
 export function useImportProducts(): UseImportProductsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { getAuthToken } = useAuth();
 
   const importProducts = async (file: File): Promise<ImportResult> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('authToken');
+      const token = await getAuthToken();
       const formData = new FormData();
       formData.append('file', file);
 

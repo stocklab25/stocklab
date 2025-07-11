@@ -87,7 +87,7 @@ export default function Reports() {
       }
     };
     fetchSales();
-  }, [getAuthToken]);
+  }, []); // Removed getAuthToken from dependency array
 
   // Calculate report data when data is available
   useEffect(() => {
@@ -176,7 +176,7 @@ export default function Reports() {
             <div className="text-lg text-red-600">Error loading reports</div>
             <p className="text-muted-foreground">Failed to fetch data. Please check your connection and try again.</p>
             <button 
-              onClick={() => window.location.reload()}
+              onClick={() => window.location.href = '/reports'}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               Try Again

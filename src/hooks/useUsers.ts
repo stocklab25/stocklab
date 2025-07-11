@@ -41,14 +41,10 @@ const fetcher = async (url: string, getAuthToken: () => Promise<string | null>):
 
 export function useUsers(page: number = 1, limit: number = 10) {
   const { getAuthToken } = useAuth();
-
+  const key = `/api/users?page=${page}&limit=${limit}`;
   const { data, error, isLoading, mutate } = useSWR<UsersResponse>(
-    [`/api/users?page=${page}&limit=${limit}`, getAuthToken],
-    ([url, tokenFn]: [string, () => Promise<string | null>]) => fetcher(url, tokenFn),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-    }
+    key,
+    (url: string) => fetcher(url, getAuthToken)
   );
 
   return {

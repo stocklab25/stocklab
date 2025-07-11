@@ -55,6 +55,46 @@ export default function Settings() {
           <p className="text-muted-foreground mt-2">Configure your Stock Lab system preferences</p>
         </div>
 
+        {/* Profile Settings */}
+        <Card>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Profile Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={user?.name || ''}
+                  disabled
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-muted/50 cursor-not-allowed"
+                />
+                <p className="text-sm text-muted-foreground mt-1">Current display name: {user?.name || 'Not set'}</p>
+                <a 
+                  href="/profile" 
+                  className="inline-block mt-2 text-sm text-primary hover:text-primary/80"
+                >
+                  Edit Profile →
+                </a>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={user?.email || ''}
+                  disabled
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-muted/50 cursor-not-allowed"
+                />
+                <p className="text-sm text-muted-foreground mt-1">Email address cannot be changed</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* General Settings */}
         <Card>
           <div className="p-6">

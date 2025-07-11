@@ -2,15 +2,24 @@
 
 import { SWRConfig } from 'swr';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
 export default function SWRProvider({ children }: { children: React.ReactNode }) {
   return (
     <SWRConfig
       value={{
-        fetcher,
+        // Disable global fetcher since hooks use their own authenticated fetchers
+        fetcher: undefined,
         revalidateOnFocus: false,
-        revalidateOnReconnect: true,
+        revalidateOnReconnect: false,
+        revalidateOnMount: false, // Changed to false
+        revalidateIfStale: false,
+        dedupingInterval: 0, // Disable deduplication
+        focusThrottleInterval: 0, // Disable focus throttling
+        errorRetryCount: 0, // Disable error retries
+        errorRetryInterval: 0,
+        refreshInterval: 0, // Disable automatic refresh
+        refreshWhenHidden: false,
+        refreshWhenOffline: false,
+        shouldRetryOnError: false, // Disable retry on error
       }}
     >
       {children}

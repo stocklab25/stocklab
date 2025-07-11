@@ -1,5 +1,6 @@
 import { mutate } from 'swr';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UpdateQuantityData {
   quantity: number;
@@ -8,19 +9,23 @@ interface UpdateQuantityData {
 export const useUpdateInventoryQuantity = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { getAuthToken } = useAuth();
 
   const updateQuantity = async (inventoryId: string, data: UpdateQuantityData) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('authToken');
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
       
       const response = await fetch(`/api/inventory/${inventoryId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(data),
       });

@@ -25,10 +25,15 @@ export const useImportSales = (): UseImportSalesReturn => {
       const formData = new FormData();
       formData.append('file', file);
 
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch('/api/sales/import', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: formData,
       });

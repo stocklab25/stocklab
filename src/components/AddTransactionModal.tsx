@@ -124,7 +124,7 @@ export default function AddTransactionModal({
     if (isOpen) {
       fetchStores();
     }
-  }, [isOpen, getAuthToken]);
+  }, [isOpen]); // Removed getAuthToken from dependency array
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

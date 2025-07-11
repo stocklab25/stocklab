@@ -127,9 +127,9 @@ export default function Login() {
         {/* Footer */}
         <div className="text-center">
           <p className="text-muted-foreground dark:text-muted-foreground text-sm">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-primary hover:text-primary/80">
-              Contact administrator
+            Need to update your profile?{' '}
+            <Link href="/profile" className="text-primary hover:text-primary/80">
+              Edit Profile
             </Link>
           </p>
         </div>

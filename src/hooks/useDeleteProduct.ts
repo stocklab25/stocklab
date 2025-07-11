@@ -14,7 +14,7 @@ export function useDeleteProduct(options: DeleteProductOptions = {}) {
     setLoading(true);
     
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) {
         throw new Error('Authentication required');
       }

@@ -25,6 +25,8 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
   const { data: products } = useProducts();
   const { data: inventoryItems } = useInventory();
   
+
+
   const [formData, setFormData] = useState({
     productId: '',
     sku: '',
@@ -163,6 +165,8 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
             </svg>
           </button>
         </div>
+
+        
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Product Selection */}

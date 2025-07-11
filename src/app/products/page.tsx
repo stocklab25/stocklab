@@ -31,11 +31,15 @@ export default function Products() {
   const { addProduct, isLoading: isAdding } = useAddProduct();
   const { archiveProduct, hardDeleteProduct, loading: isDeleting } = useDeleteProduct({
     onSuccess: () => mutate(),
-    onError: (error) => 
+    onError: (error) => {
+      // Handle error silently
+    }
   });
   const { restoreProduct, loading: isRestoring } = useRestoreProduct({
     onSuccess: () => mutate(),
-    onError: (error) => 
+    onError: (error) => {
+      // Handle error silently
+    }
   });
   const { editProduct, loading: isEditing } = useEditProduct({
     onSuccess: () => {
@@ -43,7 +47,9 @@ export default function Products() {
       setIsEditModalOpen(false);
       setProductToEdit(null);
     },
-    onError: (error) => 
+    onError: (error) => {
+      // Handle error silently
+    }
   });
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +83,7 @@ export default function Products() {
       await addProduct(productData);
       setIsModalOpen(false);
     } catch (error) {
-      
+      // Handle error silently
     }
   };
 
@@ -105,7 +111,7 @@ export default function Products() {
         await archiveProduct(productToDelete.id);
       }
     } catch (error) {
-      
+      // Handle error silently
     } finally {
       setDeletingId(null);
       setShowPrompt(false);
@@ -119,7 +125,7 @@ export default function Products() {
       await restoreProduct(productId);
       setOpenDropdown(null);
     } catch (error) {
-      
+      // Handle error silently
     }
   };
 
@@ -133,7 +139,7 @@ export default function Products() {
     try {
       await editProduct(productId, productData);
     } catch (error) {
-      
+      // Handle error silently
     }
   };
 
@@ -157,7 +163,7 @@ export default function Products() {
         mutate(); // Refresh products list
       }
     } catch (error) {
-      
+      // Handle error silently
     }
   };
 

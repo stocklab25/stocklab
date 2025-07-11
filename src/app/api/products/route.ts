@@ -126,16 +126,9 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    
-    // Debug: Log the received data
-    
-    );
-    
-    );
 
     // Validate required fields
     if (!data.brand || !data.name) {
-      
       return NextResponse.json(
         { error: 'Brand and name are required' },
         { status: 400 }
@@ -159,8 +152,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Debug: Log what we're about to create
-    
     const product = await prisma.product.create({
       data: {
         brand: data.brand,

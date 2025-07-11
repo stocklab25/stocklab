@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ImportResult {
   transactionsCreated: number;
@@ -14,20 +15,25 @@ interface UseImportTransactionsReturn {
 export function useImportTransactions(): UseImportTransactionsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { getAuthToken } = useAuth();
 
   const importTransactions = async (file: File): Promise<ImportResult> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('authToken');
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       const formData = new FormData();
       formData.append('file', file);
 
       const response = await fetch('/api/transactions/import', {
         method: 'POST',
         headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
+          'Authorization': `Bearer ${token}`,
         },
         body: formData,
       });

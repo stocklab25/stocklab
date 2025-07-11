@@ -34,6 +34,7 @@ const navigation: (NavItem | NavGroup)[] = [
     ]
   },
   { name: 'Reports', href: '/reports', icon: '📈' },
+  { name: 'Profile', href: '/profile', icon: '👤' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 

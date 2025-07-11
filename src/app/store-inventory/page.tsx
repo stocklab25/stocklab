@@ -107,7 +107,7 @@ export default function StoreInventoryPage() {
     };
 
     fetchStores();
-  }, [getAuthToken]);
+  }, []);
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -148,7 +148,7 @@ export default function StoreInventoryPage() {
     };
 
     fetchInventory();
-  }, [selectedStoreId, getAuthToken]);
+  }, [selectedStoreId]);
 
   const handleAddStore = async (e: React.FormEvent) => {
     e.preventDefault();

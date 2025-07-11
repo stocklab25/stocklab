@@ -12,11 +12,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { sales } = await request.json();
+    // Parse FormData to get the file
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
 
-    if (!Array.isArray(sales)) {
+    if (!file) {
       return NextResponse.json(
-        { error: 'Sales must be an array' },
+        { error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+
+    // Read and parse CSV file
+    const fileBuffer = await file.arrayBuffer();
+    const fileString = new TextDecoder().decode(fileBuffer);
+    
+    // Simple CSV parsing (split by lines and commas)
+    const lines = fileString.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      return NextResponse.json(
+        { error: 'CSV file must have at least a header row and one data row' },
+        { status: 400 }
+      );
+    }
+
+    // Parse header row
+    const headers = lines[0].split(',').map(h => h.trim());
+    const sales = [];
+
+    // Parse data rows
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      
+      // Skip empty rows (where all values are empty)
+      if (values.every(v => !v)) {
+        continue;
+      }
+      
+      const sale: any = {};
+      
+      headers.forEach((header, index) => {
+        sale[header] = values[index] || '';
+      });
+      
+      sales.push(sale);
+    }
+
+    if (sales.length === 0) {
+      return NextResponse.json(
+        { error: 'No sales found in CSV file' },
         { status: 400 }
       );
     }
@@ -29,8 +73,21 @@ export async function POST(request: NextRequest) {
 
     for (const saleData of sales) {
       try {
+        // Normalize field names (case-insensitive)
+        const normalizedData = {
+          storeId: saleData.storeId || saleData['Store ID'] || saleData['StoreId'],
+          inventoryItemId: saleData.inventoryItemId || saleData['Inventory Item ID'] || saleData['InventoryItemId'],
+          cost: saleData.cost || saleData.Cost,
+          payout: saleData.payout || saleData.Payout,
+          orderNumber: saleData.orderNumber || saleData['Order Number'] || saleData['OrderNumber'],
+          quantity: saleData.quantity || saleData.Quantity,
+          discount: saleData.discount || saleData.Discount,
+          saleDate: saleData.saleDate || saleData['Sale Date'] || saleData['SaleDate'],
+          notes: saleData.notes || saleData.Notes,
+        };
+
         // Validate required fields
-        if (!saleData.storeId || !saleData.inventoryItemId || !saleData.cost || !saleData.payout) {
+        if (!normalizedData.storeId || !normalizedData.inventoryItemId || !normalizedData.cost || !normalizedData.payout) {
           results.errors.push(`Sale missing required fields: ${JSON.stringify(saleData)}`);
           results.skipped++;
           continue;
@@ -38,28 +95,28 @@ export async function POST(request: NextRequest) {
 
         // Check if store exists
         const store = await prisma.store.findUnique({
-          where: { id: saleData.storeId },
+          where: { id: normalizedData.storeId },
         });
 
         if (!store) {
-          results.errors.push(`Store not found: ${saleData.storeId}`);
+          results.errors.push(`Store not found: ${normalizedData.storeId}`);
           results.skipped++;
           continue;
         }
 
         // Check if inventory item exists
         const inventoryItem = await prisma.inventoryItem.findUnique({
-          where: { id: saleData.inventoryItemId },
+          where: { id: normalizedData.inventoryItemId },
         });
 
         if (!inventoryItem) {
-          results.errors.push(`Inventory item not found: ${saleData.inventoryItemId}`);
+          results.errors.push(`Inventory item not found: ${normalizedData.inventoryItemId}`);
           results.skipped++;
           continue;
         }
 
         // Generate unique order number if not provided
-        let orderNumber = saleData.orderNumber;
+        let orderNumber = normalizedData.orderNumber;
         if (!orderNumber) {
           const timestamp = Date.now().toString();
           const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -80,22 +137,22 @@ export async function POST(request: NextRequest) {
         // Create the sale
         await prisma.sale.create({
           data: {
-            storeId: saleData.storeId,
-            inventoryItemId: saleData.inventoryItemId,
+            storeId: normalizedData.storeId,
+            inventoryItemId: normalizedData.inventoryItemId,
             orderNumber,
-            quantity: saleData.quantity || 1,
-            cost: parseFloat(saleData.cost),
-            payout: parseFloat(saleData.payout),
-            discount: saleData.discount ? parseFloat(saleData.discount) : null,
-            saleDate: saleData.saleDate ? new Date(saleData.saleDate) : new Date(),
-            notes: saleData.notes,
+            quantity: parseInt(normalizedData.quantity) || 1,
+            cost: parseFloat(normalizedData.cost),
+            payout: parseFloat(normalizedData.payout),
+            discount: normalizedData.discount ? parseFloat(normalizedData.discount) : null,
+            saleDate: normalizedData.saleDate ? new Date(normalizedData.saleDate) : new Date(),
+            notes: normalizedData.notes,
           },
         });
 
         results.created++;
       } catch (error) {
-        
-        results.errors.push(`Failed to create sale: ${JSON.stringify(saleData)}`);
+        console.error('Error creating sale:', error);
+        results.errors.push(`Failed to create sale: ${JSON.stringify(saleData)} - ${error instanceof Error ? error.message : 'Unknown error'}`);
         results.skipped++;
       }
     }
@@ -106,9 +163,9 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    
+    console.error('Sales import error:', error);
     return NextResponse.json(
-      { error: 'Failed to import sales' },
+      { error: 'Failed to import sales', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

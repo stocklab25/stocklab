@@ -1,77 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Layout from '@/components/Layout';
 import PageContainer from '@/components/PageContainer';
 import { Card } from '@/components/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/Table';
 import Button from '@/components/Button';
 import Badge from '@/components/Badge';
-import { useAuth } from '@/contexts/AuthContext';
-
-interface PurchaseOrder {
-  id: string;
-  r3vPurchaseOrderNumber: string;
-  inventoryItemId: string;
-  vendor: string;
-  paymentMethod: string;
-  orderNumber?: string;
-  quantity: number;
-  cost: number;
-  purchaseDate: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-  inventoryItem: {
-    id: string;
-    sku: string;
-    size: string;
-    condition: string;
-    product: {
-      id: string;
-      brand: string;
-      name: string;
-      color: string;
-    };
-  };
-}
+import usePurchaseOrders, { type PurchaseOrder } from '@/hooks/usePurchaseOrders';
 
 export default function PurchaseOrdersPage() {
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorFilter, setVendorFilter] = useState('');
-  const { getAuthToken } = useAuth();
-
-  useEffect(() => {
-    fetchPurchaseOrders();
-  }, []);
-
-  const fetchPurchaseOrders = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-      const res = await fetch('/api/purchase-orders', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to fetch purchase orders');
-      }
-
-      const data = await res.json();
-      setPurchaseOrders(data.data || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: purchaseOrders, isLoading, isError, mutate } = usePurchaseOrders();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -94,7 +35,7 @@ export default function PurchaseOrdersPage() {
   };
 
   // Filter purchase orders based on search term and vendor filter
-  const filteredPurchaseOrders = purchaseOrders.filter((po) => {
+  const filteredPurchaseOrders = purchaseOrders?.filter((po: PurchaseOrder) => {
     const matchesSearch = 
       po.inventoryItem?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       po.inventoryItem?.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -105,10 +46,10 @@ export default function PurchaseOrdersPage() {
     const matchesVendor = vendorFilter === '' || po.vendor === vendorFilter;
     
     return matchesSearch && matchesVendor;
-  });
+  }) || [];
 
   // Get unique vendors for filter dropdown
-  const uniqueVendors = [...new Set(purchaseOrders.map(po => po.vendor))];
+  const uniqueVendors = [...new Set(purchaseOrders?.map((po: PurchaseOrder) => po.vendor))];
 
   const columns = [
     {
@@ -178,7 +119,7 @@ export default function PurchaseOrdersPage() {
     },
   ];
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <PageContainer>
@@ -230,7 +171,7 @@ export default function PurchaseOrdersPage() {
                     <p className="text-sm font-medium text-muted-foreground">Total Value</p>
                     <p className="text-2xl font-bold text-foreground">
                       {formatCurrency(
-                        filteredPurchaseOrders.reduce((sum, po) => sum + (po.cost * po.quantity), 0)
+                        filteredPurchaseOrders.reduce((sum: number, po: PurchaseOrder) => sum + (po.cost * po.quantity), 0)
                       )}
                     </p>
                   </div>
@@ -247,7 +188,7 @@ export default function PurchaseOrdersPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">This Month</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {filteredPurchaseOrders.filter(po => {
+                      {filteredPurchaseOrders.filter((po: PurchaseOrder) => {
                         const poDate = new Date(po.purchaseDate);
                         const now = new Date();
                         return poDate.getMonth() === now.getMonth() && 
@@ -268,7 +209,7 @@ export default function PurchaseOrdersPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Active Vendors</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {new Set(filteredPurchaseOrders.map(po => po.vendor)).size}
+                      {new Set(filteredPurchaseOrders.map((po: PurchaseOrder) => po.vendor)).size}
                     </p>
                   </div>
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -315,10 +256,10 @@ export default function PurchaseOrdersPage() {
                 <h2 className="text-xl font-semibold text-foreground">Purchase Orders</h2>
               </div>
 
-              {error ? (
+              {isError ? (
                 <div className="text-center py-8">
-                  <p className="text-red-500 mb-4">{error}</p>
-                  <Button onClick={fetchPurchaseOrders} variant="outline">
+                  <p className="text-red-500 mb-4">Failed to fetch purchase orders.</p>
+                  <Button onClick={() => mutate()} variant="outline">
                     Retry
                   </Button>
                 </div>
@@ -335,30 +276,32 @@ export default function PurchaseOrdersPage() {
                     Create Purchase Order
                   </Button>
                 </div>
-                             ) : (
-                 <Table className="w-full">
-                   <TableHeader>
-                     <TableRow>
-                       {columns.map((column) => (
-                         <TableHead key={column.key} className="text-left font-medium">
-                           {column.label}
-                         </TableHead>
-                       ))}
-                     </TableRow>
-                   </TableHeader>
-                   <TableBody>
-                     {filteredPurchaseOrders.map((purchaseOrder) => (
-                       <TableRow key={purchaseOrder.id} className="hover:bg-muted/50">
-                         {columns.map((column) => (
-                           <TableCell key={column.key}>
-                             {column.render(purchaseOrder)}
-                           </TableCell>
-                         ))}
-                       </TableRow>
-                     ))}
-                   </TableBody>
-                 </Table>
-               )}
+              ) : (
+                <>
+                  <Table className="w-full">
+                    <TableHeader>
+                      <TableRow>
+                        {columns.map((column) => (
+                          <TableHead key={column.key} className="text-left font-medium">
+                            {column.label}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPurchaseOrders.map((purchaseOrder) => (
+                        <TableRow key={purchaseOrder.id} className="hover:bg-muted/50">
+                          {columns.map((column) => (
+                            <TableCell key={column.key}>
+                              {column.render(purchaseOrder)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </>
+              )}
             </div>
           </Card>
         </div>

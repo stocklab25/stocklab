@@ -12,11 +12,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { expenses } = await request.json();
+    // Parse FormData to get the file
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
 
-    if (!Array.isArray(expenses)) {
+    if (!file) {
       return NextResponse.json(
-        { error: 'Expenses must be an array' },
+        { error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+
+    // Read and parse CSV file
+    const fileBuffer = await file.arrayBuffer();
+    const fileString = new TextDecoder().decode(fileBuffer);
+    
+    // Simple CSV parsing (split by lines and commas)
+    const lines = fileString.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      return NextResponse.json(
+        { error: 'CSV file must have at least a header row and one data row' },
+        { status: 400 }
+      );
+    }
+
+    // Parse header row
+    const headers = lines[0].split(',').map(h => h.trim());
+    const expenses = [];
+
+    // Parse data rows
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const expense: any = {};
+      
+      headers.forEach((header, index) => {
+        expense[header] = values[index] || '';
+      });
+      
+      expenses.push(expense);
+    }
+
+    if (expenses.length === 0) {
+      return NextResponse.json(
+        { error: 'No expenses found in CSV file' },
         { status: 400 }
       );
     }
@@ -27,42 +65,75 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     };
 
-    for (const expenseData of expenses) {
+    for (let i = 0; i < expenses.length; i++) {
+      const expenseData = expenses[i];
       try {
+        // Normalize field names (case-insensitive)
+        const normalizedData = {
+          transactionDate: expenseData.transactionDate || expenseData['Transaction Date'] || expenseData['TransactionDate'] || expenseData.Date,
+          description: expenseData.description || expenseData.Description,
+          amount: expenseData.amount || expenseData.Amount,
+          type: expenseData.type || expenseData.Type,
+          category: expenseData.category || expenseData.Category,
+          cardName: expenseData.cardName || expenseData['Card Name'] || expenseData['CardName'],
+          // Direct ID (if provided)
+          cardId: expenseData.cardId || expenseData['Card ID'] || expenseData['CardId'],
+        };
+
         // Validate required fields
-        if (!expenseData.transactionDate || !expenseData.description || !expenseData.amount || !expenseData.type || !expenseData.category || !expenseData.cardId) {
-          results.errors.push(`Expense missing required fields: ${JSON.stringify(expenseData)}`);
+        if (!normalizedData.transactionDate || !normalizedData.description || !normalizedData.amount || !normalizedData.type || !normalizedData.category) {
+          results.errors.push(`Row ${i + 1}: Missing required fields`);
           results.skipped++;
           continue;
         }
 
-        // Check if card exists
-        const card = await prisma.card.findUnique({
-          where: { id: expenseData.cardId },
-        });
+        // Find card by name if not provided by ID
+        let card = null;
+        if (normalizedData.cardId) {
+          card = await prisma.card.findUnique({
+            where: { id: normalizedData.cardId },
+          });
+        } else if (normalizedData.cardName) {
+          card = await prisma.card.findFirst({
+            where: {
+              name: normalizedData.cardName,
+              deletedAt: null,
+            },
+          });
+        }
 
         if (!card) {
-          results.errors.push(`Card not found: ${expenseData.cardId}`);
+          results.errors.push(`Row ${i + 1}: Card not found`);
           results.skipped++;
           continue;
         }
+
+        // Validate category
+        const validCategories = ['Parking', 'Travel', 'Inventory', 'Supplies', 'BusinessServices', 'Payment'];
+        if (!validCategories.includes(normalizedData.category)) {
+          results.errors.push(`Invalid category: ${normalizedData.category}. Must be one of: ${validCategories.join(', ')}`);
+          results.skipped++;
+          continue;
+        }
+
+
 
         // Create the expense
         await prisma.expense.create({
           data: {
-            transactionDate: new Date(expenseData.transactionDate),
-            description: expenseData.description,
-            amount: parseFloat(expenseData.amount),
-            type: expenseData.type,
-            category: expenseData.category,
-            cardId: expenseData.cardId,
+            transactionDate: new Date(normalizedData.transactionDate),
+            description: normalizedData.description,
+            amount: parseFloat(normalizedData.amount),
+            type: normalizedData.type,
+            category: normalizedData.category as any,
+            cardId: card.id,
           },
         });
 
         results.created++;
       } catch (error) {
-        
-        results.errors.push(`Failed to create expense: ${JSON.stringify(expenseData)}`);
+        console.error('Error creating expense:', error);
+        results.errors.push(`Row ${i + 1}: Failed to create expense`);
         results.skipped++;
       }
     }
@@ -73,9 +144,9 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    
+    console.error('Expenses import error:', error);
     return NextResponse.json(
-      { error: 'Failed to import expenses' },
+      { error: 'Failed to import expenses', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

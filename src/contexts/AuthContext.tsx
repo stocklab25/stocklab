@@ -16,6 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   getAuthToken: () => Promise<string | null>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -119,12 +120,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUser = async (): Promise<void> => {
+    try {
+      // Force refresh the session to get updated metadata
+      const { data: { session }, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('Error refreshing session:', error);
+        return;
+      }
+      
+      if (session?.user) {
+        const convertedUser: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name || 'Unknown User',
+          role: session.user.user_metadata?.role || 'USER',
+        };
+        setUser(convertedUser);
+        console.log('User refreshed with new data:', convertedUser);
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
     getAuthToken,
+    refreshUser,
   };
 
   return (

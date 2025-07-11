@@ -12,7 +12,7 @@ export interface CreateInventoryItemData {
   quantity?: number;
   vendor: string;
   paymentMethod: string;
-  userId: string;
+  userId: string | null;
 }
 
 export interface UpdateInventoryItemData {

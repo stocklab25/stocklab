@@ -52,6 +52,8 @@ export default function Inventory() {
   const [showEditInventoryModal, setShowEditInventoryModal] = useState(false);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
 
+
+
   const getDynamicStatus = (quantity: number) => {
     if (quantity === 0) {
       return 'Out of Stock';

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
 
 // GET /api/stores/[id]/inventory - Get all inventory at specific store
@@ -65,6 +66,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { inventoryItemId, quantity, notes } = body;

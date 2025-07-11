@@ -4,7 +4,7 @@ import { useMemo, useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useProducts, useInventory, useTransactions } from '@/hooks';
+import { useProducts, useInventory, useTransactions, useSales } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Chart as ChartJS,
@@ -37,34 +37,7 @@ export default function Dashboard() {
   const { data: products, isLoading: productsLoading } = useProducts();
   const { data: inventory, isLoading: inventoryLoading } = useInventory();
   const { data: transactions, isLoading: transactionsLoading } = useTransactions();
-  const { getAuthToken } = useAuth();
-  const [salesData, setSalesData] = useState<any[]>([]);
-
-  // Fetch sales data
-  useEffect(() => {
-    const fetchSales = async () => {
-      try {
-        const token = await getAuthToken();
-        if (!token) {
-          
-          return;
-        }
-        
-        const response = await fetch('/api/sales', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setSalesData(Array.isArray(data) ? data : data?.data || []);
-        }
-      } catch (error) {
-        
-      }
-    };
-    fetchSales();
-  }, [getAuthToken]);
+  const { data: salesData, isLoading: salesLoading } = useSales();
 
   const stats = useMemo<DashboardStats>(() => {
     const totalValue = inventory.reduce((sum: number, item: any) => sum + Number(item.cost), 0);
@@ -226,7 +199,7 @@ export default function Dashboard() {
     },
   };
 
-  const isLoading = productsLoading || inventoryLoading || transactionsLoading;
+  const isLoading = productsLoading || inventoryLoading || transactionsLoading || salesLoading;
 
   if (isLoading) {
     return (

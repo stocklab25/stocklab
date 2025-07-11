@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import useSWR from 'swr';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Fetcher function with authentication
-const fetcher = async (url: string) => {
-  const token = localStorage.getItem('authToken');
+const fetcher = async (url: string, getAuthToken: () => Promise<string | null>) => {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': token ? `Bearer ${token}` : '',
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   });
@@ -31,13 +35,17 @@ interface TransactionData {
 
 const useAddTransaction = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { mutate: mutateTransactions } = useSWR('/api/transactions', fetcher);
-  const { mutate: mutateProducts } = useSWR('/api/products', fetcher);
+  const { getAuthToken } = useAuth();
+  const { mutate: mutateTransactions } = useSWR('/api/transactions', (url) => fetcher(url, getAuthToken));
+  const { mutate: mutateProducts } = useSWR('/api/products', (url) => fetcher(url, getAuthToken));
 
   const addTransaction = async (transactionData: TransactionData) => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
       
       // If it's an OUT transaction with a store, handle as store transfer
       if (transactionData.type === 'OUT' && transactionData.storeId) {
@@ -46,7 +54,7 @@ const useAddTransaction = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : '',
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
             inventoryItemId: transactionData.inventoryItemId,
@@ -76,7 +84,7 @@ const useAddTransaction = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(transactionData),
       });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Card } from "@/components/Card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/Table";
@@ -11,12 +11,13 @@ import ImportSalesModal from '@/components/ImportSalesModal';
 import { useStores } from '@/hooks/useStores';
 import { useStoreInventory } from '@/hooks/useStoreInventory';
 import { useAddSale } from '@/hooks/useAddSale';
+import { useSales } from '@/hooks/useSales';
 import { useCurrency } from '@/contexts/CurrencyContext';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function StoreSalesPage() {
-  const { data, error, isLoading, mutate } = useSWR("/api/sales", fetcher);
+  const { getAuthToken } = useAuth();
+  const { data: sales, isLoading, mutate } = useSales();
   const { data: stores, isLoading: storesLoading } = useStores();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -34,14 +35,18 @@ export default function StoreSalesPage() {
 
   // Fetch inventory for selected store (for modal)
   const fetchInventory = useCallback(async (storeId: string) => {
-    const res = await fetch(`/api/stores/${storeId}/inventory`);
+    const token = await getAuthToken();
+    const res = await fetch(`/api/stores/${storeId}/inventory`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
     if (!res.ok) throw new Error('Failed to fetch inventory');
     const data = await res.json();
     // Flatten to inventoryItem[]
     return (Array.isArray(data) ? data : []).map((si: any) => ({ ...si.inventoryItem, quantity: si.quantity }));
-  }, []);
-
-  const sales = Array.isArray(data) ? data : data?.data || [];
+  }, [getAuthToken]);
 
   // Filter sales based on selected store
   const filteredSales = storeFilter === 'all' 
@@ -149,8 +154,6 @@ export default function StoreSalesPage() {
           <div className="p-6 overflow-x-auto">
             {isLoading ? (
               <div>Loading...</div>
-            ) : error ? (
-              <div className="text-red-600">Error loading sales data</div>
             ) : (
               <div className="overflow-x-auto">
                 <Table className="w-full min-w-max">

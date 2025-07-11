@@ -5,18 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
-      if (isAuthenticated) {
+      if (user) {
         router.push('/dashboard');
       } else {
         router.push('/login');
       }
     }
-  }, [isAuthenticated, loading, router]);
+  }, [user, loading]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">

@@ -53,7 +53,8 @@ async function main() {
       password: ADMIN_PASSWORD,
       user_metadata: {
         name: ADMIN_NAME,
-        role: ADMIN_ROLE
+        role: ADMIN_ROLE,
+        displayName: ADMIN_NAME // Add display name
       }
     };
 

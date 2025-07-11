@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ExportReportsModalProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ const exportOptions: ExportOption[] = [
 export default function ExportReportsModal({ isOpen, onClose }: ExportReportsModalProps) {
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const { getAuthToken } = useAuth();
 
   const handleReportToggle = (reportId: string) => {
     setSelectedReports(prev => 
@@ -86,11 +88,15 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
 
   const downloadReport = async (reportId: string) => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       const response = await fetch(`/api/reports/export/${reportId}`, {
         method: 'GET',
         headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });

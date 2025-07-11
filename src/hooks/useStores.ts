@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
 
 export interface Store {
   id: string;
@@ -29,10 +30,28 @@ const fetcher = async (url: string, getAuthToken: () => Promise<string | null>) 
 
 export function useStores() {
   const { getAuthToken } = useAuth();
-  const { data, error, isLoading, mutate } = useSWR<Store[], any, [string, () => Promise<string | null>]>(
-    ['/api/stores?status=ACTIVE', getAuthToken],
-    (args) => fetcher(args[0], args[1])
+  const key = '/api/stores?status=ACTIVE';
+  const { data, error, isLoading, mutate } = useSWR<Store[], any>(
+    key,
+    (url: string) => fetcher(url, getAuthToken),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateOnMount: false, // Changed to false
+      revalidateIfStale: false,
+      dedupingInterval: 0, // Disable deduplication
+      refreshInterval: 0, // Disable automatic refresh
+      errorRetryCount: 0, // Disable error retries
+      shouldRetryOnError: false, // Disable retry on error
+    }
   );
+
+  // Manually trigger initial fetch if no data
+  useEffect(() => {
+    if (!data && !error) {
+      mutate();
+    }
+  }, [data, error, mutate]);
 
   return {
     data: Array.isArray(data) ? data : [],

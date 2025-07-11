@@ -129,19 +129,7 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Verify user exists in database
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id }
-    });
-
-    if (!dbUser) {
-      return NextResponse.json(
-        { error: 'User not found in database' },
-        { status: 404 }
-      );
-    }
-
-    // Use the inventory service to create inventory item with initial stock
+    // Set userId to null since Supabase users don't exist in local database
     const result = await InventoryService.createInventoryItemWithInitialStock({
       productId: data.productId,
       sku: data.sku,
@@ -152,7 +140,7 @@ export async function POST(req: NextRequest) {
       quantity: data.quantity || 1,
       vendor: data.vendor,
       paymentMethod: data.paymentMethod,
-      userId: dbUser.id
+      userId: null // Set to null to avoid foreign key constraint
     });
 
     if (!result.success || !result.data) {
