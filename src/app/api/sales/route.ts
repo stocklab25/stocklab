@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 
 // Function to generate a unique order number
 async function generateUniqueOrderNumber(): Promise<string> {
@@ -20,8 +21,16 @@ async function generateUniqueOrderNumber(): Promise<string> {
   return orderNumber;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const sales = await prisma.sale.findMany({
       include: {
         store: true,
@@ -48,6 +57,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const {
       storeId,

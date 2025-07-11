@@ -27,11 +27,11 @@ export default function RootLayout({
           <ThemeProvider>
             <CurrencyProvider>
               <SettingsProvider>
-                <NavigationProvider>
-                  <SWRProvider>
-                    {children}
-                  </SWRProvider>
-                </NavigationProvider>
+              <NavigationProvider>
+                <SWRProvider>
+                  {children}
+                </SWRProvider>
+              </NavigationProvider>
               </SettingsProvider>
             </CurrencyProvider>
           </ThemeProvider>

@@ -52,7 +52,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     setError('');
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'PUT',
         headers: {
@@ -85,7 +88,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     setError('');
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'DELETE',
         headers: {

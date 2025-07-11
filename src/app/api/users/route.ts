@@ -1,38 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import { UserService } from '@/prisma/services/user.service';
-import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-import prisma from '@/lib/db';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
-
-function checkAuth(req: NextRequest): { user: User | null; isValid: boolean } {
-  try {
-    const token = getTokenFromHeader(req);
-    if (!token) {
-      return { user: null, isValid: false };
-    }
-
-    const user = verifyToken(token);
-    if (!user) {
-      return { user: null, isValid: false };
-    }
-
-    return { user, isValid: true };
-  } catch (error) {
-    console.error('Auth check error:', error);
-    return { user: null, isValid: false };
-  }
-}
 
 // GET /api/users - Get all users (admin only)
 export async function GET(req: NextRequest) {
   try {
-    const { user, isValid } = checkAuth(req);
+    const { user, isValid } = await verifySupabaseAuth(req);
     if (!isValid || !user) {
       return NextResponse.json(
         { error: 'Unauthorized - Authentication required' },
@@ -75,7 +48,7 @@ export async function GET(req: NextRequest) {
 // POST /api/users - Create new user (admin only)
 export async function POST(req: NextRequest) {
   try {
-    const { user, isValid } = checkAuth(req);
+    const { user, isValid } = await verifySupabaseAuth(req);
     if (!isValid || !user) {
       return NextResponse.json(
         { error: 'Unauthorized - Authentication required' },
@@ -91,12 +64,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, name, password, role = 'USER' } = await req.json();
+    const body = await req.json();
+    const { name, email, password, role } = body;
 
     // Validate required fields
-    if (!email || !name || !password) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Email, name, and password are required' },
+        { error: 'Name, email, and password are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters long' },
         { status: 400 }
       );
     }
@@ -110,47 +92,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate password strength
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
-        { status: 400 }
-      );
-    }
-
-    // Validate role
-    if (!['ADMIN', 'USER'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be ADMIN or USER' },
-        { status: 400 }
-      );
-    }
-
-    const newUser = await UserService.createUser({
-      email: email.toLowerCase(),
-      name,
-      password,
-      role,
-    });
-
-    // Remove password from response
-    const { password: userPassword, ...userWithoutPassword } = newUser;
-
-    return NextResponse.json({
-      data: userWithoutPassword,
-      success: true,
-      message: 'User created successfully'
-    }, { status: 201 });
-  } catch (error) {
-    console.error('Error creating user:', error);
-    
-    if (error instanceof Error && error.message === 'Email already exists') {
+    // Check if email already exists
+    const existingUser = await UserService.getUserByEmail(email);
+    if (existingUser) {
       return NextResponse.json(
         { error: 'Email already exists' },
         { status: 400 }
       );
     }
 
+    // Create user
+    const newUser = await UserService.createUser({
+      name,
+      email,
+      password,
+      role: role || 'USER',
+    });
+
+    return NextResponse.json(newUser, { status: 201 });
+  } catch (error) {
+    console.error('Error creating user:', error);
     return NextResponse.json(
       { error: 'Failed to create user' },
       { status: 500 }

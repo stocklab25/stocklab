@@ -1,84 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromHeader } from '@/lib/auth';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
-
-function checkAuth(req: NextRequest): { user: User | null; isValid: boolean } {
-  const token = getTokenFromHeader(req);
-  if (!token) {
-    console.error('No token provided');
-    return { user: null, isValid: false };
-  }
-  const user = verifyToken(token);
-  if (!user) {
-    console.error('Invalid or expired token');
-    return { user: null, isValid: false };
-  }
-  return { user, isValid: true };
-}
-
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req).isValid) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const purchaseOrders = await prisma.purchase.findMany({
-      where: {
-        deletedAt: null,
+      where: { deletedAt: null },
+      include: {
         inventoryItem: {
-          deletedAt: null,
-          product: {
-            deletedAt: null
-          }
-        }
+          include: {
+            product: true,
+          },
+        },
       },
-      select: {
-        id: true,
-        r3vPurchaseOrderNumber: true,
-        inventoryItemId: true,
-        vendor: true,
-        paymentMethod: true,
-        orderNumber: true,
-        quantity: true,
-        cost: true,
-        purchaseDate: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-        inventoryItem: {
-          select: {
-            id: true,
-            sku: true,
-            size: true,
-            condition: true,
-            product: {
-              select: {
-                id: true,
-                brand: true,
-                name: true,
-                color: true,
-              }
-            }
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: { purchaseDate: 'desc' },
     });
-    return NextResponse.json({
-      data: purchaseOrders,
-      success: true
-    });
+
+    return NextResponse.json(purchaseOrders);
   } catch (error) {
     console.error('Error fetching purchase orders:', error);
     return NextResponse.json(
@@ -89,60 +35,89 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { user, isValid } = checkAuth(req);
-  if (!isValid || !user) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
   try {
-    const data = await req.json();
-    if (!data.inventoryItemId || !data.vendor || !data.paymentMethod || !data.quantity || !data.cost) {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
       return NextResponse.json(
-        { error: 'Missing required fields: inventoryItemId, vendor, paymentMethod, quantity, cost' },
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const {
+      inventoryItemId,
+      vendor,
+      paymentMethod,
+      orderNumber,
+      quantity,
+      cost,
+      purchaseDate,
+      notes,
+    } = body;
+
+    // Validate required fields
+    if (!inventoryItemId || !vendor || !paymentMethod || !quantity || !cost) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
-    const lastPurchase = await prisma.purchase.findFirst({
-      orderBy: {
-        r3vPurchaseOrderNumber: 'desc',
-      },
-      select: {
-        r3vPurchaseOrderNumber: true,
-      },
+
+    // Check if inventory item exists
+    const inventoryItem = await prisma.inventoryItem.findUnique({
+      where: { id: inventoryItemId },
     });
-    let r3vPurchaseOrderNumber = 'R3VPO1';
-    if (lastPurchase) {
-      const lastNumber = parseInt(lastPurchase.r3vPurchaseOrderNumber.replace('R3VPO', ''));
-      const nextNumber = lastNumber + 1;
-      r3vPurchaseOrderNumber = `R3VPO${nextNumber}`;
+
+    if (!inventoryItem) {
+      return NextResponse.json(
+        { error: 'Inventory item not found' },
+        { status: 404 }
+      );
     }
+
+    // Generate unique R3V purchase order number if not provided
+    let r3vPurchaseOrderNumber = orderNumber;
+    if (!r3vPurchaseOrderNumber) {
+      const timestamp = Date.now().toString();
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      r3vPurchaseOrderNumber = `R3V-${timestamp}-${random}`;
+    }
+
+    // Check if R3V purchase order number already exists
+    const existingPurchase = await prisma.purchase.findUnique({
+      where: { r3vPurchaseOrderNumber },
+    });
+
+    if (existingPurchase) {
+      return NextResponse.json(
+        { error: 'R3V purchase order number already exists' },
+        { status: 400 }
+      );
+    }
+
     const purchaseOrder = await prisma.purchase.create({
       data: {
+        inventoryItemId,
+        vendor,
+        paymentMethod,
+        orderNumber,
+        quantity: parseInt(quantity),
+        cost: parseFloat(cost),
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
+        notes,
         r3vPurchaseOrderNumber,
-        inventoryItemId: data.inventoryItemId,
-        vendor: data.vendor,
-        paymentMethod: data.paymentMethod,
-        orderNumber: data.orderNumber,
-        quantity: parseInt(data.quantity),
-        cost: parseFloat(data.cost),
-        purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : new Date(),
-        notes: data.notes
       },
       include: {
         inventoryItem: {
           include: {
-            product: true
-          }
-        }
-      }
+            product: true,
+          },
+        },
+      },
     });
-    return NextResponse.json({
-      data: purchaseOrder,
-      success: true,
-      message: 'Purchase order created successfully'
-    }, { status: 201 });
+
+    return NextResponse.json(purchaseOrder, { status: 201 });
   } catch (error) {
     console.error('Error creating purchase order:', error);
     return NextResponse.json(

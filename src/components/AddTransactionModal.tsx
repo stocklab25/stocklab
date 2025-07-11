@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -11,9 +13,9 @@ interface InventoryItem {
   status: string;
   quantity: number;
   product: {
-  id: string;
-  brand: string;
-  name: string;
+    id: string;
+    brand: string;
+    name: string;
     color: string;
     sku: string;
   };
@@ -48,7 +50,7 @@ const transactionTypes = [
   { value: 'RETURN', label: 'Return', icon: '↩️' },
   { value: 'ADJUSTMENT', label: 'Adjustment', icon: '⚖️' },
   { value: 'AUDIT', label: 'Audit', icon: '📋' },
-] as const;
+];
 
 export default function AddTransactionModal({ 
   isOpen, 
@@ -57,7 +59,7 @@ export default function AddTransactionModal({
   isLoading, 
   inventoryItems 
 }: AddTransactionModalProps) {
-  const { user } = useAuth();
+  const { user, getAuthToken } = useAuth();
   const [formData, setFormData] = useState<{
     type: 'IN' | 'OUT' | 'MOVE' | 'RETURN' | 'ADJUSTMENT' | 'AUDIT';
     inventoryItemId: string;
@@ -80,9 +82,29 @@ export default function AddTransactionModal({
 
   // Fetch stores on component mount
   useEffect(() => {
-    fetch('/api/stores')
-      .then(res => res.json())
-      .then(data => {
+    const fetchStores = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) {
+          console.error('No authentication token available');
+          setStores([]);
+          return;
+        }
+
+        const response = await fetch('/api/stores', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error('Failed to fetch stores:', response.status);
+          setStores([]);
+          return;
+        }
+
+        const data = await response.json();
+        
         // Ensure data is an array and not empty object
         if (Array.isArray(data) && data.length > 0) {
           setStores(data);
@@ -93,12 +115,16 @@ export default function AddTransactionModal({
           console.error('Stores API returned non-array data:', data);
           setStores([]);
         }
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Error fetching stores:', error);
         setStores([]);
-      });
-  }, []);
+      }
+    };
+
+    if (isOpen) {
+      fetchStores();
+    }
+  }, [isOpen, getAuthToken]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

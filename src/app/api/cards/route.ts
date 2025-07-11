@@ -1,29 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
-import { getTokenFromHeader, verifyToken } from '@/lib/auth';
-
-function checkAuth(req: NextRequest) {
-  const token = getTokenFromHeader(req);
-  if (!token) {
-    console.error('No token provided');
-    return { user: null, isValid: false };
-  }
-  const user = verifyToken(token);
-  if (!user) {
-    console.error('Invalid or expired token');
-    return { user: null, isValid: false };
-  }
-  return { user, isValid: true };
-}
 
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req).isValid) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const cards = await prisma.card.findMany({
       where: { deletedAt: null },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { name: 'asc' },
     });
     return NextResponse.json({ data: cards, success: true });
   } catch (error) {
@@ -33,10 +24,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req).isValid) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { name, last4, bank, type } = await req.json();
     if (!name) {
       return NextResponse.json({ error: 'Card name is required' }, { status: 400 });
@@ -44,9 +40,9 @@ export async function POST(req: NextRequest) {
     const card = await prisma.card.create({
       data: {
         name,
-        last4: last4 || null,
-        bank: bank || null,
-        type: type || null,
+        last4,
+        bank,
+        type,
       },
     });
     return NextResponse.json({ data: card, success: true, message: 'Card created' }, { status: 201 });

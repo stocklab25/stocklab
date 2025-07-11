@@ -1,47 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
 import { purchaseService } from '../../../../prisma/services/purchase.service';
 import { InventoryService } from '../../../../prisma/services/inventory.service';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
-
-// Auth check function
-function checkAuth(req: NextRequest): { user: User | null; isValid: boolean } {
-  // Check for auth token in headers
-  const authHeader = req.headers.get('authorization');
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const user = verifyToken(token);
-    return { user, isValid: !!user };
-  }
-  
-  // Check for auth token in cookies
-  const authCookie = req.cookies.get('authToken')?.value;
-  if (authCookie) {
-    const user = verifyToken(authCookie);
-    return { user, isValid: !!user };
-  }
-  
-  return { user: null, isValid: false };
-}
-
 export async function GET(req: NextRequest) {
-  // Check authentication
-  if (!checkAuth(req).isValid) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     let inventoryItems;
     try {
       inventoryItems = await prisma.inventoryItem.findMany({
@@ -138,16 +110,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // Check authentication
-  const { user, isValid } = checkAuth(req);
-  if (!isValid || !user) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const data = await req.json();
     
     // Validate required fields

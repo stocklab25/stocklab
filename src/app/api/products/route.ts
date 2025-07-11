@@ -1,30 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
-
-// Auth check function
-function checkAuth(req: NextRequest): boolean {
-  // Check for auth token in headers
-  const authHeader = req.headers.get('authorization');
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const user = verifyToken(token);
-    return !!user;
-  }
-  
-  // Check for auth token in cookies
-  const authCookie = req.cookies.get('authToken')?.value;
-  if (authCookie) {
-    const user = verifyToken(authCookie);
-    return !!user;
-  }
-  
-  return false;
-}
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -130,6 +117,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const data = await request.json();
     
     // Debug: Log the received data
@@ -206,15 +201,15 @@ export async function POST(request: NextRequest) {
 
 // Soft delete endpoint
 export async function DELETE(req: NextRequest) {
-  // Check authentication
-  if (!checkAuth(req)) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     

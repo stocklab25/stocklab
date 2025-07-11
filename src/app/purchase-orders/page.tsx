@@ -49,25 +49,22 @@ export default function PurchaseOrdersPage() {
   }, []);
 
   const fetchPurchaseOrders = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const token = getAuthToken();
-      
+      const token = await getAuthToken();
       if (!token) {
-        throw new Error('No authentication token found');
+        throw new Error('No authentication token available');
       }
-
-      const response = await fetch('/api/purchase-orders', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const res = await fetch('/api/purchase-orders', {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error('Failed to fetch purchase orders');
       }
 
-      const data = await response.json();
+      const data = await res.json();
       setPurchaseOrders(data.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

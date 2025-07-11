@@ -5,6 +5,7 @@ import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useProducts, useInventory, useTransactions } from '@/hooks';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -36,13 +37,24 @@ export default function Dashboard() {
   const { data: products, isLoading: productsLoading } = useProducts();
   const { data: inventory, isLoading: inventoryLoading } = useInventory();
   const { data: transactions, isLoading: transactionsLoading } = useTransactions();
+  const { getAuthToken } = useAuth();
   const [salesData, setSalesData] = useState<any[]>([]);
 
   // Fetch sales data
   useEffect(() => {
     const fetchSales = async () => {
       try {
-        const response = await fetch('/api/sales');
+        const token = await getAuthToken();
+        if (!token) {
+          console.error('No authentication token available');
+          return;
+        }
+        
+        const response = await fetch('/api/sales', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         if (response.ok) {
           const data = await response.json();
           setSalesData(Array.isArray(data) ? data : data?.data || []);
@@ -52,7 +64,7 @@ export default function Dashboard() {
       }
     };
     fetchSales();
-  }, []);
+  }, [getAuthToken]);
 
   const stats = useMemo<DashboardStats>(() => {
     const totalValue = inventory.reduce((sum: number, item: any) => sum + Number(item.cost), 0);

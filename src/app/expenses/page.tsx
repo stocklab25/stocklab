@@ -49,7 +49,10 @@ export default function ExpensesPage() {
     setLoading(true);
     setError(null);
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const res = await fetch('/api/expenses', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -70,7 +73,10 @@ export default function ExpensesPage() {
     setCardsLoading(true);
     setCardsError(null);
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const res = await fetch('/api/cards', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -107,7 +113,10 @@ export default function ExpensesPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const res = await fetch('/api/expenses', {
         method: 'POST',
         headers: {

@@ -2,8 +2,10 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/supabase';
+import type { User, Session } from '@supabase/supabase-js';
 
-interface User {
+interface AuthUser {
   id: string;
   email: string;
   name: string;
@@ -11,76 +13,92 @@ interface User {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
-  getAuthToken: () => string | null;
+  getAuthToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  // Convert Supabase user to our app's user format
+  const convertSupabaseUser = (supabaseUser: User | null): AuthUser | null => {
+    if (!supabaseUser) return null;
+    
+    return {
+      id: supabaseUser.id,
+      email: supabaseUser.email || '',
+      name: supabaseUser.user_metadata?.name || 'Unknown User',
+      role: supabaseUser.user_metadata?.role || 'USER',
+    };
+  };
 
   useEffect(() => {
     // Check if user is logged in on app start
     const checkAuth = async () => {
-      const token = localStorage.getItem('authToken');
-      
-      if (token) {
-        try {
-          // Verify token using the verify endpoint
-          const response = await fetch('/api/auth/verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            setUser(data.user);
-          } else {
-            // Token is invalid or expired
-            localStorage.removeItem('authToken');
-          }
-        } catch (error) {
-          console.error('Token verification error:', error);
-          localStorage.removeItem('authToken');
+      try {
+        const { session } = await auth.getCurrentSession();
+        if (session?.user) {
+          setUser(convertSupabaseUser(session.user));
         }
+      } catch (error) {
+        console.error('Auth check error:', error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     checkAuth();
+
+    // Listen to auth state changes
+    const { data: { subscription } } = auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser(convertSupabaseUser(session.user));
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+        
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        localStorage.setItem('authToken', data.token);
-        return true;
-      } else {
-        const errorData = await response.json();
-        console.error('Login failed:', errorData.error);
+      console.log('Attempting login with:', { email, password: '***' });
+      
+      const { data, error } = await auth.signIn(email, password);
+      
+      console.log('Login response:', { data: data ? 'success' : 'no data', error });
+      
+      if (error) {
+        console.error('Login failed:', error.message);
+        console.error('Error details:', error);
         return false;
       }
+
+      if (data?.user) {
+        console.log('Login successful, user:', data.user.email);
+        const convertedUser = convertSupabaseUser(data.user);
+        console.log('Converted user:', convertedUser);
+        setUser(convertedUser);
+        return true;
+      }
+      
+      console.log('No user data returned from login');
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -89,27 +107,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      // Call logout API (optional, since JWT is stateless)
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const { error } = await auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+      }
     } catch (error) {
-      console.error('Logout API error:', error);
+      console.error('Logout error:', error);
     } finally {
       setUser(null);
-      localStorage.removeItem('authToken');
       router.push('/login');
     }
   };
 
-  const getAuthToken = (): string | null => {
-    if (typeof window === 'undefined') {
+  const getAuthToken = async (): Promise<string | null> => {
+    try {
+      // Get the current session from Supabase
+      const { session } = await auth.getCurrentSession();
+      
+      if (session?.access_token) {
+        console.log('🔑 Frontend Debug - Token generated (first 20 chars):', session.access_token.substring(0, 20) + '...');
+        console.log('🔑 Frontend Debug - Token length:', session.access_token.length);
+        return session.access_token;
+      } else {
+        console.log('❌ Frontend Debug - No session or access token found');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Frontend Debug - Error getting auth token:', error);
       return null;
     }
-    return localStorage.getItem('authToken');
   };
 
   const value = {

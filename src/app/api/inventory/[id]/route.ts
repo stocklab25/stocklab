@@ -1,35 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
 
-// Auth check function
-function checkAuth(req: NextRequest): boolean {
-  // Check for auth token in headers
-  const authHeader = req.headers.get('authorization');
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const user = verifyToken(token);
-    return !!user;
-  }
-  
-  // Check for auth token in cookies
-  const authCookie = req.cookies.get('authToken')?.value;
-  if (authCookie) {
-    const user = verifyToken(authCookie);
-    return !!user;
-  }
-  
-  return false;
-}
-
-export async function PATCH(
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check authentication
-    if (!checkAuth(request)) {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
       return NextResponse.json(
         { error: 'Unauthorized - Authentication required' },
         { status: 401 }
@@ -37,17 +16,63 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const updateData = await request.json();
 
-    // Check if inventory item exists
-    const existingItem = await prisma.inventoryItem.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
+    const inventoryItem = await prisma.inventoryItem.findUnique({
+      where: { id },
       include: {
         product: true,
+        stockTransactions: {
+          where: { deletedAt: null },
+          orderBy: { date: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
+    });
+
+    if (!inventoryItem) {
+      return NextResponse.json(
+        { error: 'Inventory item not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(inventoryItem);
+  } catch (error) {
+    console.error('Error fetching inventory item:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch inventory item' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const data = await request.json();
+
+    // Check if inventory item exists
+    const existingItem = await prisma.inventoryItem.findUnique({
+      where: { id },
     });
 
     if (!existingItem) {
@@ -57,51 +82,128 @@ export async function PATCH(
       );
     }
 
-    // Prepare update data
-    const dataToUpdate: any = {
-      updatedAt: new Date(),
-    };
+    // If SKU is being updated, check for uniqueness
+    if (data.sku && data.sku !== existingItem.sku) {
+      const duplicateSku = await prisma.inventoryItem.findFirst({
+        where: {
+          sku: data.sku,
+          id: { not: id },
+          deletedAt: null,
+        },
+      });
 
-    // Handle different update scenarios
-    if (updateData.quantity !== undefined) {
-      // Simple quantity update (backward compatibility)
-      if (typeof updateData.quantity !== 'number' || updateData.quantity < 0) {
+      if (duplicateSku) {
         return NextResponse.json(
-          { error: 'Quantity must be a non-negative number' },
+          { error: 'SKU already exists' },
           { status: 400 }
         );
       }
-      dataToUpdate.quantity = updateData.quantity;
-    } else {
-      // Full inventory item update
-      if (updateData.productId) dataToUpdate.productId = updateData.productId;
-      if (updateData.sku) dataToUpdate.sku = updateData.sku;
-      if (updateData.size) dataToUpdate.size = updateData.size;
-      if (updateData.condition) dataToUpdate.condition = updateData.condition;
-      if (updateData.cost !== undefined) dataToUpdate.cost = updateData.cost;
-      if (updateData.quantity !== undefined) dataToUpdate.quantity = updateData.quantity;
-      if (updateData.status) dataToUpdate.status = updateData.status;
-      if (updateData.vendor) dataToUpdate.vendor = updateData.vendor;
-      if (updateData.paymentMethod) dataToUpdate.paymentMethod = updateData.paymentMethod;
     }
 
-    // Update the inventory item
     const updatedItem = await prisma.inventoryItem.update({
       where: { id },
-      data: dataToUpdate,
+      data: {
+        sku: data.sku,
+        size: data.size,
+        condition: data.condition,
+        cost: data.cost ? parseFloat(data.cost) : undefined,
+        status: data.status,
+        quantity: data.quantity ? parseInt(data.quantity) : undefined,
+        updatedAt: new Date(),
+      },
       include: {
         product: true,
       },
     });
 
-    return NextResponse.json({
-      data: updatedItem,
-      success: true
-    });
+    return NextResponse.json(updatedItem);
   } catch (error) {
     console.error('Error updating inventory item:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to update inventory item' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const isHardDelete = searchParams.get('hard') === 'true';
+
+    // Check if inventory item exists
+    const existingItem = await prisma.inventoryItem.findFirst({
+      where: { 
+        id,
+        deletedAt: null
+      },
+      include: {
+        stockTransactions: {
+          where: { deletedAt: null }
+        },
+        sales: {
+          where: { deletedAt: null }
+        }
+      }
+    });
+
+    if (!existingItem) {
+      return NextResponse.json(
+        { error: 'Inventory item not found or already deleted' },
+        { status: 404 }
+      );
+    }
+
+    // Check if inventory item has active transactions or sales
+    if (existingItem.stockTransactions.length > 0 || existingItem.sales.length > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete inventory item with active transactions or sales' },
+        { status: 400 }
+      );
+    }
+
+    if (isHardDelete) {
+      // Hard delete - permanently remove the inventory item
+      await prisma.inventoryItem.delete({
+        where: { id }
+      });
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Inventory item permanently deleted'
+      });
+    } else {
+      // Soft delete (archive) - just set deletedAt timestamp
+      const deletedItem = await prisma.inventoryItem.update({
+        where: { id },
+        data: { 
+          deletedAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+      
+      return NextResponse.json({
+        data: deletedItem,
+        success: true,
+        message: 'Inventory item archived successfully'
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting inventory item:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete inventory item' },
       { status: 500 }
     );
   }

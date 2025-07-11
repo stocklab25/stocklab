@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import Modal from '@/components/Modal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Store {
   id: string;
@@ -51,8 +52,9 @@ interface StoreInventoryItem {
 }
 
 export default function StoreInventoryPage() {
+  const { getAuthToken } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+  const [selectedStoreId, setSelectedStoreId] = useState('');
   const [inventory, setInventory] = useState<StoreInventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddStoreModal, setShowAddStoreModal] = useState(false);
@@ -65,10 +67,29 @@ export default function StoreInventoryPage() {
   const [addingStore, setAddingStore] = useState(false);
 
   useEffect(() => {
-    // Fetch all stores
-    fetch('/api/stores')
-      .then(res => res.json())
-      .then(data => {
+    const fetchStores = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) {
+          console.error('No authentication token available');
+          setStores([]);
+          return;
+        }
+
+        const response = await fetch('/api/stores', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error('Failed to fetch stores:', response.status);
+          setStores([]);
+          return;
+        }
+
+        const data = await response.json();
+        
         // Ensure data is an array and not empty object
         if (Array.isArray(data) && data.length > 0) {
           setStores(data);
@@ -79,24 +100,55 @@ export default function StoreInventoryPage() {
           console.error('Stores API returned non-array data:', data);
           setStores([]);
         }
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Error fetching stores:', error);
         setStores([]);
-      });
-  }, []);
+      }
+    };
+
+    fetchStores();
+  }, [getAuthToken]);
 
   useEffect(() => {
-    if (!selectedStoreId) {
-      setInventory([]);
-      return;
-    }
-    setLoading(true);
-    fetch(`/api/stores/${selectedStoreId}/inventory`)
-      .then(res => res.json())
-      .then(data => setInventory(data))
-      .finally(() => setLoading(false));
-  }, [selectedStoreId]);
+    const fetchInventory = async () => {
+      if (!selectedStoreId) {
+        setInventory([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const token = await getAuthToken();
+        if (!token) {
+          console.error('No authentication token available');
+          setInventory([]);
+          return;
+        }
+
+        const response = await fetch(`/api/stores/${selectedStoreId}/inventory`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error('Failed to fetch inventory:', response.status);
+          setInventory([]);
+          return;
+        }
+
+        const data = await response.json();
+        setInventory(data);
+      } catch (error) {
+        console.error('Error fetching inventory:', error);
+        setInventory([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInventory();
+  }, [selectedStoreId, getAuthToken]);
 
   const handleAddStore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,10 +156,17 @@ export default function StoreInventoryPage() {
 
     setAddingStore(true);
     try {
+      const token = await getAuthToken();
+      if (!token) {
+        console.error('No authentication token available');
+        return;
+      }
+
       const response = await fetch('/api/stores', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(newStore),
       });

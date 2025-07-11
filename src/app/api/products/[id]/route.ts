@@ -1,39 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
-
-// Auth check function
-function checkAuth(req: NextRequest): boolean {
-  // Check for auth token in headers
-  const authHeader = req.headers.get('authorization');
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const user = verifyToken(token);
-    return !!user;
-  }
-  
-  // Check for auth token in cookies
-  const authCookie = req.cookies.get('authToken')?.value;
-  if (authCookie) {
-    const user = verifyToken(authCookie);
-    return !!user;
-  }
-  
-  return false;
-}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
-    const product = await prisma.product.findFirst({
-      where: {
-        id,
-        deletedAt: null,
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        inventoryItems: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -48,7 +38,81 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching product:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch product' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const data = await request.json();
+
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    // If SKU is being updated, check for uniqueness
+    if (data.sku && data.sku !== existingProduct.sku) {
+      const duplicateSku = await prisma.product.findFirst({
+        where: {
+          sku: data.sku,
+          id: { not: id },
+          deletedAt: null,
+        },
+      });
+
+      if (duplicateSku) {
+        return NextResponse.json(
+          { error: 'SKU already exists' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: {
+        brand: data.brand,
+        name: data.name,
+        color: data.color,
+        sku: data.sku,
+        itemType: data.itemType,
+        updatedAt: new Date(),
+      },
+      include: {
+        inventoryItems: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    return NextResponse.json(updatedProduct);
+  } catch (error) {
+    console.error('Error updating product:', error);
+    return NextResponse.json(
+      { error: 'Failed to update product' },
       { status: 500 }
     );
   }
@@ -58,25 +122,29 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Check authentication
-  if (!checkAuth(request)) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const isHardDelete = searchParams.get('hard') === 'true';
-    const forceDelete = searchParams.get('force') === 'true';
 
-    // Check if product exists and is not already deleted
+    // Check if product exists
     const existingProduct = await prisma.product.findFirst({
       where: { 
         id,
         deletedAt: null
+      },
+      include: {
+        inventoryItems: {
+          where: { deletedAt: null }
+        }
       }
     });
 
@@ -87,46 +155,23 @@ export async function DELETE(
       );
     }
 
-    // For hard delete, check if there are active inventory items (unless force delete)
-    if (isHardDelete && !forceDelete) {
-      const inventoryItems = await prisma.inventoryItem.findMany({
-        where: { 
-          productId: id,
-          deletedAt: null
-        }
-      });
-      
-      if (inventoryItems.length > 0) {
-        return NextResponse.json(
-          { 
-            error: 'Cannot hard delete product with active inventory items. Use force=true to delete everything.',
-            inventoryCount: inventoryItems.length,
-            suggestion: 'Add ?force=true to delete product and all related data'
-          },
-          { status: 400 }
-        );
-      }
+    // Check if product has active inventory items
+    if (existingProduct.inventoryItems.length > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete product with active inventory items' },
+        { status: 400 }
+      );
     }
 
     if (isHardDelete) {
-      // Hard delete - permanently remove the product and related data
-      await prisma.$transaction(async (tx: any) => {
-        // Delete related inventory items first (this will cascade to transactions)
-        await tx.inventoryItem.deleteMany({
-          where: { productId: id }
-        });
-        
-        // Finally delete the product
-        await tx.product.delete({
-          where: { id }
-        });
+      // Hard delete - permanently remove the product
+      await prisma.product.delete({
+        where: { id }
       });
       
       return NextResponse.json({
         success: true,
-        message: forceDelete 
-          ? 'Product and all related data permanently deleted' 
-          : 'Product permanently deleted'
+        message: 'Product permanently deleted'
       });
     } else {
       // Soft delete (archive) - just set deletedAt timestamp
@@ -148,152 +193,6 @@ export async function DELETE(
     console.error('Error deleting product:', error);
     return NextResponse.json(
       { error: 'Failed to delete product' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const data = await request.json();
-
-    // Validate required fields
-    if (!data.brand || !data.name) {
-      return NextResponse.json(
-        { error: 'Brand and name are required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if product exists
-    const existingProduct = await prisma.product.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json(
-        { error: 'Product not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if SKU is unique (if provided)
-    if (data.sku && data.sku !== existingProduct.sku) {
-      const skuExists = await prisma.product.findFirst({
-        where: {
-          sku: data.sku,
-          deletedAt: null,
-          id: { not: id },
-        },
-      });
-
-      if (skuExists) {
-        return NextResponse.json(
-          { error: 'SKU already exists' },
-          { status: 400 }
-        );
-      }
-    }
-
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data: {
-        brand: data.brand,
-        name: data.name,
-        color: data.color,
-        sku: data.sku,
-        itemType: data.itemType || existingProduct.itemType,
-        updatedAt: new Date(),
-      },
-    });
-
-    return NextResponse.json(updatedProduct);
-  } catch (error) {
-    console.error('Error updating product:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  // Check authentication
-  if (!checkAuth(request)) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
-  try {
-    const { id } = await params;
-    const data = await request.json();
-
-    // Check if product exists
-    const existingProduct = await prisma.product.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json(
-        { error: 'Product not found' },
-        { status: 404 }
-      );
-    }
-
-    // Update only the provided fields
-    const updateData: Record<string, unknown> = {
-      updatedAt: new Date(),
-    };
-
-    if (data.brand !== undefined) updateData.brand = data.brand;
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.color !== undefined) updateData.color = data.color;
-    if (data.sku !== undefined) updateData.sku = data.sku;
-    if (data.itemType !== undefined) updateData.itemType = data.itemType;
-
-    // Check if SKU is unique (if being updated)
-    if (data.sku && data.sku !== existingProduct.sku) {
-      const skuExists = await prisma.product.findFirst({
-        where: {
-          sku: data.sku,
-          deletedAt: null,
-          id: { not: id },
-        },
-      });
-
-      if (skuExists) {
-        return NextResponse.json(
-          { error: 'SKU already exists' },
-          { status: 400 }
-        );
-      }
-    }
-
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data: updateData,
-    });
-
-    return NextResponse.json(updatedProduct);
-  } catch (error) {
-    console.error('Error updating product:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
       { status: 500 }
     );
   }

@@ -1,39 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromHeader, hashPassword } from '@/lib/auth';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
+import { hashPassword } from '@/lib/auth';
 import prisma from '@/lib/db';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
-
-function checkAuth(req: NextRequest): { user: User | null; isValid: boolean } {
-  try {
-    const token = getTokenFromHeader(req);
-    if (!token) {
-      return { user: null, isValid: false };
-    }
-
-    const user = verifyToken(token);
-    if (!user) {
-      return { user: null, isValid: false };
-    }
-
-    return { user, isValid: true };
-  } catch (error) {
-    console.error('Auth check error:', error);
-    return { user: null, isValid: false };
-  }
-}
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, isValid } = checkAuth(request);
+    const { user, isValid } = await verifySupabaseAuth(request);
     if (!isValid || !user) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
@@ -113,7 +88,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, isValid } = checkAuth(request);
+    const { user, isValid } = await verifySupabaseAuth(request);
     if (!isValid || !user) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }

@@ -19,7 +19,13 @@ interface UsersResponse {
   totalPages: number;
 }
 
-const fetcher = async (url: string, token: string): Promise<UsersResponse> => {
+const fetcher = async (url: string, getAuthToken: () => Promise<string | null>): Promise<UsersResponse> => {
+  const token = await getAuthToken();
+  
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+  
   const response = await fetch(url, {
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -35,14 +41,10 @@ const fetcher = async (url: string, token: string): Promise<UsersResponse> => {
 
 export function useUsers(page: number = 1, limit: number = 10) {
   const { getAuthToken } = useAuth();
-  
-  // Check if we're in the browser environment
-  const isBrowser = typeof window !== 'undefined';
-  const token = isBrowser ? getAuthToken() : null;
 
   const { data, error, isLoading, mutate } = useSWR<UsersResponse>(
-    token ? [`/api/users?page=${page}&limit=${limit}`, token] : null,
-    ([url, token]: [string, string]) => fetcher(url, token),
+    [`/api/users?page=${page}&limit=${limit}`, getAuthToken],
+    ([url, tokenFn]: [string, () => Promise<string | null>]) => fetcher(url, tokenFn),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,

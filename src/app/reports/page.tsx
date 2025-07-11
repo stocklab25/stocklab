@@ -6,6 +6,7 @@ import { Card } from '@/components/Card';
 import { PageLoader } from '@/components/Loader';
 import { useInventory, useProducts, useTransactions } from '@/hooks';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import InventorySummaryChart from '@/components/charts/InventorySummaryChart';
 import ValueReportChart from '@/components/charts/ValueReportChart';
 import SalesByStoreChart from '@/components/charts/SalesByStoreChart';
@@ -45,6 +46,7 @@ interface Transaction {
 }
 
 export default function Reports() {
+  const { getAuthToken } = useAuth();
   const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
   const { data: products, isLoading: productsLoading, isError: productsError } = useProducts();
   const { data: transactions, isLoading: transactionsLoading, isError: transactionsError } = useTransactions();
@@ -65,7 +67,17 @@ export default function Reports() {
   useEffect(() => {
     const fetchSales = async () => {
       try {
-        const response = await fetch('/api/sales');
+        const token = await getAuthToken();
+        if (!token) {
+          console.error('No authentication token available');
+          return;
+        }
+
+        const response = await fetch('/api/sales', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         if (response.ok) {
           const data = await response.json();
           setSalesData(Array.isArray(data) ? data : data?.data || []);
@@ -75,7 +87,7 @@ export default function Reports() {
       }
     };
     fetchSales();
-  }, []);
+  }, [getAuthToken]);
 
   // Calculate report data when data is available
   useEffect(() => {

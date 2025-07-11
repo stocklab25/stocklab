@@ -1,12 +1,17 @@
 import useSWR from 'swr';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Fetcher function with authentication
-const fetcher = async (url: string) => {
-  const token = localStorage.getItem('authToken');
+const fetcher = async (url: string, getAuthToken: () => Promise<string | null>) => {
+  const token = await getAuthToken();
+  
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': token ? `Bearer ${token}` : '',
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   });
@@ -19,8 +24,9 @@ const fetcher = async (url: string) => {
 };
 
 const useTransactions = () => {
+  const { getAuthToken } = useAuth();
   const apiRoute = `/api/transactions`;
-  const { data, error, mutate } = useSWR(apiRoute, fetcher);
+  const { data, error, mutate } = useSWR([apiRoute, getAuthToken], ([url, tokenFn]) => fetcher(url, tokenFn));
 
   return {
     data: data?.data || [],

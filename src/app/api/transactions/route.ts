@@ -1,71 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
-
-// Auth check function
-function checkAuth(req: NextRequest): { user: User | null; isValid: boolean } {
-  // Check for auth token in headers
-  const authHeader = req.headers.get('authorization');
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const user = verifyToken(token);
-    return { user, isValid: !!user };
-  }
-  
-  // Check for auth token in cookies
-  const authCookie = req.cookies.get('authToken')?.value;
-  if (authCookie) {
-    const user = verifyToken(authCookie);
-    return { user, isValid: !!user };
-  }
-  
-  return { user: null, isValid: false };
-}
 
 export async function GET(req: NextRequest) {
-  // Check authentication
-  const { isValid } = checkAuth(req);
-  if (!isValid) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const type = searchParams.get('type') || '';
+    const showDeleted = searchParams.get('showDeleted') === 'true';
+
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const whereClause: Record<string, unknown> = {};
+
+    if (!showDeleted) {
+      whereClause.deletedAt = null;
+    }
+
+    if (type) {
+      whereClause.type = type;
+    }
+
+    // Get transactions with pagination
     const transactions = await prisma.stockTransaction.findMany({
-      where: {
-        deletedAt: null, // Only show non-deleted transactions
-        InventoryItem: {
-          deletedAt: null // Only show transactions from non-deleted inventory items
-        }
-      },
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
       include: {
         InventoryItem: {
           include: {
-            product: true // Include product info through inventory item
-          }
+            product: true,
+          },
         },
-        user: true,
-        fromStore: true,
-        toStore: true
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
-      orderBy: {
-        date: 'desc'
-      }
     });
-    
+
+    // Get total count for pagination
+    const total = await prisma.stockTransaction.count({
+      where: whereClause,
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
     return NextResponse.json({
       data: transactions,
-      success: true
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
     });
   } catch (error) {
     console.error('Error fetching transactions:', error);
@@ -77,40 +81,47 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // Check authentication
-  const { user, isValid } = checkAuth(req);
-  if (!isValid || !user) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
-    const data = await req.json();
-    
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const {
+      inventoryItemId,
+      type,
+      quantity,
+      notes,
+      transactionDate,
+    } = body;
+
     // Validate required fields
-    if (!data.type || !data.inventoryItemId || !data.quantity || !data.date) {
+    if (!inventoryItemId || !type || !quantity) {
       return NextResponse.json(
-        { error: 'Missing required fields: type, inventoryItemId, quantity, date' },
+        { error: 'Missing required fields: inventoryItemId, type, quantity' },
         { status: 400 }
       );
     }
 
-    // Validate quantity is positive
-    if (data.quantity <= 0) {
+    // Verify user exists in database
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id }
+    });
+
+    if (!dbUser) {
       return NextResponse.json(
-        { error: 'Quantity must be greater than 0' },
-        { status: 400 }
+        { error: 'User not found in database' },
+        { status: 404 }
       );
     }
 
-    // Get the inventory item to check current quantity
+    // Check if inventory item exists
     const inventoryItem = await prisma.inventoryItem.findUnique({
-      where: { id: data.inventoryItemId },
-      include: {
-        product: true
-      }
+      where: { id: inventoryItemId },
     });
 
     if (!inventoryItem) {
@@ -120,74 +131,52 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // For OUT transactions, check if we have enough stock
-    if (data.type === 'OUT' && inventoryItem.quantity < data.quantity) {
-      return NextResponse.json(
-        { error: `Insufficient stock. Available: ${inventoryItem.quantity}, Requested: ${data.quantity}` },
-        { status: 400 }
-      );
-    }
-
-    // Calculate new quantity based on transaction type
-    let newQuantity = inventoryItem.quantity;
-    switch (data.type) {
-      case 'IN':
-        newQuantity += data.quantity;
-        break;
-      case 'OUT':
-        newQuantity -= data.quantity;
-        break;
-      case 'ADJUSTMENT':
-        newQuantity = data.quantity; // Direct adjustment
-        break;
-      default:
-        // For other types (MOVE, RETURN, AUDIT), don't change quantity
-        break;
-    }
-
-    // Ensure quantity doesn't go negative
-    if (newQuantity < 0) {
-      return NextResponse.json(
-        { error: 'Transaction would result in negative stock' },
-        { status: 400 }
-      );
-    }
-
-    // Create the transaction
-    const newTransaction = await prisma.stockTransaction.create({
-            data: {
-        inventoryItemId: data.inventoryItemId,
-          type: data.type,
-          quantity: data.quantity,
-          date: new Date(data.date),
-          fromStoreId: data.fromStoreId,
-          toStoreId: data.toStoreId,
-          userId: user.id, // Use the authenticated user's ID
-          notes: data.notes,
-        },
-        include: {
+    // Create transaction
+    const transaction = await prisma.stockTransaction.create({
+      data: {
+        inventoryItemId,
+        type,
+        quantity: parseInt(quantity),
+        notes,
+        date: transactionDate ? new Date(transactionDate) : new Date(),
+        userId: dbUser.id,
+      },
+      include: {
         InventoryItem: {
           include: {
-            product: true
-          }
+            product: true,
+          },
         },
-            user: true,
-            fromStore: true,
-            toStore: true
-          }
-        });
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
 
-    // Update inventory item quantity
-    await prisma.inventoryItem.update({
-      where: { id: data.inventoryItemId },
-        data: { quantity: newQuantity }
+    // Update inventory quantity based on transaction type
+    let quantityChange = 0;
+    if (type === 'IN') {
+      quantityChange = parseInt(quantity);
+    } else if (type === 'OUT') {
+      quantityChange = -parseInt(quantity);
+    }
+
+    if (quantityChange !== 0) {
+      await prisma.inventoryItem.update({
+        where: { id: inventoryItemId },
+        data: {
+          quantity: {
+            increment: quantityChange,
+          },
+        },
       });
-    
-    return NextResponse.json({
-      data: newTransaction,
-      success: true,
-      newQuantity: newQuantity
-    }, { status: 201 });
+    }
+
+    return NextResponse.json(transaction, { status: 201 });
   } catch (error) {
     console.error('Error creating transaction:', error);
     return NextResponse.json(
@@ -198,16 +187,15 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  // Check authentication
-  const { isValid } = checkAuth(req);
-  if (!isValid) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const isHardDelete = searchParams.get('hard') === 'true';

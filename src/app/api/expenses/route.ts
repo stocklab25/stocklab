@@ -1,26 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getTokenFromHeader, verifyToken } from '@/lib/auth';
-
-function checkAuth(req: NextRequest) {
-  const token = getTokenFromHeader(req);
-  if (!token) {
-    console.error('No token provided');
-    return { user: null, isValid: false };
-  }
-  const user = verifyToken(token);
-  if (!user) {
-    console.error('Invalid or expired token');
-    return { user: null, isValid: false };
-  }
-  return { user, isValid: true };
-}
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req).isValid) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const expenses = await prisma.expense.findMany({
       where: { deletedAt: null },
       orderBy: { transactionDate: 'desc' },
@@ -36,10 +27,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req).isValid) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
   try {
+    const { user, isValid } = await verifySupabaseAuth(req);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { transactionDate, description, amount, type, category, cardId } = await req.json();
     if (!transactionDate || !description || !amount || !type || !category || !cardId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });

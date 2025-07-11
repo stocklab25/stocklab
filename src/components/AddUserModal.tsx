@@ -55,7 +55,10 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
 
     setIsLoading(true);
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: {

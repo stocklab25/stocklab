@@ -25,7 +25,10 @@ export default function CardsPage() {
     setLoading(true);
     setError(null);
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const res = await fetch('/api/cards', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -57,7 +60,10 @@ export default function CardsPage() {
     e.preventDefault();
     setError(null);
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
       const res = await fetch('/api/cards', {
         method: 'POST',
         headers: {
