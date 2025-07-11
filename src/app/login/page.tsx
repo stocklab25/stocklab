@@ -45,8 +45,12 @@ export default function Login() {
       <div className="w-full sm:w-[400px] md:w-[420px] lg:w-[480px] rounded-2xl shadow-2xl bg-background dark:bg-[#18181b] border border-border dark:border-white/10 p-8 space-y-8 flex flex-col items-center justify-center">
         {/* Logo and Title */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-primary rounded-xl flex items-center justify-center mb-4">
-            <span className="text-primary-foreground font-bold text-2xl">SL</span>
+          <div className="mx-auto">
+            <img 
+              src="/SL-logo.png" 
+              alt="Stock Lab Logo" 
+              className="h-24 w-auto mx-auto"
+            />
           </div>
           <h2 className="text-3xl font-bold text-foreground dark:text-primary-foreground">Stock Lab</h2>
           <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Sign in to your account</p>

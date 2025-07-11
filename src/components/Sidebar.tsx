@@ -76,9 +76,11 @@ export default function Sidebar() {
         <div className="flex items-center justify-between px-6 py-4 border-b border-border h-16">
           {!collapsed && (
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">SL</span>
-              </div>
+              <img 
+                src="/SL-logo.png" 
+                alt="Stock Lab Logo" 
+                className="w-8 h-8 object-contain"
+              />
               <span className="font-semibold text-foreground">Stock Lab</span>
             </div>
           )}
