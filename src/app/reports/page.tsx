@@ -9,6 +9,7 @@ import InventorySummaryChart from '@/components/charts/InventorySummaryChart';
 import ValueReportChart from '@/components/charts/ValueReportChart';
 import SalesByStoreChart from '@/components/charts/SalesByStoreChart';
 import TrendsAnalysisChart from '@/components/charts/TrendsAnalysisChart';
+import ExportReportsModal from '@/components/ExportReportsModal';
 
 interface ReportData {
   totalValue: number;
@@ -48,6 +49,7 @@ export default function Reports() {
   const { data: transactions, isLoading: transactionsLoading, isError: transactionsError } = useTransactions();
   const [selectedReport, setSelectedReport] = useState<string>('summary');
   const [salesData, setSalesData] = useState<any[]>([]);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
   const [reportData, setReportData] = useState<ReportData>({
     totalValue: 0,
@@ -175,7 +177,10 @@ export default function Reports() {
             <h1 className="text-3xl font-bold text-foreground">Reports</h1>
             <p className="text-muted-foreground mt-2">Analytics and insights for your inventory</p>
           </div>
-          <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+          <button 
+            onClick={() => setIsExportModalOpen(true)}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
             📊 Export Report
           </button>
         </div>
@@ -339,6 +344,12 @@ export default function Reports() {
             </div>
           </Card>
         )}
+
+        {/* Export Modal */}
+        <ExportReportsModal 
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+        />
       </div>
     </Layout>
   );
