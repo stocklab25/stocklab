@@ -31,7 +31,9 @@ import {
   faEllipsisV,
   faGem,
   faChevronDown,
-  faChevronRight
+  faChevronRight,
+  faSignOutAlt,
+  faRightFromBracket
 } from '@fortawesome/free-solid-svg-icons';
 
 // Navigation icons
@@ -79,4 +81,7 @@ export const DiamondIcon = () => <FontAwesomeIcon icon={faGem} />;
 
 // Chevron icons
 export const ChevronDownIcon = () => <FontAwesomeIcon icon={faChevronDown} />;
-export const ChevronRightIcon = () => <FontAwesomeIcon icon={faChevronRight} />; 
+export const ChevronRightIcon = () => <FontAwesomeIcon icon={faChevronRight} />;
+
+// Logout icon (FontAwesome 6+ uses faRightFromBracket, fallback to faSignOutAlt)
+export const LogoutIcon = () => <FontAwesomeIcon icon={faRightFromBracket || faSignOutAlt} />; 
