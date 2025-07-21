@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigation } from '@/contexts/NavigationContext';
 import Loader from './Loader';
-import { BellIcon, SunIcon, MoonIcon, ProfileIcon } from '@/utils/icons';
+import { BellIcon, SunIcon, MoonIcon, ProfileIcon, LogoutIcon } from '@/utils/icons';
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -23,12 +23,6 @@ export default function Header() {
               <span>Loading...</span>
             </div>
           )}
-
-          {/* Notifications */}
-          <button className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors">
-            <span className="text-xl"><BellIcon /></span>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
 
           {/* Theme Toggle */}
           <button
@@ -54,10 +48,10 @@ export default function Header() {
             </div>
             <button
               onClick={logout}
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted-foreground hover:text-background transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
               title="Logout"
             >
-              <span className="text-lg">🚪</span>
+              <span className="text-lg"><LogoutIcon /></span>
             </button>
           </div>
         </div>
