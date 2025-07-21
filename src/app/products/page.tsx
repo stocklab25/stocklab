@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useProducts, useAddProduct, useImportProducts } from '@/hooks';
+import { useProducts, useAddProduct } from '@/hooks';
 import { useDeleteProduct } from '@/hooks/useDeleteProduct';
 import { useRestoreProduct } from '@/hooks/useRestoreProduct';
 import { useEditProduct } from '@/hooks/useEditProduct';
@@ -19,9 +19,9 @@ interface Product {
   id: string;
   brand: string;
   name: string;
-  color?: string;
   sku?: string;
-  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
+  stocklabSku?: string;
+  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
   deletedAt?: string;
 }
 
@@ -63,22 +63,19 @@ export default function Products() {
   const [showForcePrompt, setShowForcePrompt] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [importResults, setImportResults] = useState<any>(null);
-  const { importProducts, isLoading: isImporting, error: importError } = useImportProducts();
 
   // Filter products based on archived status
   const filteredProducts = products.filter((product: Product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.stocklabSku && product.stocklabSku.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const isArchived = !!product.deletedAt;
     return matchesSearch && (showArchived ? isArchived : !isArchived);
   });
 
-  const handleAddProduct = async (productData: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'MERCH' }) => {
+  const handleAddProduct = async (productData: { brand: string; name: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => {
     try {
       await addProduct(productData);
       setIsModalOpen(false);
@@ -135,33 +132,9 @@ export default function Products() {
     setOpenDropdown(null);
   };
 
-  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'MERCH' }) => {
+  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => {
     try {
-      await editProduct(productId, productData);
-    } catch (error) {
-      // Handle error silently
-    }
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setImportResults(null);
-    }
-  };
-
-  const handleImport = async () => {
-    if (!selectedFile) return;
-
-    try {
-      const results = await importProducts(selectedFile);
-      setImportResults(results);
-      if (results.errors.length === 0) {
-        setIsImportModalOpen(false);
-        setSelectedFile(null);
-        mutate(); // Refresh products list
-      }
+      await editProduct(productId, { ...productData, id: productId });
     } catch (error) {
       // Handle error silently
     }
@@ -186,8 +159,8 @@ export default function Products() {
   const columns = [
     { key: 'brand', label: 'Brand' },
     { key: 'name', label: 'Name' },
-    { key: 'color', label: 'Color' },
     { key: 'sku', label: 'SKU' },
+    { key: 'stocklabSku', label: 'StockLab SKU' },
     { key: 'itemType', label: 'Type' },
   ];
 
@@ -207,7 +180,7 @@ export default function Products() {
         <Layout>
           <div className="flex items-center justify-center h-64">
             <div className="text-center space-y-4">
-              <div className="text-6xl">⚠️</div>
+              <div className="text-6xl">!</div>
               <div className="text-lg text-red-600">Error loading products</div>
               <p className="text-muted-foreground">Please try refreshing the page</p>
             </div>
@@ -239,16 +212,10 @@ export default function Products() {
               {showArchived ? 'View Active' : 'View Archived'}
             </button>
             {!showArchived && (
-              <>
-                <Button onClick={() => setIsModalOpen(true)}>
-                  <span className="mr-2">+</span>
-                  Add Product
-                </Button>
-                <Button onClick={() => setIsImportModalOpen(true)}>
-                  <span className="mr-2">📁</span>
-                  Import Products
-                </Button>
-              </>
+              <Button onClick={() => setIsModalOpen(true)}>
+                <span className="mr-2">+</span>
+                Add Product
+              </Button>
             )}
           </div>
         </div>
@@ -321,11 +288,12 @@ export default function Products() {
                           <p className="font-medium text-foreground">{product.name}</p>
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="text-muted-foreground">{product.color}</span>
-                      </td>
+
                       <td className="py-3 px-4">
                         <span className="text-sm text-muted-foreground font-mono">{product.sku}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-blue-600 font-mono font-medium">{product.stocklabSku || 'N/A'}</span>
                       </td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -431,7 +399,7 @@ export default function Products() {
         <div className="space-y-4">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
-              <span className="text-red-600 text-lg">⚠️</span>
+              <span className="text-red-600 text-lg">!</span>
               <span className="font-semibold text-red-800">Dangerous Operation</span>
             </div>
             <p className="text-red-700 text-sm">
@@ -541,76 +509,6 @@ export default function Products() {
             </div>
           </div>
         </>
-      )}
-
-      {isImportModalOpen && (
-        <Modal open={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold mb-2">Import Products from CSV</h2>
-            <p className="text-muted-foreground text-sm mb-2">
-              Upload a CSV file with product and inventory details. You can download a template below.
-            </p>
-            <a
-              href="/import-products-template.csv"
-              download
-              className="inline-block mb-2 text-blue-600 hover:underline text-sm"
-            >
-              Download CSV Template
-            </a>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileSelect}
-              className="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:outline-none"
-            />
-            {selectedFile && (
-              <p className="text-sm text-green-600">Selected: {selectedFile.name}</p>
-            )}
-            {importError && (
-              <p className="text-sm text-red-600">Error: {importError}</p>
-            )}
-            {importResults && (
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <h3 className="font-semibold mb-2">Import Results:</h3>
-                <ul className="text-sm space-y-1">
-                  <li>Products created: {importResults.productsCreated}</li>
-                  <li>Products updated: {importResults.productsUpdated}</li>
-                  <li>Inventory items created: {importResults.inventoryItemsCreated}</li>
-                </ul>
-                {importResults.errors.length > 0 && (
-                  <div className="mt-2">
-                    <h4 className="font-semibold text-red-600">Errors:</h4>
-                    <ul className="text-sm text-red-600 space-y-1">
-                      {importResults.errors.map((error: string, index: number) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="flex justify-end space-x-2 mt-4">
-              <button
-                className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
-                onClick={() => {
-                  setIsImportModalOpen(false);
-                  setSelectedFile(null);
-                  setImportResults(null);
-                }}
-                disabled={isImporting}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                onClick={handleImport}
-                disabled={!selectedFile || isImporting}
-              >
-                {isImporting ? 'Importing...' : 'Import'}
-              </button>
-            </div>
-          </div>
-        </Modal>
       )}
       </Layout>
     </ProtectedRoute>

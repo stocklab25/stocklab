@@ -15,9 +15,8 @@ interface Product {
   id: string;
   brand: string;
   name: string;
-  color: string;
-  sku: string;
-  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
+  sku?: string;
+  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
 }
 
 export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInventoryModalProps) {
@@ -39,13 +38,13 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
     paymentMethod: ''
   });
 
-  const [selectedProductType, setSelectedProductType] = useState<'SHOE' | 'APPAREL' | 'MERCH'>('SHOE');
+  const [selectedProductType, setSelectedProductType] = useState<'SHOE' | 'APPAREL' | 'ACCESSORIES'>('SHOE');
   const [validationError, setValidationError] = useState<string>('');
 
   // Check for duplicate size when product or size changes
   useEffect(() => {
-    // For MERCH items, we don't need size validation since they don't have sizes
-    if (selectedProductType === 'MERCH') {
+    // For ACCESSORIES items, we don't need size validation since they don't have sizes
+    if (selectedProductType === 'ACCESSORIES') {
       setValidationError('');
       return;
     }
@@ -71,13 +70,14 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check for duplicate before submitting (only for non-MERCH items)
-    if (validationError && selectedProductType !== 'MERCH') {
+    // Check for duplicate before submitting (only for non-ACCESSORIES items)
+    if (validationError && selectedProductType !== 'ACCESSORIES') {
+      alert('Please fix the validation errors before submitting.');
       return;
     }
     
-    // For MERCH items, set size to "N/A" if not provided
-    const sizeValue = selectedProductType === 'MERCH' ? 'N/A' : formData.size;
+    // For ACCESSORIES items, set size to "N/A" if not provided
+    const sizeValue = selectedProductType === 'ACCESSORIES' ? 'N/A' : formData.size;
     
     // Require vendor and paymentMethod
     if (!formData.vendor || !formData.paymentMethod) {
@@ -183,7 +183,7 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
               <option value="">Select a product</option>
               {products?.map((product: Product) => (
                 <option key={product.id} value={product.id}>
-                  {product.brand} - {product.name} ({product.color})
+                  {product.brand} - {product.name}
                 </option>
               ))}
             </select>
@@ -204,7 +204,7 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
           </div>
 
           {/* Size - Only show for SHOE and APPAREL items */}
-          {selectedProductType !== 'MERCH' && (
+          {selectedProductType !== 'ACCESSORIES' && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
                 Size * ({selectedProductType === 'SHOE' ? 'Shoe' : 'Apparel'})
@@ -250,8 +250,8 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
             </div>
           )}
 
-          {/* Size field for MERCH items - hidden but required for database */}
-          {selectedProductType === 'MERCH' && (
+          {/* Size field for ACCESSORIES items - hidden but required for database */}
+          {selectedProductType === 'ACCESSORIES' && (
             <input
               type="hidden"
               value="N/A"

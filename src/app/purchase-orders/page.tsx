@@ -1,18 +1,77 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
-import PageContainer from '@/components/PageContainer';
 import { Card } from '@/components/Card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/Table';
 import Button from '@/components/Button';
-import Badge from '@/components/Badge';
-import usePurchaseOrders, { type PurchaseOrder } from '@/hooks/usePurchaseOrders';
+import { AddIcon, EditIcon, DeleteIcon, MoreIcon, ChevronDownIcon, ChevronRightIcon } from '@/utils/icons';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePurchaseOrders } from '@/hooks/usePurchaseOrders';
+import AddPurchaseOrderModal from '@/components/AddPurchaseOrderModal';
+import DeliverPurchaseOrderModal from '@/components/DeliverPurchaseOrderModal';
+import { useProducts } from '@/hooks';
 
-export default function PurchaseOrdersPage() {
+interface PurchaseOrder {
+  id: string;
+  vendorName: string;
+  orderNumber?: string;
+  orderDate: string;
+  deliveryDate?: string;
+  status: 'DRAFT' | 'SUBMITTED' | 'DELIVERED' | 'CANCELLED';
+  totalAmount: number;
+  notes?: string;
+  createdAt: string;
+  purchaseOrderItems: PurchaseOrderItem[];
+}
+
+interface PurchaseOrderItem {
+  id: string;
+  productId: string;
+  size: string;
+  condition: string;
+  quantityOrdered: number;
+  unitCost: number;
+  totalCost: number;
+  product: {
+    id: string;
+    brand: string;
+    name: string;
+    sku?: string;
+  };
+}
+
+export default function PurchaseOrders() {
+  const { getAuthToken } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [vendorFilter, setVendorFilter] = useState('');
-  const { data: purchaseOrders, isLoading, isError, mutate } = usePurchaseOrders();
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showDeliverModal, setShowDeliverModal] = useState(false);
+  const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<PurchaseOrder | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const { data: purchaseOrders, isLoading, isError, mutate } = usePurchaseOrders(statusFilter || undefined);
+  const { data: products } = useProducts();
+
+
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'DRAFT':
+        return 'bg-gray-100 text-gray-800';
+      case 'SUBMITTED':
+        return 'bg-blue-100 text-blue-800';
+      case 'DELIVERED':
+        return 'bg-green-100 text-green-800';
+      case 'CANCELLED':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-accent text-accent-foreground';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -21,291 +80,295 @@ export default function PurchaseOrdersPage() {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const handleDeliverOrder = (order: PurchaseOrder) => {
+    setSelectedPurchaseOrder(order);
+    setShowDeliverModal(true);
+    setOpenDropdown(null);
   };
 
-  const getStatusBadge = (purchaseOrder: PurchaseOrder) => {
-    // You can add logic here to determine status based on your business rules
-    return <Badge variant="default">Active</Badge>;
+  const toggleDropdown = (orderId: string) => {
+    setOpenDropdown(openDropdown === orderId ? null : orderId);
   };
 
-  // Filter purchase orders based on search term and vendor filter
-  const filteredPurchaseOrders = purchaseOrders?.filter((po: PurchaseOrder) => {
-    const matchesSearch = 
-      po.inventoryItem?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.inventoryItem?.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.inventoryItem?.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.vendor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.r3vPurchaseOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesVendor = vendorFilter === '' || po.vendor === vendorFilter;
-    
-    return matchesSearch && matchesVendor;
-  }) || [];
-
-  // Get unique vendors for filter dropdown
-  const uniqueVendors = [...new Set(purchaseOrders?.map((po: PurchaseOrder) => po.vendor))];
-
-  const columns = [
-    {
-      key: 'r3vPurchaseOrderNumber',
-      label: 'PO Number',
-      render: (purchaseOrder: PurchaseOrder) => (
-        <span className="font-mono text-sm font-medium">
-          {purchaseOrder.r3vPurchaseOrderNumber}
-        </span>
-      ),
-    },
-    {
-      key: 'product',
-      label: 'Product',
-      render: (purchaseOrder: PurchaseOrder) => (
-        <div className="flex flex-col">
-          <span className="font-medium">
-            {purchaseOrder.inventoryItem.product.brand} - {purchaseOrder.inventoryItem.product.name}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {purchaseOrder.inventoryItem.product.color} | Size: {purchaseOrder.inventoryItem.size}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: 'vendor',
-      label: 'Vendor',
-      render: (purchaseOrder: PurchaseOrder) => (
-        <span className="font-medium">{purchaseOrder.vendor}</span>
-      ),
-    },
-    {
-      key: 'quantity',
-      label: 'Qty',
-      render: (purchaseOrder: PurchaseOrder) => (
-        <span className="font-medium">{purchaseOrder.quantity}</span>
-      ),
-    },
-    {
-      key: 'cost',
-      label: 'Cost',
-      render: (purchaseOrder: PurchaseOrder) => (
-        <span className="font-medium">{formatCurrency(purchaseOrder.cost)}</span>
-      ),
-    },
-    {
-      key: 'total',
-      label: 'Total',
-      render: (purchaseOrder: PurchaseOrder) => (
-        <span className="font-bold text-primary">
-          {formatCurrency(purchaseOrder.cost * purchaseOrder.quantity)}
-        </span>
-      ),
-    },
-    {
-      key: 'purchaseDate',
-      label: 'Date',
-      render: (purchaseOrder: PurchaseOrder) => (
-        <span className="text-sm">{formatDate(purchaseOrder.purchaseDate)}</span>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (purchaseOrder: PurchaseOrder) => getStatusBadge(purchaseOrder),
-    },
-  ];
+  const toggleExpandedRow = (orderId: string) => {
+    const newExpandedRows = new Set(expandedRows);
+    if (newExpandedRows.has(orderId)) {
+      newExpandedRows.delete(orderId);
+    } else {
+      newExpandedRows.add(orderId);
+    }
+    setExpandedRows(newExpandedRows);
+  };
 
   if (isLoading) {
     return (
       <Layout>
-        <PageContainer>
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading purchase orders...</p>
-            </div>
-          </div>
-        </PageContainer>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-muted-foreground">Loading purchase orders...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-red-600">Error loading purchase orders</div>
+        </div>
       </Layout>
     );
   }
 
   return (
     <Layout>
-      <PageContainer>
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Purchase Orders</h1>
-              <p className="text-muted-foreground mt-1">
-                Manage and track all purchase orders
-              </p>
-            </div>
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Purchase Orders</h1>
+            <p className="text-muted-foreground mt-2">Manage your purchase orders from vendors</p>
           </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                    <p className="text-2xl font-bold text-foreground">{filteredPurchaseOrders.length}</p>
-                  </div>
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <span className="text-blue-600 text-lg">📋</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Value</p>
-                    <p className="text-2xl font-bold text-foreground">
-                      {formatCurrency(
-                        filteredPurchaseOrders.reduce((sum: number, po: PurchaseOrder) => sum + (po.cost * po.quantity), 0)
-                      )}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <span className="text-green-600 text-lg">💰</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">This Month</p>
-                    <p className="text-2xl font-bold text-foreground">
-                      {filteredPurchaseOrders.filter((po: PurchaseOrder) => {
-                        const poDate = new Date(po.purchaseDate);
-                        const now = new Date();
-                        return poDate.getMonth() === now.getMonth() && 
-                               poDate.getFullYear() === now.getFullYear();
-                      }).length}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <span className="text-purple-600 text-lg">📅</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Active Vendors</p>
-                    <p className="text-2xl font-bold text-foreground">
-                      {new Set(filteredPurchaseOrders.map((po: PurchaseOrder) => po.vendor)).size}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <span className="text-orange-600 text-lg">🏢</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Search and Filters */}
-          <Card>
-            <div className="p-6">
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    placeholder="Search by product name, brand, SKU, vendor, or order number..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
-                <select 
-                  value={vendorFilter}
-                  onChange={(e) => setVendorFilter(e.target.value)}
-                  className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="">All Vendors</option>
-                  {uniqueVendors.map(vendor => (
-                    <option key={vendor} value={vendor}>
-                      {vendor}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </Card>
-
-          {/* Purchase Orders Table */}
-          <Card>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-foreground">Purchase Orders</h2>
-              </div>
-
-              {isError ? (
-                <div className="text-center py-8">
-                  <p className="text-red-500 mb-4">Failed to fetch purchase orders.</p>
-                  <Button onClick={() => mutate()} variant="outline">
-                    Retry
-                  </Button>
-                </div>
-              ) : filteredPurchaseOrders.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">📋</span>
-                  </div>
-                  <h3 className="text-lg font-medium text-foreground mb-2">No purchase orders yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create your first purchase order to get started
-                  </p>
-                  <Button onClick={() => {}}>
-                    Create Purchase Order
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Table className="w-full">
-                    <TableHeader>
-                      <TableRow>
-                        {columns.map((column) => (
-                          <TableHead key={column.key} className="text-left font-medium">
-                            {column.label}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredPurchaseOrders.map((purchaseOrder) => (
-                        <TableRow key={purchaseOrder.id} className="hover:bg-muted/50">
-                          {columns.map((column) => (
-                            <TableCell key={column.key}>
-                              {column.render(purchaseOrder)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </>
-              )}
-            </div>
-          </Card>
+          <Button onClick={() => setShowAddModal(true)}>
+            <AddIcon /> New Purchase Order
+          </Button>
         </div>
-      </PageContainer>
+
+        {/* Search and Filters */}
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search by vendor name or order number..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="">All Status</option>
+                <option value="DRAFT">Draft</option>
+                <option value="SUBMITTED">Submitted</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Purchase Orders Table */}
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">
+                Purchase Orders ({purchaseOrders.length})
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 font-medium text-foreground w-8"></th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Vendor</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Order #</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Order Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Items</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Total Qty</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Total Amount</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {purchaseOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-8">
+                        <p className="text-muted-foreground">No purchase orders found</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    purchaseOrders.map((order: PurchaseOrder) => {
+                      const totalQuantity = order.purchaseOrderItems.reduce((sum, item) => sum + item.quantityOrdered, 0);
+                      const uniqueItems = order.purchaseOrderItems.length;
+                      const isExpanded = expandedRows.has(order.id);
+
+                      return (
+                        <React.Fragment key={order.id}>
+                          <tr className="border-b border-muted hover:bg-accent">
+                            <td className="py-3 px-4">
+                              <button
+                                onClick={() => toggleExpandedRow(order.id)}
+                                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                              </button>
+                            </td>
+                            <td className="py-3 px-4">
+                              <p className="font-medium text-foreground">{order.vendorName}</p>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-sm">{order.orderNumber || 'N/A'}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-foreground">{formatDate(order.orderDate)}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-foreground">{uniqueItems} item{uniqueItems !== 1 ? 's' : ''}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-medium text-foreground">{totalQuantity}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                                {order.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-medium text-foreground">{formatCurrency(order.totalAmount)}</span>
+                            </td>
+                            <td className="py-3 px-4 text-right relative">
+                              <button 
+                                onClick={() => toggleDropdown(order.id)}
+                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                              >
+                                <MoreIcon />
+                              </button>
+                              
+                              {openDropdown === order.id && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                                  <div className="py-1">
+                                    {order.status !== 'DELIVERED' && (
+                                      <button
+                                        onClick={() => handleDeliverOrder(order)}
+                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                      >
+                                        Mark as Delivered
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        // TODO: Add edit functionality
+                                        setOpenDropdown(null);
+                                      }}
+                                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      Edit Order
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        // TODO: Add delete functionality
+                                        setOpenDropdown(null);
+                                      }}
+                                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                                    >
+                                      Delete Order
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        
+                        {/* Expanded Row Content */}
+                        {isExpanded && (
+                          <tr className="bg-gray-50">
+                            <td colSpan={9} className="px-4 py-4">
+                              <div className="space-y-4">
+                                <h4 className="font-medium text-foreground">Purchase Order Items</h4>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-gray-200">
+                                        <th className="text-left py-2 px-3 font-medium text-gray-600">Product</th>
+                                        <th className="text-left py-2 px-3 font-medium text-gray-600">Size</th>
+                                        <th className="text-left py-2 px-3 font-medium text-gray-600">Condition</th>
+                                        <th className="text-left py-2 px-3 font-medium text-gray-600">Quantity</th>
+                                        <th className="text-left py-2 px-3 font-medium text-gray-600">Unit Cost</th>
+                                        <th className="text-left py-2 px-3 font-medium text-gray-600">Total Cost</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {order.purchaseOrderItems.map((item) => (
+                                        <tr key={item.id} className="border-b border-gray-100">
+                                          <td className="py-2 px-3">
+                                            <div>
+                                              <p className="font-medium text-foreground">
+                                                {item.product.brand} {item.product.name}
+                                              </p>
+                                              {item.product.sku && (
+                                                <p className="text-xs text-muted-foreground font-mono">
+                                                  SKU: {item.product.sku}
+                                                </p>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="py-2 px-3 text-foreground">{item.size}</td>
+                                          <td className="py-2 px-3 text-foreground">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                              item.condition === 'NEW' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                            }`}>
+                                              {item.condition === 'NEW' ? 'New' : 'Pre-owned'}
+                                            </span>
+                                          </td>
+                                          <td className="py-2 px-3 text-foreground">{item.quantityOrdered}</td>
+                                          <td className="py-2 px-3 text-foreground">{formatCurrency(item.unitCost)}</td>
+                                          <td className="py-2 px-3 text-foreground font-medium">{formatCurrency(item.totalCost)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                {order.notes && (
+                                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                    <p className="text-sm text-blue-800">
+                                      <span className="font-medium">Notes:</span> {order.notes}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+
+        {/* Add Purchase Order Modal */}
+        <AddPurchaseOrderModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            mutate();
+            setShowAddModal(false);
+          }}
+          products={products || []}
+        />
+
+        {/* Deliver Purchase Order Modal */}
+        <DeliverPurchaseOrderModal
+          isOpen={showDeliverModal}
+          onClose={() => setShowDeliverModal(false)}
+          onSuccess={() => {
+            mutate();
+            setShowDeliverModal(false);
+            setSelectedPurchaseOrder(null);
+          }}
+          purchaseOrder={selectedPurchaseOrder}
+        />
+      </div>
     </Layout>
   );
 } 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { WarningIcon } from '@/utils/icons';
 
 interface ToastProps {
   type: 'success' | 'error' | 'warning' | 'info';
@@ -57,7 +58,7 @@ export default function Toast({
       case 'error':
         return '❌';
       case 'warning':
-        return '⚠️';
+        return <WarningIcon />;
       case 'info':
         return 'ℹ️';
       default:

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
-import { purchaseService } from '../../../../prisma/services/purchase.service';
-import { InventoryService } from '../../../../prisma/services/inventory.service';
+import { generateStockLabSku } from '@/utils/sku-generator';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,15 +13,24 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(req.url);
+    const purchaseOrderId = searchParams.get('purchaseOrderId');
+
+    const where: any = {
+      deletedAt: null,
+      product: {
+        deletedAt: null
+      }
+    };
+
+    if (purchaseOrderId) {
+      where.purchaseOrderId = purchaseOrderId;
+    }
+
     let inventoryItems;
     try {
       inventoryItems = await prisma.inventoryItem.findMany({
-        where: {
-          deletedAt: null, // Only show non-deleted items
-          product: {
-            deletedAt: null // Only show items from non-deleted products
-          }
-        },
+        where,
         select: {
           id: true,
           productId: true,
@@ -32,6 +40,8 @@ export async function GET(req: NextRequest) {
           cost: true,
           status: true,
           quantity: true,
+          note: true,
+          purchaseOrderId: true,
           createdAt: true,
           updatedAt: true,
           product: {
@@ -39,10 +49,18 @@ export async function GET(req: NextRequest) {
               id: true,
               brand: true,
               name: true,
-              color: true,
               sku: true,
+              stocklabSku: true,
               createdAt: true,
               updatedAt: true
+            }
+          },
+          purchaseOrder: {
+            select: {
+              id: true,
+              vendorName: true,
+              orderNumber: true,
+              orderDate: true
             }
           }
         },
@@ -51,19 +69,13 @@ export async function GET(req: NextRequest) {
         }
       });
     } catch (dbError) {
-      
       const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
       if (errorMessage.includes('prepared statement') || errorMessage.includes('connection')) {
         await prisma.$disconnect();
         await prisma.$connect();
         // Retry once
         inventoryItems = await prisma.inventoryItem.findMany({
-          where: {
-            deletedAt: null,
-            product: {
-              deletedAt: null
-            }
-          },
+          where,
           select: {
             id: true,
             productId: true,
@@ -73,6 +85,8 @@ export async function GET(req: NextRequest) {
             cost: true,
             status: true,
             quantity: true,
+            note: true,
+            purchaseOrderId: true,
             createdAt: true,
             updatedAt: true,
             product: {
@@ -80,10 +94,18 @@ export async function GET(req: NextRequest) {
                 id: true,
                 brand: true,
                 name: true,
-                color: true,
                 sku: true,
+                stocklabSku: true,
                 createdAt: true,
                 updatedAt: true
+              }
+            },
+            purchaseOrder: {
+              select: {
+                id: true,
+                vendorName: true,
+                orderNumber: true,
+                orderDate: true
               }
             }
           },
@@ -101,7 +123,7 @@ export async function GET(req: NextRequest) {
       success: true
     });
   } catch (error) {
-    
+    console.error('Error fetching inventory:', error);
     return NextResponse.json(
       { error: 'Failed to fetch inventory' },
       { status: 500 }
@@ -122,50 +144,73 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     
     // Validate required fields
-    if (!data.productId || !data.sku || !data.size || !data.condition || !data.cost || !data.status || !data.vendor || !data.paymentMethod) {
+    if (!data.productId || !data.sku || !data.size || !data.condition || !data.cost || !data.status) {
       return NextResponse.json(
-        { error: 'Missing required fields: productId, sku, size, condition, cost, status, vendor, paymentMethod' },
+        { error: 'Missing required fields: productId, sku, size, condition, cost, status' },
         { status: 400 }
       );
     }
     
-    // Set userId to null since Supabase users don't exist in local database
-    const result = await InventoryService.createInventoryItemWithInitialStock({
-      productId: data.productId,
-      sku: data.sku,
-      size: data.size,
-      condition: data.condition,
-      cost: parseFloat(data.cost),
-      status: data.status,
-      quantity: data.quantity || 1,
-      vendor: data.vendor,
-      paymentMethod: data.paymentMethod,
-      userId: null // Set to null to avoid foreign key constraint
+    // Generate StockLab SKU for the product if it doesn't have one
+    let productStocklabSku = null;
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: data.productId },
+      select: { stocklabSku: true }
+    });
+    
+    if (!existingProduct?.stocklabSku) {
+      productStocklabSku = await generateStockLabSku();
+      await prisma.product.update({
+        where: { id: data.productId },
+        data: { stocklabSku: productStocklabSku }
+      });
+    }
+    
+    // Create inventory item
+    const inventoryItem = await prisma.inventoryItem.create({
+      data: {
+        productId: data.productId,
+        sku: data.sku,
+        size: data.size,
+        condition: data.condition,
+        cost: parseFloat(data.cost),
+        status: data.status,
+        quantity: data.quantity || 1,
+        purchaseOrderId: data.purchaseOrderId || null,
+      },
+      include: {
+        product: true,
+        purchaseOrder: true,
+      }
     });
 
-    if (!result.success || !result.data) {
-      return NextResponse.json(
-        { error: result.error || 'Failed to create inventory item' },
-        { status: 500 }
-      );
-    }
-    
+    // Create initial stock transaction
+    const transaction = await prisma.stockTransaction.create({
+      data: {
+        type: 'IN',
+        quantity: inventoryItem.quantity,
+        date: new Date(),
+        notes: `Initial stock in - ${inventoryItem.product.name} ${inventoryItem.size} (${inventoryItem.condition})`,
+        inventoryItemId: inventoryItem.id,
+        userId: null,
+      },
+      include: {
+        InventoryItem: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
     return NextResponse.json({
-      data: result.data.inventoryItem,
-      transaction: result.data.transaction,
-      purchase: result.data.purchase,
+      data: inventoryItem,
+      transaction: transaction,
       success: true,
-      message: 'Inventory item created with initial transaction'
+      message: 'Inventory item created with StockLab SKU'
     }, { status: 201 });
   } catch (error) {
-
-    // Check if it's a foreign key constraint error
-    if (error instanceof Error && error.message.includes('Foreign key constraint')) {
-      return NextResponse.json(
-        { error: 'Invalid user or product reference' },
-        { status: 400 }
-      );
-    }
+    console.error('Error creating inventory item:', error);
     
     return NextResponse.json(
       { error: 'Failed to create inventory item' },

@@ -4,6 +4,21 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useNavigation } from '@/contexts/NavigationContext';
+import {
+  DashboardIcon,
+  ProductsIcon,
+  TransactionsIcon,
+  InventoryIcon,
+  StoreInventoryIcon,
+  StoreSalesIcon,
+  AccountingIcon,
+  PurchaseOrdersIcon,
+  ExpensesIcon,
+  CardsIcon,
+  ReportsIcon,
+  ProfileIcon,
+  SettingsIcon
+} from '@/utils/icons';
 
 interface NavItem {
   name: string;
@@ -18,24 +33,24 @@ interface NavGroup {
 }
 
 const navigation: (NavItem | NavGroup)[] = [
-  { name: 'Dashboard', href: '/', icon: '📊' },
-  { name: 'Products', href: '/products', icon: '👟' },
-  { name: 'Transactions', href: '/transactions', icon: '🔄' },
-  { name: 'Inventory', href: '/inventory', icon: '📦' },
-  { name: 'Store Inventory', href: '/store-inventory', icon: '🏪' },
-  { name: 'Store Sales', href: '/store-sales', icon: '🛍️' },
+  { name: 'Dashboard', href: '/', icon: 'dashboard' },
+  { name: 'Purchase Orders', href: '/purchase-orders', icon: 'purchase-orders' },
+  { name: 'Products', href: '/products', icon: 'products' },
+  { name: 'Transactions', href: '/transactions', icon: 'transactions' },
+  { name: 'Inventory', href: '/inventory', icon: 'inventory' },
+  { name: 'Store Inventory', href: '/store-inventory', icon: 'store-inventory' },
+  { name: 'Store Sales', href: '/store-sales', icon: 'store-sales' },
   {
     name: 'Accounting',
-    icon: '💰',
+    icon: 'accounting',
     items: [
-      { name: 'Purchase Orders', href: '/purchase-orders', icon: '📋' },
-      { name: 'Expenses', href: '/expenses', icon: '💸' },
-      { name: 'Cards', href: '/cards', icon: '💳' },
+      { name: 'Expenses', href: '/expenses', icon: 'expenses' },
+      { name: 'Cards', href: '/cards', icon: 'cards' },
     ]
   },
-  { name: 'Reports', href: '/reports', icon: '📈' },
-  { name: 'Profile', href: '/profile', icon: '👤' },
-  { name: 'Settings', href: '/settings', icon: '⚙️' },
+  { name: 'Reports', href: '/reports', icon: 'reports' },
+  { name: 'Profile', href: '/profile', icon: 'profile' },
+  { name: 'Settings', href: '/settings', icon: 'settings' },
 ];
 
 export default function Sidebar() {
@@ -66,6 +81,39 @@ export default function Sidebar() {
 
   const isGroupActive = (items: NavItem[]) => {
     return items.some(item => isActive(item.href));
+  };
+
+  const renderIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'dashboard':
+        return <DashboardIcon />;
+      case 'products':
+        return <ProductsIcon />;
+      case 'transactions':
+        return <TransactionsIcon />;
+      case 'inventory':
+        return <InventoryIcon />;
+      case 'store-inventory':
+        return <StoreInventoryIcon />;
+      case 'store-sales':
+        return <StoreSalesIcon />;
+      case 'accounting':
+        return <AccountingIcon />;
+      case 'purchase-orders':
+        return <PurchaseOrdersIcon />;
+      case 'expenses':
+        return <ExpensesIcon />;
+      case 'cards':
+        return <CardsIcon />;
+      case 'reports':
+        return <ReportsIcon />;
+      case 'profile':
+        return <ProfileIcon />;
+      case 'settings':
+        return <SettingsIcon />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -118,7 +166,7 @@ export default function Sidebar() {
                     } ${collapsed ? 'justify-center' : ''}`}
                   >
                     <div className={`flex items-center ${collapsed ? '' : 'space-x-3'}`}>
-                      <span className="text-lg">{group.icon}</span>
+                      <span className="text-lg">{renderIcon(group.icon)}</span>
                       {!collapsed && (
                         <span className="font-medium">{group.name}</span>
                       )}
@@ -148,7 +196,7 @@ export default function Sidebar() {
                                 : 'text-muted-foreground hover:bg-accent'
                             }`}
                           >
-                            <span className="text-sm">{subItem.icon}</span>
+                            <span className="text-sm">{renderIcon(subItem.icon)}</span>
                             <span className="font-medium text-sm">{subItem.name}</span>
                           </Link>
                         );
@@ -173,7 +221,7 @@ export default function Sidebar() {
                       : 'text-muted-foreground hover:bg-accent'
                   } ${collapsed ? 'justify-center' : 'space-x-3'}`}
                 >
-                  <span className="text-lg">{navItem.icon}</span>
+                  <span className="text-lg">{renderIcon(navItem.icon)}</span>
                   {!collapsed && (
                     <span className="font-medium">{navItem.name}</span>
                   )}

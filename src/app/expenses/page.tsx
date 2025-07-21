@@ -160,7 +160,7 @@ export default function ExpensesPage() {
             </div>
             <div className="flex space-x-2">
               <Button onClick={() => setShowImportModal(true)}>
-                <span className="mr-2">📁</span>
+                <span className="mr-2"></span>
                 Import Expenses
               </Button>
               <Button onClick={handleOpenModal}>

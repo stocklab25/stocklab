@@ -31,6 +31,8 @@ interface DashboardStats {
   totalInventory: number;
   totalValue: number;
   totalProfit: number;
+  totalMonthlyGrossProfit: number;
+  soldItems: number;
 }
 
 export default function Dashboard() {
@@ -48,17 +50,34 @@ export default function Dashboard() {
       return sum + revenue;
     }, 0);
 
-    const totalProfit = salesData.reduce((sum: number, sale: any) => {
+    // Annual and monthly gross profit
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    let totalAnnualGrossProfit = 0;
+    let totalMonthlyGrossProfit = 0;
+    let soldItems = 0;
+    salesData.forEach((sale: any) => {
+      const saleDate = sale.createdAt ? new Date(sale.createdAt) : null;
       const revenue = (sale.payout || 0) - (sale.discount || 0);
       const cost = (sale.cost || 0) * (sale.quantity || 1);
-      return sum + (revenue - cost);
-    }, 0);
+      const profit = revenue - cost;
+      if (saleDate && saleDate.getFullYear() === currentYear) {
+        totalAnnualGrossProfit += profit;
+        if (saleDate.getMonth() === currentMonth) {
+          totalMonthlyGrossProfit += profit;
+        }
+      }
+      soldItems += sale.quantity || 1;
+    });
 
     return {
       totalRevenue,
       totalInventory: inventory.length,
       totalValue,
-      totalProfit,
+      totalProfit: totalAnnualGrossProfit,
+      totalMonthlyGrossProfit,
+      soldItems,
     };
   }, [products, inventory, transactions, salesData]);
 
@@ -224,81 +243,43 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <Card>
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <span className="text-2xl">💰</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold text-foreground">${stats.totalRevenue.toLocaleString()}</p>
-              </div>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">Total Revenue</p>
+              <p className="text-3xl font-bold text-foreground">${stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </Card>
-
           <Card>
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <span className="text-2xl">📦</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Inventory Items</p>
-                <p className="text-2xl font-bold text-foreground">{stats.totalInventory}</p>
-              </div>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">Inventory Items</p>
+              <p className="text-3xl font-bold text-foreground">{stats.totalInventory}</p>
             </div>
           </Card>
-
           <Card>
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-lg">
-                <span className="text-2xl">💎</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Value</p>
-                <p className="text-2xl font-bold text-foreground">${stats.totalValue.toLocaleString()}</p>
-              </div>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">Total Cost</p>
+              <p className="text-3xl font-bold text-foreground">${stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </Card>
-
           <Card>
-            <div className="flex items-center">
-              <div className="p-3 bg-emerald-100 rounded-lg">
-                <span className="text-2xl">📈</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Profit</p>
-                <p className="text-2xl font-bold text-foreground">${stats.totalProfit.toLocaleString()}</p>
-              </div>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">Total Annual Gross Profit</p>
+              <p className="text-3xl font-bold text-foreground">${stats.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </Card>
-        </div>
-
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Store Sales Chart */}
-          {salesData.length > 0 && (
-            <Card>
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Store Sales Performance</h3>
-                <div className="h-80">
-                  <Bar data={storeChartData} options={chartOptions} />
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Product Sales Chart */}
-          {salesData.length > 0 && (
-            <Card>
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Top Products by Sales</h3>
-                <div className="h-80">
-                  <Bar data={productChartData} options={productChartOptions} />
-                </div>
-              </div>
-            </Card>
-          )}
+          <Card>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">Total Monthly Gross Profit</p>
+              <p className="text-3xl font-bold text-foreground">${stats.totalMonthlyGrossProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+          </Card>
+          <Card>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">Sold Items</p>
+              <p className="text-3xl font-bold text-foreground">{stats.soldItems}</p>
+            </div>
+          </Card>
         </div>
       </div>
       </Layout>

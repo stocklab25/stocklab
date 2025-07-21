@@ -1,0 +1,569 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import Modal from './Modal';
+import Button from './Button';
+import Input from './Input';
+import Textarea from './Textarea';
+import Select from './Select';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface Product {
+  id: string;
+  brand: string;
+  name: string;
+  sku?: string;
+}
+
+interface PurchaseOrderItem {
+  productId: string;
+  size: string;
+  condition: string;
+  quantityOrdered: number;
+  unitCost: number;
+  totalCost: number;
+}
+
+interface AddPurchaseOrderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  products: Product[];
+}
+
+export default function AddPurchaseOrderModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  products,
+}: AddPurchaseOrderModalProps) {
+  const { getAuthToken } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [orderCount, setOrderCount] = useState(0);
+  const [formData, setFormData] = useState({
+    vendorName: '',
+    orderNumber: '',
+    orderDate: new Date().toISOString().split('T')[0],
+    deliveryDate: '',
+    status: 'SUBMITTED',
+    totalAmount: 0,
+    notes: '',
+  });
+  const [items, setItems] = useState<PurchaseOrderItem[]>([]);
+  const [productSearchTerms, setProductSearchTerms] = useState<{ [key: number]: string }>({});
+  const [showProductDropdown, setShowProductDropdown] = useState<number | null>(null);
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1);
+  const productSearchRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
+
+  const generateOrderNumber = (count: number) => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+    const currentDay = String(new Date().getDate()).padStart(2, '0');
+    const orderNumber = String(count + 1).padStart(4, '0');
+    return `PO-${currentYear}${currentMonth}${currentDay}-${orderNumber}`;
+  };
+
+  const fetchOrderCount = async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const response = await fetch('/api/purchase-orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const orders = await response.json();
+        const count = orders.length || 0;
+        setOrderCount(count);
+        setFormData(prev => ({
+          ...prev,
+          orderNumber: generateOrderNumber(count),
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching order count:', error);
+      // Fallback to timestamp-based generation
+      setFormData(prev => ({
+        ...prev,
+        orderNumber: `PO-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${String(Date.now()).slice(-4)}`,
+      }));
+    }
+  };
+
+  // Fetch order count when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchOrderCount();
+    }
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Check if click is on a dropdown item (don't close if it is)
+      const target = event.target as Element;
+      if (target.closest('.product-dropdown-item')) {
+        return;
+      }
+      
+      const clickedOutside = Object.values(productSearchRefs.current).every(ref => 
+        !ref || !ref.contains(event.target as Node)
+      );
+      if (clickedOutside) {
+        setShowProductDropdown(null);
+        setSelectedProductIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleInputChange = (field: string, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const addItem = () => {
+    setItems(prev => [
+      ...prev,
+      {
+        productId: '',
+        size: '',
+        condition: 'NEW',
+        quantityOrdered: 1,
+        unitCost: 0,
+        totalCost: 0,
+      },
+    ]);
+  };
+
+  const removeItem = (index: number) => {
+    setItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateItem = (index: number, field: keyof PurchaseOrderItem, value: string | number) => {
+    setItems(prev => {
+      const newItems = [...prev];
+      newItems[index] = {
+        ...newItems[index],
+        [field]: value,
+      };
+
+      // Calculate total cost for this item
+      if (field === 'quantityOrdered' || field === 'unitCost') {
+        const quantity = field === 'quantityOrdered' ? Number(value) : newItems[index].quantityOrdered;
+        const cost = field === 'unitCost' ? Number(value) : newItems[index].unitCost;
+        newItems[index].totalCost = quantity * cost;
+      }
+
+      return newItems;
+    });
+  };
+
+  const calculateTotalAmount = () => {
+    return items.reduce((sum, item) => sum + item.totalCost, 0);
+  };
+
+  // Filter products based on search term (SKU, brand, or name)
+  const getFilteredProducts = (itemIndex: number) => {
+    const searchTerm = productSearchTerms[itemIndex] || '';
+    return products.filter(product => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        (product.sku && product.sku.toLowerCase().includes(searchLower)) ||
+        product.brand.toLowerCase().includes(searchLower) ||
+        product.name.toLowerCase().includes(searchLower)
+      );
+    });
+  };
+
+  const handleProductSearch = (searchTerm: string, itemIndex: number) => {
+    setProductSearchTerms(prev => ({ ...prev, [itemIndex]: searchTerm }));
+    setShowProductDropdown(itemIndex);
+    setSelectedProductIndex(-1);
+  };
+
+  const selectProduct = (product: Product, itemIndex: number) => {
+    // Use setTimeout to ensure click event is fully processed
+    setTimeout(() => {
+      updateItem(itemIndex, 'productId', product.id);
+      // Set the search term to show the selected product name
+      setProductSearchTerms(prev => ({ ...prev, [itemIndex]: `${product.brand} - ${product.name}` }));
+      setShowProductDropdown(null);
+      setSelectedProductIndex(-1);
+    }, 0);
+  };
+
+  const handleProductSearchKeyDown = (e: React.KeyboardEvent, itemIndex: number) => {
+    const filteredProducts = getFilteredProducts(itemIndex);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedProductIndex(prev => 
+        prev < filteredProducts.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedProductIndex(prev => 
+        prev > 0 ? prev - 1 : filteredProducts.length - 1
+      );
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedProductIndex >= 0 && filteredProducts[selectedProductIndex]) {
+        selectProduct(filteredProducts[selectedProductIndex], itemIndex);
+      }
+    } else if (e.key === 'Escape') {
+      setShowProductDropdown(null);
+      setSelectedProductIndex(-1);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.vendorName || items.length === 0) {
+      alert('Please fill in vendor name and add at least one item');
+      return;
+    }
+
+    if (items.some(item => !item.productId || !item.size || item.quantityOrdered <= 0 || item.unitCost <= 0)) {
+      alert('Please fill in all item details');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const totalAmount = calculateTotalAmount();
+
+      const response = await fetch('/api/purchase-orders', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          totalAmount,
+          items,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create purchase order');
+      }
+
+      // Reset form and generate new order number
+      const newCount = orderCount + 1;
+      setOrderCount(newCount);
+      setFormData({
+        vendorName: '',
+        orderNumber: generateOrderNumber(newCount),
+        orderDate: new Date().toISOString().split('T')[0],
+        deliveryDate: '',
+        status: 'SUBMITTED',
+        totalAmount: 0,
+        notes: '',
+      });
+      setItems([]);
+
+      onSuccess();
+      onClose();
+    } catch (error) {
+      console.error('Error creating purchase order:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create purchase order');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Modal open={isOpen} onClose={onClose} width="5xl">
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold text-foreground">Create Purchase Order</h2>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Vendor Name *
+            </label>
+            <Input
+              value={formData.vendorName}
+              onChange={(e) => handleInputChange('vendorName', e.target.value)}
+              placeholder="Enter vendor name"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Order Number
+            </label>
+            <Input
+              value={formData.orderNumber}
+              onChange={(e) => handleInputChange('orderNumber', e.target.value)}
+              placeholder="Auto-generated"
+              readOnly
+              className="bg-gray-50 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Order Date
+            </label>
+            <Input
+              type="date"
+              value={formData.orderDate}
+              onChange={(e) => handleInputChange('orderDate', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Delivery Date
+            </label>
+            <Input
+              type="date"
+              value={formData.deliveryDate}
+              onChange={(e) => handleInputChange('deliveryDate', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Status
+            </label>
+            <Select
+              value={formData.status}
+              onChange={(e) => handleInputChange('status', e.target.value)}
+            >
+              <option value="SUBMITTED">Submitted</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED">Cancelled</option>
+            </Select>
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            Notes
+          </label>
+          <Textarea
+            value={formData.notes}
+            onChange={(e) => handleInputChange('notes', e.target.value)}
+            placeholder="Enter any additional notes"
+            rows={3}
+          />
+        </div>
+
+        {/* Items */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-foreground">Order Items</h3>
+            <Button type="button" onClick={addItem} variant="outline">
+              Add Item
+            </Button>
+          </div>
+
+          {items.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">
+              No items added yet. Click "Add Item" to get started.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {items.map((item, index) => (
+                <div key={index} className="border border-border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Item {index + 1}</h4>
+                    <Button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Product *
+                      </label>
+                      <div className="relative">
+                        <Input
+                          ref={(el) => { productSearchRefs.current[index] = el; }}
+                          value={productSearchTerms[index] || ''}
+                          onChange={(e) => handleProductSearch(e.target.value, index)}
+                          onKeyDown={(e) => handleProductSearchKeyDown(e, index)}
+                          onFocus={() => {
+                            if (!item.productId) {
+                              setShowProductDropdown(index);
+                            }
+                          }}
+                          placeholder="Search by SKU, brand, or name..."
+                          required
+                          readOnly={!!item.productId}
+                          className={item.productId ? 'bg-gray-50 cursor-not-allowed' : ''}
+                        />
+                        {item.productId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateItem(index, 'productId', '');
+                              setProductSearchTerms(prev => ({ ...prev, [index]: '' }));
+                              setShowProductDropdown(null);
+                            }}
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Product Dropdown */}
+                      {showProductDropdown === index && productSearchTerms[index] && !item.productId && (
+                        <div className="product-dropdown-item absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {(() => {
+                            const filteredProducts = getFilteredProducts(index);
+                            return filteredProducts.length === 0 ? (
+                              <div className="px-4 py-2 text-sm text-gray-500">
+                                No products found
+                              </div>
+                            ) : (
+                              filteredProducts.map((product: Product, productIndex: number) => (
+                                <div
+                                  key={product.id}
+                                  className={`product-dropdown-item px-4 py-2 cursor-pointer hover:bg-gray-100 ${
+                                    productIndex === selectedProductIndex ? 'bg-blue-50' : ''
+                                  }`}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    selectProduct(product, index);
+                                  }}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <div className="font-medium">
+                                        {product.brand} - {product.name}
+                                      </div>
+                                      {product.sku && (
+                                        <div className="text-sm text-gray-500 font-mono">
+                                          SKU: {product.sku}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            );
+                          })()}
+                        </div>
+                      )}
+                      
+
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Size *
+                      </label>
+                      <Input
+                        value={item.size}
+                        onChange={(e) => updateItem(index, 'size', e.target.value)}
+                        placeholder="e.g., 7M, 8W"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Condition *
+                      </label>
+                      <Select
+                        value={item.condition}
+                        onChange={(e) => updateItem(index, 'condition', e.target.value)}
+                        required
+                      >
+                        <option value="NEW">New</option>
+                        <option value="PRE_OWNED">Pre-owned</option>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Quantity *
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantityOrdered}
+                        onChange={(e) => updateItem(index, 'quantityOrdered', parseInt(e.target.value))}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Unit Cost *
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.unitCost}
+                        onChange={(e) => updateItem(index, 'unitCost', parseFloat(e.target.value))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 text-right">
+                    <span className="text-sm text-muted-foreground">
+                      Total: ${item.totalCost.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Total Amount */}
+        <div className="border-t border-border pt-4">
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-medium text-foreground">Total Amount:</span>
+            <span className="text-2xl font-bold text-primary">
+              ${calculateTotalAmount().toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end space-x-3">
+          <Button type="button" onClick={onClose} variant="outline">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Creating...' : 'Create Purchase Order'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+} 

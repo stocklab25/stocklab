@@ -46,11 +46,13 @@ model Product {
   name           String
   color          String?
   sku            String?         @unique
+  stocklabSku    String?         @unique
   createdAt      DateTime        @default(now())
   deletedAt      DateTime?
   updatedAt      DateTime        @default(now()) @updatedAt
   itemType       ItemType
   inventoryItems InventoryItem[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@map("products")
 }
@@ -67,7 +69,10 @@ model InventoryItem {
   deletedAt         DateTime?
   quantity          Int                @default(1)
   condition         ItemCondition
+  note              InventoryNote?
+  purchaseOrderId   String?
   product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purchaseOrder     PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id])
   purchases         Purchase[]
   sales             Sale[]
   stockTransactions StockTransaction[]
@@ -102,6 +107,7 @@ model StoreInventory {
   storeId         String
   inventoryItemId String
   quantity        Int           @default(0)
+  transferCost    Decimal       @db.Decimal(10, 2) @default(0)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
@@ -177,6 +183,41 @@ model Expense {
   card            Card            @relation(fields: [cardId], references: [id])
 }
 
+model PurchaseOrder {
+  id              String              @id @default(cuid())
+  vendorName      String
+  orderNumber     String?             @unique
+  orderDate       DateTime            @default(now())
+  deliveryDate    DateTime?
+  status          PurchaseOrderStatus @default(DRAFT)
+  totalAmount     Decimal             @db.Decimal(10, 2)
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+  inventoryItems  InventoryItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  size            String
+  condition       ItemCondition @default(NEW)
+  quantityOrdered Int
+  unitCost        Decimal       @db.Decimal(10, 2)
+  totalCost       Decimal       @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product         Product       @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
 enum UserRole {
   ADMIN
   USER
@@ -216,7 +257,7 @@ enum ItemCondition {
 enum ItemType {
   SHOE
   APPAREL
-  MERCH
+  ACCESSORIES
 }
 
 enum ExpenseCategory {
@@ -226,4 +267,18 @@ enum ExpenseCategory {
   Supplies
   BusinessServices
   Payment
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  DELIVERED
+  CANCELLED
+}
+
+enum InventoryNote {
+  DMG_BOX
+  NO_BOX
+  REP_BOX
+  FLAWED
 }

@@ -108,6 +108,7 @@ export async function PUT(
         cost: data.cost ? parseFloat(data.cost) : undefined,
         status: data.status,
         quantity: data.quantity ? parseInt(data.quantity) : undefined,
+        note: data.note,
         updatedAt: new Date(),
       },
       include: {

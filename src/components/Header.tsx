@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigation } from '@/contexts/NavigationContext';
 import Loader from './Loader';
+import { BellIcon, SunIcon, MoonIcon, ProfileIcon } from '@/utils/icons';
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -25,7 +26,7 @@ export default function Header() {
 
           {/* Notifications */}
           <button className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors">
-            <span className="text-xl">🔔</span>
+            <span className="text-xl"><BellIcon /></span>
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
 
@@ -36,16 +37,16 @@ export default function Header() {
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? (
-              <span className="text-yellow-400">☀️</span>
+              <span className="text-yellow-400"><SunIcon /></span>
             ) : (
-              <span className="text-muted-foreground">🌙</span>
+              <span className="text-muted-foreground"><MoonIcon /></span>
             )}
           </button>
 
           {/* User Profile */}
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-              <span className="text-muted-foreground text-sm">👤</span>
+              <span className="text-muted-foreground text-sm"><ProfileIcon /></span>
             </div>
             <div className="hidden md:block">
               <p className="text-sm font-medium text-foreground">{user?.name || 'Admin User'}</p>

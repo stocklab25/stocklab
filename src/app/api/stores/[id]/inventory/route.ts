@@ -76,11 +76,18 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { inventoryItemId, quantity, notes } = body;
+    const { inventoryItemId, quantity, transferCost, notes } = body;
 
     if (!inventoryItemId || !quantity || quantity <= 0) {
       return NextResponse.json(
         { error: 'Valid inventory item ID and quantity are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!transferCost || transferCost <= 0) {
+      return NextResponse.json(
+        { error: 'Valid transfer cost is required' },
         { status: 400 }
       );
     }
@@ -143,7 +150,15 @@ export async function POST(
 
       let storeInventory;
       if (existingStoreInventory) {
-        // Update existing store inventory
+        // Update existing store inventory - calculate weighted average cost
+        const currentQuantity = existingStoreInventory.quantity;
+        const currentCost = parseFloat(existingStoreInventory.transferCost.toString());
+        const newQuantity = quantity;
+        const newCost = parseFloat(transferCost);
+        
+        const totalQuantity = currentQuantity + newQuantity;
+        const weightedAverageCost = ((currentQuantity * currentCost) + (newQuantity * newCost)) / totalQuantity;
+        
         storeInventory = await tx.storeInventory.update({
           where: {
             storeId_inventoryItemId: {
@@ -154,7 +169,8 @@ export async function POST(
           data: {
             quantity: {
               increment: quantity
-            }
+            },
+            transferCost: weightedAverageCost
           }
         });
       } else {
@@ -163,7 +179,8 @@ export async function POST(
           data: {
             storeId: id,
             inventoryItemId,
-            quantity
+            quantity,
+            transferCost: parseFloat(transferCost)
           }
         });
       }

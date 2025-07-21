@@ -32,6 +32,55 @@ export default function StoreSalesPage() {
     (err) => setModalError(err)
   );
   const { formatCurrency } = useCurrency();
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{ cost: string; payout: string; quantity: string; notes: string; discount: string }>({ cost: '', payout: '', quantity: '', notes: '', discount: '' });
+  const [isRowSaving, setIsRowSaving] = useState(false);
+
+  const handleEditClick = (row: any, sale: any) => {
+    setEditingRowId(row.id);
+    setEditValues({
+      cost: (sale.cost || '').toString(),
+      payout: (sale.payout || '').toString(),
+      quantity: (sale.quantity || '').toString(),
+      notes: sale.notes || '',
+      discount: (sale.discount || '').toString(),
+    });
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditValues({ ...editValues, [e.target.name]: e.target.value });
+  };
+
+  const handleEditCancel = () => {
+    setEditingRowId(null);
+    setEditValues({ cost: '', payout: '', quantity: '', notes: '', discount: '' });
+  };
+
+  const handleEditSave = async (row: any) => {
+    setIsRowSaving(true);
+    const token = await getAuthToken();
+    if (!token) return;
+    const response = await fetch(`/api/sales/${row.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        cost: parseFloat(editValues.cost),
+        payout: parseFloat(editValues.payout),
+        quantity: parseInt(editValues.quantity, 10),
+        notes: editValues.notes,
+        discount: parseFloat(editValues.discount),
+      }),
+    });
+    if (response.ok) {
+      mutate();
+      setEditingRowId(null);
+      setEditValues({ cost: '', payout: '', quantity: '', notes: '', discount: '' });
+    }
+    setIsRowSaving(false);
+  };
 
   // Fetch inventory for selected store (for modal)
   const fetchInventory = useCallback(async (storeId: string) => {
@@ -58,7 +107,6 @@ export default function StoreSalesPage() {
     { key: "store", label: "Store" },
     { key: "brand", label: "Brand" },
     { key: "productName", label: "Product" },
-    { key: "color", label: "Color" },
     { key: "size", label: "Size" },
     { key: "condition", label: "Condition" },
     { key: "sku", label: "SKU" },
@@ -111,7 +159,7 @@ export default function StoreSalesPage() {
           </div>
           <div className="flex space-x-2">
             <Button onClick={() => setIsImportModalOpen(true)}>
-              <span className="mr-2">📁</span>
+              <span className="mr-2"></span>
               Import Sales
             </Button>
             <Button onClick={() => setIsModalOpen(true)}>
@@ -166,13 +214,69 @@ export default function StoreSalesPage() {
                   </TableHeader>
                   <TableBody>
                     {rows.length > 0 ? (
-                      rows.map((row: any) => (
-                        <TableRow key={row.id}>
-                          {columns.map((col) => (
-                            <TableCell key={col.key}>{row[col.key]}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))
+                      rows.map((row: any, idx: number) => {
+                        const sale = filteredSales[idx];
+                        return (
+                          <TableRow key={row.id}>
+                            {columns.map((col) => {
+                              if (editingRowId === row.id && ['cost', 'payout', 'quantity', 'notes', 'discount'].includes(col.key)) {
+                                if (col.key === 'notes') {
+                                  return (
+                                    <TableCell key={col.key}>
+                                      <textarea
+                                        name="notes"
+                                        value={editValues.notes}
+                                        onChange={handleEditChange}
+                                        className="w-32 px-2 py-1 border rounded"
+                                        rows={1}
+                                      />
+                                    </TableCell>
+                                  );
+                                }
+                                return (
+                                  <TableCell key={col.key}>
+                                    <input
+                                      type={col.key === 'quantity' ? 'number' : 'text'}
+                                      name={col.key}
+                                      value={editValues[col.key as 'cost' | 'payout' | 'quantity' | 'discount']}
+                                      onChange={handleEditChange}
+                                      className="w-20 px-2 py-1 border rounded"
+                                    />
+                                  </TableCell>
+                                );
+                              }
+                              return <TableCell key={col.key}>{row[col.key]}</TableCell>;
+                            })}
+                            <TableCell>
+                              {editingRowId === row.id ? (
+                                <div className="flex gap-2">
+                                  <button
+                                    className="px-2 py-1 bg-primary text-white rounded"
+                                    onClick={() => handleEditSave(row)}
+                                    disabled={isRowSaving}
+                                  >
+                                    {isRowSaving ? 'Saving...' : 'Save'}
+                                  </button>
+                                  <button
+                                    className="px-2 py-1 bg-gray-300 text-gray-800 rounded"
+                                    onClick={handleEditCancel}
+                                    disabled={isRowSaving}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="px-2 py-1 bg-blue-500 text-white rounded"
+                                  onClick={() => handleEditClick(row, sale)}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
                         <TableCell colSpan={columns.length} className="text-center py-8">

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { useTransactions, useImportTransactions } from '@/hooks';
-import { useInventoryItems } from '@/hooks/useInventoryItems';
+import { useInventory } from '@/hooks';
 import useAddTransaction from '@/hooks/useAddTransaction';
 import { useDeleteTransaction } from '@/hooks/useDeleteTransaction';
 import AddTransactionModal from '@/components/AddTransactionModal';
@@ -17,6 +17,7 @@ import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import { format } from 'date-fns';
 import { TRANSACTION_TYPE } from '@/utils/constants';
+import { StockInIcon, StockOutIcon, ReturnIcon, MoveIcon, MoreIcon, WarningIcon, ArchiveIcon, DeleteIcon } from '@/utils/icons';
 
 interface Product {
   id: string;
@@ -35,7 +36,6 @@ interface InventoryItem {
   condition: string;
   cost: number;
   status: string;
-  location?: string;
   product?: Product;
 }
 
@@ -78,7 +78,7 @@ interface StockTransaction {
 
 export default function Transactions() {
   const { data: transactions, isLoading, isError, mutate } = useTransactions();
-  const { data: inventoryItems } = useInventoryItems();
+  const { data: inventoryItems } = useInventory();
   const { addTransaction, isLoading: isAdding } = useAddTransaction();
   const { archiveTransaction, hardDeleteTransaction, loading } = useDeleteTransaction({
     onSuccess: () => {
@@ -128,13 +128,13 @@ export default function Transactions() {
   const getTransactionIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'in':
-        return '📥';
+        return <StockInIcon />;
       case 'out':
-        return '📤';
+        return <StockOutIcon />;
       case 'return':
-        return '↩️';
+        return <ReturnIcon />;
       default:
-        return '🔄';
+        return <MoveIcon />;
     }
   };
 
@@ -288,9 +288,7 @@ export default function Transactions() {
           className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
           disabled={loading}
         >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-          </svg>
+          <MoreIcon />
         </button>
       </div>
     )
@@ -309,7 +307,7 @@ export default function Transactions() {
       <Layout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center space-y-4">
-            <div className="text-6xl">⚠️</div>
+            <div className="text-6xl"><WarningIcon /></div>
             <div className="text-lg text-red-600">Error loading transactions</div>
             <p className="text-muted-foreground">Please try refreshing the page</p>
           </div>
@@ -329,7 +327,7 @@ export default function Transactions() {
           </div>
           <div className="flex space-x-2">
             <Button onClick={() => setIsImportModalOpen(true)}>
-              <span className="mr-2">📁</span>
+              <span className="mr-2"></span>
               Import Transactions
             </Button>
             <Button onClick={() => setIsModalOpen(true)}>
@@ -358,12 +356,8 @@ export default function Transactions() {
                 className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="">All Types</option>
-                <option value="in">Stock In</option>
                 <option value="out">Stock Out</option>
                 <option value="return">Return</option>
-                <option value="move">Move</option>
-                <option value="adjustment">Adjustment</option>
-                <option value="audit">Audit</option>
               </select>
             </div>
           </div>
@@ -611,9 +605,7 @@ export default function Transactions() {
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                 disabled={loading}
               >
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-14 0h14" />
-                </svg>
+                <ArchiveIcon />
                 Archive
               </button>
               <button
@@ -621,9 +613,7 @@ export default function Transactions() {
                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                 disabled={loading}
               >
-                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <DeleteIcon />
                 Delete
               </button>
             </div>

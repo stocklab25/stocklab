@@ -1,96 +1,99 @@
 import useSWR from 'swr';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
 
 interface PurchaseOrder {
   id: string;
-  r3vPurchaseOrderNumber: string;
-  inventoryItemId: string;
-  vendor: string;
-  paymentMethod: string;
+  vendorName: string;
   orderNumber?: string;
-  quantity: number;
-  cost: number;
-  purchaseDate: string;
+  orderDate: string;
+  deliveryDate?: string;
+  status: 'DRAFT' | 'SUBMITTED' | 'DELIVERED' | 'CANCELLED';
+  totalAmount: number;
   notes?: string;
   createdAt: string;
-  updatedAt: string;
-  inventoryItem: {
+  purchaseOrderItems: PurchaseOrderItem[];
+}
+
+interface PurchaseOrderItem {
+  id: string;
+  productId: string;
+  size: string;
+  quantityOrdered: number;
+  unitCost: number;
+  totalCost: number;
+  product: {
     id: string;
-    sku: string;
-    size: string;
-    condition: string;
-    product: {
-      id: string;
-      brand: string;
-      name: string;
-      color: string;
-    };
+    brand: string;
+    name: string;
+    sku?: string;
   };
 }
 
-interface PurchaseOrdersResponse {
-  data: PurchaseOrder[];
-  total?: number;
-  page?: number;
-  limit?: number;
-  totalPages?: number;
-}
-
-// Fetcher function with authentication
-const fetcher = async (url: string, getAuthToken: () => Promise<string | null>) => {
-  const token = await getAuthToken();
-  
-  if (!token) {
-    throw new Error('No authentication token available');
-  }
-  
+const fetcher = async (url: string, token: string) => {
   const response = await fetch(url, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   });
-  
+
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    throw new Error('Failed to fetch purchase orders');
   }
-  
+
   return response.json();
 };
 
-const usePurchaseOrders = () => {
+export function usePurchaseOrders(status?: string, vendor?: string) {
   const { getAuthToken } = useAuth();
-  const apiRoute = `/api/purchase-orders`;
-  const { data, error, mutate } = useSWR<PurchaseOrder[]>(apiRoute, (url) => fetcher(url, getAuthToken), {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-    revalidateOnMount: false,
-    revalidateIfStale: false,
-    dedupingInterval: 0,
-    refreshInterval: 0,
-    errorRetryCount: 0,
-    shouldRetryOnError: false,
-  });
 
-  // Manually trigger initial fetch if no data
-  useEffect(() => {
-    if (!data && !error) {
-      mutate();
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  if (vendor) params.append('vendor', vendor);
+
+  const url = `/api/purchase-orders${params.toString() ? `?${params.toString()}` : ''}`;
+
+  const { data, error, isLoading, mutate } = useSWR(
+    ['purchase-orders', url],
+    async () => {
+      const token = await getAuthToken();
+      if (!token) throw new Error('No authentication token');
+      return fetcher(url, token);
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
     }
-  }, [data, error, mutate]);
+  );
 
   return {
     data: data || [],
-    total: data?.length || 0,
-    page: 1,
-    limit: data?.length || 10,
-    totalPages: 1,
-    isLoading: !error && !data,
+    isLoading,
     isError: error,
     mutate,
   };
-};
+}
 
-export default usePurchaseOrders;
-export type { PurchaseOrder, PurchaseOrdersResponse }; 
+export function usePurchaseOrder(id: string) {
+  const { getAuthToken } = useAuth();
+
+  const { data, error, isLoading, mutate } = useSWR(
+    id ? ['purchase-order', id] : null,
+    async () => {
+      const token = await getAuthToken();
+      if (!token) throw new Error('No authentication token');
+      return fetcher(`/api/purchase-orders/${id}`, token);
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
+
+  return {
+    data,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+} 

@@ -10,7 +10,7 @@ export default function SWRProvider({ children }: { children: React.ReactNode })
         fetcher: undefined,
         revalidateOnFocus: false,
         revalidateOnReconnect: false,
-        revalidateOnMount: false, // Changed to false
+        revalidateOnMount: true, // Changed back to true to enable data fetching
         revalidateIfStale: false,
         dedupingInterval: 0, // Disable deduplication
         focusThrottleInterval: 0, // Disable focus throttling

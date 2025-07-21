@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { verifySupabaseAuth } from '@/lib/supabase-auth';
+import { generateStockLabSku } from '@/utils/sku-generator';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const brand = searchParams.get('brand') || '';
-    const color = searchParams.get('color') || '';
+
     const showDeleted = searchParams.get('showDeleted') === 'true';
 
     const skip = (page - 1) * limit;
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
         { name: { contains: search, mode: 'insensitive' } },
         { brand: { contains: search, mode: 'insensitive' } },
         { sku: { contains: search, mode: 'insensitive' } },
+        { stocklabSku: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -41,9 +43,7 @@ export async function GET(request: NextRequest) {
       whereClause.brand = { contains: brand, mode: 'insensitive' };
     }
 
-    if (color) {
-      whereClause.color = { contains: color, mode: 'insensitive' };
-    }
+
 
     // Get products with pagination and error handling
     let products;
@@ -53,6 +53,17 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          brand: true,
+          name: true,
+          sku: true,
+          stocklabSku: true,
+          itemType: true,
+          deletedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       });
     } catch (dbError) {
       
@@ -66,6 +77,17 @@ export async function GET(request: NextRequest) {
           skip,
           take: limit,
           orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            brand: true,
+            name: true,
+            sku: true,
+            stocklabSku: true,
+            itemType: true,
+            deletedAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         });
       } else {
         throw dbError;
@@ -152,19 +174,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Generate StockLab SKU for the new product
+    const stocklabSku = await generateStockLabSku();
+
     const product = await prisma.product.create({
       data: {
         brand: data.brand,
         name: data.name,
-        color: data.color,
         sku: data.sku,
+        stocklabSku: stocklabSku,
         itemType: data.itemType || 'SHOE', // Default to SHOE if not provided
       },
     });
 
     return NextResponse.json({
       ...product,
-      message: 'Product created successfully. Add inventory items to manage stock.'
+      message: `Product created successfully with StockLab SKU: ${stocklabSku}. Add inventory items to manage stock.`
     }, { status: 201 });
   } catch (error) {
     

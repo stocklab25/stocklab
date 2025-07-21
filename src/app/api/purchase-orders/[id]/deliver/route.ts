@@ -1,0 +1,148 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
+import prisma from '@/lib/db';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    // Items are delivered to warehouse, no location needed
+
+    // Get the purchase order with items
+    const purchaseOrder = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        purchaseOrderItems: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!purchaseOrder) {
+      return NextResponse.json(
+        { error: 'Purchase order not found' },
+        { status: 404 }
+      );
+    }
+
+    if (purchaseOrder.status === 'DELIVERED') {
+      return NextResponse.json(
+        { error: 'Purchase order is already delivered' },
+        { status: 400 }
+      );
+    }
+
+    // Generate StockLab SKU first
+    const lastProduct = await prisma.product.findFirst({
+      where: {
+        stocklabSku: {
+          not: null,
+        },
+      },
+      orderBy: {
+        stocklabSku: 'desc',
+      },
+    });
+
+    let nextNumber = 1;
+    if (lastProduct?.stocklabSku) {
+      const match = lastProduct.stocklabSku.match(/SL(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1]) + 1;
+      }
+    }
+
+    // Update purchase order status first
+    const updatedPurchaseOrder = await prisma.purchaseOrder.update({
+      where: { id },
+      data: {
+        status: 'DELIVERED',
+        deliveryDate: new Date(),
+      },
+      include: {
+        purchaseOrderItems: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    // Create inventory items for each purchase order item
+    const createdInventoryItems = [];
+    
+    for (const item of purchaseOrder.purchaseOrderItems) {
+      const stocklabSku = `SL${nextNumber.toString().padStart(3, '0')}`;
+      nextNumber++;
+
+      // Create inventory item
+      const inventoryItem = await prisma.inventoryItem.create({
+        data: {
+          productId: item.productId,
+          sku: item.product.sku || '',
+          // stocklabSku is now on product, not inventory item
+          size: item.size,
+          condition: 'NEW', // Default to NEW for delivered items
+          cost: item.unitCost,
+          status: 'InStock',
+          quantity: item.quantityOrdered,
+          purchaseOrderId: purchaseOrder.id,
+        },
+        include: {
+          product: true,
+        },
+      });
+      // Optionally update product's stocklabSku if not set
+      if (!item.product.stocklabSku) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: { stocklabSku },
+        });
+      }
+
+      // Create stock transaction
+      await prisma.stockTransaction.create({
+        data: {
+          type: 'IN',
+          quantity: item.quantityOrdered,
+          date: new Date(),
+          notes: `Stock in from purchase order ${purchaseOrder.orderNumber} - ${item.product.name} ${item.size}`,
+          inventoryItemId: inventoryItem.id,
+          userId: null,
+        },
+      });
+
+      createdInventoryItems.push(inventoryItem);
+    }
+
+    const result = {
+      purchaseOrder: updatedPurchaseOrder,
+      inventoryItems: createdInventoryItems,
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+      message: 'Purchase order marked as delivered and inventory items created',
+    });
+  } catch (error) {
+    console.error('Error delivering purchase order:', error);
+    return NextResponse.json(
+      { error: 'Failed to deliver purchase order' },
+      { status: 500 }
+    );
+  }
+} 

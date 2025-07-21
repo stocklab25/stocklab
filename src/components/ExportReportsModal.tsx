@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { InventoryIcon, StoreInventoryIcon, AccountingIcon, PurchaseOrdersIcon, CardsIcon } from '@/utils/icons';
 
 interface ExportReportsModalProps {
   isOpen: boolean;
@@ -12,40 +13,45 @@ interface ExportOption {
   id: string;
   label: string;
   description: string;
-  icon: string;
+  icon: React.ReactElement;
 }
 
-const exportOptions: ExportOption[] = [
+const exportOptions: { id: string; label: string; description: string }[] = [
   {
     id: 'inventory',
     label: 'Inventory Report',
-    description: 'Products and inventory items with details',
-    icon: '📦'
+    description: 'All inventory items with product details',
   },
   {
     id: 'store-inventory',
     label: 'Store Inventory Report',
-    description: 'Store inventory with product details',
-    icon: '🏪'
+    description: 'Inventory at each store location',
   },
   {
     id: 'sales',
     label: 'Sales Report',
-    description: 'Sales data with product and store details',
-    icon: '💰'
+    description: 'All sales transactions with product and store info',
+  },
+  {
+    id: 'monthly-sales',
+    label: 'Monthly Sales Report',
+    description: 'Sales and profit for the current month',
+  },
+  {
+    id: 'annual-sales',
+    label: 'Annual Sales Report',
+    description: 'Sales and profit for the current year',
   },
   {
     id: 'purchase-orders',
     label: 'Purchase Orders Report',
-    description: 'Purchase orders with vendor details',
-    icon: '📋'
+    description: 'All purchase orders with vendor details',
   },
   {
     id: 'expenses',
     label: 'Expenses Report',
     description: 'Expense tracking with card details',
-    icon: '💳'
-  }
+  },
 ];
 
 export default function ExportReportsModal({ isOpen, onClose }: ExportReportsModalProps) {
@@ -175,12 +181,9 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
                 onChange={() => handleReportToggle(option.id)}
                 className="mr-3 h-4 w-4 text-primary focus:ring-primary border-input rounded"
               />
-              <div className="flex items-center space-x-3 flex-1">
-                <span className="text-2xl">{option.icon}</span>
-                <div>
-                  <p className="font-medium text-foreground">{option.label}</p>
-                  <p className="text-sm text-muted-foreground">{option.description}</p>
-                </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground">{option.label}</p>
+                <p className="text-sm text-muted-foreground">{option.description}</p>
               </div>
             </label>
           ))}

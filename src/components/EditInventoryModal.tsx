@@ -15,9 +15,8 @@ interface Product {
   id: string;
   brand: string;
   name: string;
-  color: string;
-  sku: string;
-  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
+  sku?: string;
+  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
 }
 
 export default function EditInventoryModal({ isOpen, onClose, onSuccess, inventoryItem }: EditInventoryModalProps) {
@@ -32,11 +31,12 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
     cost: '',
     status: 'InStock',
     quantity: '1',
+    note: '',
     vendor: '',
     paymentMethod: ''
   });
 
-  const [selectedProductType, setSelectedProductType] = useState<'SHOE' | 'APPAREL' | 'MERCH'>('SHOE');
+  const [selectedProductType, setSelectedProductType] = useState<'SHOE' | 'APPAREL' | 'ACCESSORIES'>('SHOE');
   const [validationError, setValidationError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,6 +52,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
         cost: inventoryItem.cost?.toString() || '',
         status: inventoryItem.status || 'InStock',
         quantity: inventoryItem.quantity?.toString() || '1',
+        note: inventoryItem.note || '',
         vendor: inventoryItem.vendor || '',
         paymentMethod: inventoryItem.paymentMethod || ''
       });
@@ -62,7 +63,8 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
 
   // Check for duplicate size when product or size changes (excluding current item)
   useEffect(() => {
-    if (selectedProductType === 'MERCH') {
+    // For ACCESSORIES items, we don't need size validation since they don't have sizes
+    if (selectedProductType === 'ACCESSORIES') {
       setValidationError('');
       return;
     }
@@ -87,7 +89,9 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (validationError && selectedProductType !== 'MERCH') {
+    // Check for duplicate before submitting (only for non-ACCESSORIES items)
+    if (validationError && selectedProductType !== 'ACCESSORIES') {
+      alert('Please fix the validation errors before submitting.');
       return;
     }
     
@@ -98,7 +102,8 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
 
     setIsLoading(true);
     try {
-      const sizeValue = selectedProductType === 'MERCH' ? 'N/A' : formData.size;
+      // For ACCESSORIES items, set size to "N/A" if not provided
+      const sizeValue = selectedProductType === 'ACCESSORIES' ? 'N/A' : formData.size;
       
       const response = await fetch(`/api/inventory/${inventoryItem.id}`, {
         method: 'PATCH',
@@ -113,6 +118,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
           cost: parseFloat(formData.cost),
           quantity: parseInt(formData.quantity),
           status: formData.status,
+          note: formData.note || null,
           vendor: formData.vendor,
           paymentMethod: formData.paymentMethod
         }),
@@ -205,7 +211,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
           </div>
 
           {/* Size (only for SHOES and APPAREL) */}
-          {selectedProductType !== 'MERCH' && (
+          {selectedProductType !== 'ACCESSORIES' && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
                 Size *
@@ -233,7 +239,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
               required
             >
               <option value="NEW">New</option>
-              <option value="PRE_OWNED">Pre-owned</option>
+              <option value="PRE_OWNED">PRE-OWNED</option>
             </select>
           </div>
 
@@ -284,6 +290,24 @@ export default function EditInventoryModal({ isOpen, onClose, onSuccess, invento
               <option value="InStock">In Stock</option>
               <option value="OutOfStock">Out of Stock</option>
               <option value="Reserved">Reserved</option>
+            </select>
+          </div>
+
+          {/* Note */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Note
+            </label>
+            <select
+              value={formData.note}
+              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="">No Note</option>
+              <option value="DMG_BOX">DMG Box</option>
+              <option value="NO_BOX">No Box</option>
+              <option value="REP_BOX">REP Box</option>
+              <option value="FLAWED">Flawed</option>
             </select>
           </div>
 

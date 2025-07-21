@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface EditProductData {
+interface Product {
+  id: string;
   brand: string;
   name: string;
-  color?: string;
   sku?: string;
-  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
+  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
 }
 
 interface EditProductOptions {
@@ -18,7 +18,7 @@ export function useEditProduct(options: EditProductOptions = {}) {
   const [loading, setLoading] = useState(false);
   const { getAuthToken } = useAuth();
 
-  const editProduct = async (productId: string, productData: EditProductData) => {
+  const editProduct = async (productId: string, productData: Product) => {
     setLoading(true);
     
     try {

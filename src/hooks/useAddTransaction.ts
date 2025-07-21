@@ -31,6 +31,7 @@ interface TransactionData {
   storeId?: string;
   userId?: string;
   notes?: string;
+  markup?: number;
 }
 
 const useAddTransaction = () => {
@@ -49,6 +50,19 @@ const useAddTransaction = () => {
       
       // If it's an OUT transaction with a store, handle as store transfer
       if (transactionData.type === 'OUT' && transactionData.storeId) {
+        // Get the inventory item to use its cost as transfer cost
+        const inventoryResponse = await fetch(`/api/inventory/${transactionData.inventoryItemId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        let transferCost = 0;
+        if (inventoryResponse.ok) {
+          const inventoryData = await inventoryResponse.json();
+          transferCost = parseFloat(inventoryData.cost) + (transactionData.markup || 0); // Add markup if provided
+        }
+        
         // Transfer to store using the inventoryItemId directly
         const transferResponse = await fetch('/api/transfers/warehouse-to-store', {
           method: 'POST',
@@ -60,6 +74,7 @@ const useAddTransaction = () => {
             inventoryItemId: transactionData.inventoryItemId,
             storeId: transactionData.storeId,
             quantity: transactionData.quantity,
+            transferCost: transferCost,
             notes: transactionData.notes || `Stock Out to store - ${transactionData.notes || ''}`
           }),
         });

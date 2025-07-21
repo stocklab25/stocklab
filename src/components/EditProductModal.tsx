@@ -10,15 +10,14 @@ interface Product {
   id: string;
   brand: string;
   name: string;
-  color?: string;
   sku?: string;
-  itemType: 'SHOE' | 'APPAREL' | 'MERCH';
+  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
 }
 
 interface EditProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (productId: string, product: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'MERCH' }) => void;
+  onSubmit: (productId: string, product: { brand: string; name: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => void;
   isLoading?: boolean;
   product?: Product | null;
 }
@@ -27,9 +26,8 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
   const [formData, setFormData] = useState({
     brand: '',
     name: '',
-    color: '',
     sku: '',
-    itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'MERCH',
+    itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'ACCESSORIES',
   });
   const [skuError, setSkuError] = useState('');
   const { checkSkuExists, isChecking } = useCheckSku();
@@ -40,7 +38,6 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
       setFormData({
         brand: product.brand || '',
         name: product.name || '',
-        color: product.color || '',
         sku: product.sku || '',
         itemType: product.itemType || 'SHOE',
       });
@@ -79,14 +76,13 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
     onSubmit(product.id, {
       brand: formData.brand,
       name: formData.name,
-      color: formData.color || undefined,
       sku: formData.sku || undefined,
       itemType: formData.itemType,
     });
   };
 
   const handleClose = () => {
-    setFormData({ brand: '', name: '', color: '', sku: '', itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'MERCH' });
+    setFormData({ brand: '', name: '', sku: '', itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'ACCESSORIES' });
     setSkuError('');
     onClose();
   };
@@ -126,18 +122,7 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
             />
           </div>
 
-          <div>
-            <label htmlFor="color" className="block text-sm font-medium text-foreground mb-1">
-              Color
-            </label>
-            <Input
-              id="color"
-              type="text"
-              value={formData.color}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, color: e.target.value })}
-              placeholder="e.g., Red/Black, White/Black"
-            />
-          </div>
+
 
           <div>
             <label htmlFor="itemType" className="block text-sm font-medium text-foreground mb-1">
@@ -146,16 +131,16 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
             <select
               id="itemType"
               value={formData.itemType}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, itemType: e.target.value as 'SHOE' | 'APPAREL' | 'MERCH' })}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, itemType: e.target.value as 'SHOE' | 'APPAREL' | 'ACCESSORIES' })}
               className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             >
               <option value="SHOE">Shoe</option>
               <option value="APPAREL">Apparel</option>
-              <option value="MERCH">Merchandise</option>
+              <option value="ACCESSORIES">Accessories</option>
             </select>
             <p className="text-xs text-muted-foreground mt-1">
-              Shoe & Apparel items typically have sizes. Merchandise items (caps, bags, accessories) usually don't have sizes.
+              Shoe & Apparel items typically have sizes. Accessories items (caps, bags, accessories) usually don't have sizes.
             </p>
           </div>
 

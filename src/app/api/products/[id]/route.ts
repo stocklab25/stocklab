@@ -94,7 +94,6 @@ export async function PUT(
       data: {
         brand: data.brand,
         name: data.name,
-        color: data.color,
         sku: data.sku,
         itemType: data.itemType,
         updatedAt: new Date(),
@@ -153,12 +152,12 @@ export async function DELETE(
       );
     }
 
-    // Check if product has active inventory items
-    if (existingProduct.inventoryItems.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete product with active inventory items' },
-        { status: 400 }
-      );
+    // For hard delete, also delete related inventory items
+    if (isHardDelete && existingProduct.inventoryItems.length > 0) {
+      // Delete all related inventory items first
+      await prisma.inventoryItem.deleteMany({
+        where: { productId: id }
+      });
     }
 
     if (isHardDelete) {

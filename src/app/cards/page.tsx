@@ -6,6 +6,7 @@ import PageContainer from '@/components/PageContainer';
 import { Card as UICard } from '@/components/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/Table';
 import Button from '@/components/Button';
+import PromptModal from '@/components/PromptModal';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function CardsPage() {
@@ -15,6 +16,11 @@ export default function CardsPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: '', last4: '', bank: '', type: '' });
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [cardToDelete, setCardToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     fetchCards();
@@ -84,6 +90,54 @@ export default function CardsPage() {
     }
   };
 
+  const handleDeleteCard = async () => {
+    if (!cardToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      const res = await fetch(`/api/cards/${cardToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setCards(cards.filter(card => card.id !== cardToDelete.id));
+        setShowDeleteModal(false);
+        setCardToDelete(null);
+      } else {
+        setError(data.error || 'Failed to delete card');
+      }
+    } catch (e) {
+      setError('Failed to delete card');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const toggleDropdown = (cardId: string, event: React.MouseEvent) => {
+    if (openDropdown === cardId) {
+      setOpenDropdown(null);
+      setCardToDelete(null);
+    } else {
+      const rect = event.currentTarget.getBoundingClientRect();
+      setDropdownPosition({
+        x: rect.right - 192, // 192px is the width of the dropdown (w-48)
+        y: rect.bottom + 8
+      });
+      setOpenDropdown(cardId);
+      const card = cards.find((c) => c.id === cardId);
+      setCardToDelete(card || null);
+    }
+  };
+
   return (
     <Layout>
       <PageContainer>
@@ -116,6 +170,7 @@ export default function CardsPage() {
                       <TableHead>Bank</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Created At</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -126,6 +181,19 @@ export default function CardsPage() {
                         <TableCell>{card.bank || '-'}</TableCell>
                         <TableCell>{card.type || '-'}</TableCell>
                         <TableCell>{new Date(card.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="relative">
+                            <button
+                              onClick={(e) => toggleDropdown(card.id, e)}
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                              disabled={isDeleting}
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -195,6 +263,68 @@ export default function CardsPage() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        <PromptModal
+          show={showDeleteModal}
+          title="Delete Card"
+          onClose={() => { setShowDeleteModal(false); setCardToDelete(null); }}
+        >
+          <div className="space-y-4">
+            <p>
+              Are you sure you want to delete "{cardToDelete?.name}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={() => { setShowDeleteModal(false); setCardToDelete(null); }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                onClick={handleDeleteCard}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </PromptModal>
+
+        {/* Dropdown Menu - Positioned outside table */}
+        {openDropdown && (
+          <>
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setOpenDropdown(null)}
+            />
+            <div 
+              className="fixed z-50 bg-white rounded-md shadow-lg border border-gray-200 w-48"
+              style={{
+                left: `${dropdownPosition.x}px`,
+                top: `${dropdownPosition.y}px`
+              }}
+            >
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(true);
+                    setOpenDropdown(null);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  disabled={isDeleting}
+                >
+                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </PageContainer>
     </Layout>

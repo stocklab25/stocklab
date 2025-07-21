@@ -5,11 +5,18 @@ import prisma from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { inventoryItemId, storeId, quantity, notes } = body;
+    const { inventoryItemId, storeId, quantity, transferCost, notes } = body;
 
     if (!inventoryItemId || !storeId || !quantity || quantity <= 0) {
       return NextResponse.json(
         { error: 'Valid inventory item ID, store ID, and quantity are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!transferCost || transferCost <= 0) {
+      return NextResponse.json(
+        { error: 'Valid transfer cost is required' },
         { status: 400 }
       );
     }
@@ -72,7 +79,15 @@ export async function POST(request: NextRequest) {
 
       let storeInventory;
       if (existingStoreInventory) {
-        // Update existing store inventory
+        // Update existing store inventory - calculate weighted average cost
+        const currentQuantity = existingStoreInventory.quantity;
+        const currentCost = parseFloat(existingStoreInventory.transferCost.toString());
+        const newQuantity = quantity;
+        const newCost = parseFloat(transferCost);
+        
+        const totalQuantity = currentQuantity + newQuantity;
+        const weightedAverageCost = ((currentQuantity * currentCost) + (newQuantity * newCost)) / totalQuantity;
+        
         storeInventory = await tx.storeInventory.update({
           where: {
             storeId_inventoryItemId: {
@@ -83,7 +98,8 @@ export async function POST(request: NextRequest) {
           data: {
             quantity: {
               increment: quantity
-            }
+            },
+            transferCost: weightedAverageCost
           }
         });
       } else {
@@ -92,7 +108,8 @@ export async function POST(request: NextRequest) {
           data: {
             storeId,
             inventoryItemId,
-            quantity
+            quantity,
+            transferCost: parseFloat(transferCost)
           }
         });
       }

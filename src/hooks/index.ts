@@ -6,12 +6,11 @@ import useCheckSku from './useCheckSku';
 import { useDeleteProduct } from './useDeleteProduct';
 import useAddTransaction from './useAddTransaction';
 import { useUpdateInventoryQuantity } from './useUpdateInventoryQuantity';
-import { useImportProducts } from './useImportProducts';
 import { useImportTransactions } from './useImportTransactions';
 import { useImportSales } from './useImportSales';
 import { useImportExpenses } from './useImportExpenses';
 import { useUsers } from './useUsers';
-import usePurchaseOrders from './usePurchaseOrders';
+import { usePurchaseOrders, usePurchaseOrder } from './usePurchaseOrders';
 import useExpenses from './useExpenses';
 import useCards from './useCards';
 import { useSales } from './useSales';
@@ -25,12 +24,12 @@ export {
   useDeleteProduct,
   useAddTransaction,
   useUpdateInventoryQuantity,
-  useImportProducts,
   useImportTransactions,
   useImportSales,
   useImportExpenses,
   useUsers,
   usePurchaseOrders,
+  usePurchaseOrder,
   useExpenses,
   useCards,
   useSales,

@@ -153,6 +153,40 @@ export default function Reports() {
     }
   }, [inventory?.length, products?.length, transactions?.length, settings.lowStockThreshold]);
 
+  // Add monthly and annual sales/profit calculations
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const monthlySales = salesData.filter(sale => {
+    const date = sale.saleDate ? new Date(sale.saleDate) : null;
+    return date && date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+  });
+  const annualSales = salesData.filter(sale => {
+    const date = sale.saleDate ? new Date(sale.saleDate) : null;
+    return date && date.getFullYear() === currentYear;
+  });
+  const getSalesSummary = (salesArr: any[]) => {
+    let totalSales = 0;
+    let totalProfit = 0;
+    let totalItems = 0;
+    salesArr.forEach(sale => {
+      const payout = Number(sale.payout) || 0;
+      const discount = Number(sale.discount) || 0;
+      const cost = Number(sale.cost) || 0;
+      const quantity = Number(sale.quantity) || 1;
+      totalSales += payout - discount;
+      totalProfit += (payout - discount) - (cost * quantity);
+      totalItems += quantity;
+    });
+    return {
+      totalSales,
+      totalProfit,
+      totalItems,
+    };
+  };
+  const monthlySummary = getSalesSummary(monthlySales);
+  const annualSummary = getSalesSummary(annualSales);
+
   // Check if any data is loading
   const isLoading = inventoryLoading || productsLoading || transactionsLoading;
   
@@ -172,7 +206,7 @@ export default function Reports() {
       <Layout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center space-y-4">
-            <div className="text-6xl">⚠️</div>
+                          <div className="text-6xl">!</div>
             <div className="text-lg text-red-600">Error loading reports</div>
             <p className="text-muted-foreground">Failed to fetch data. Please check your connection and try again.</p>
             <button 
@@ -200,7 +234,7 @@ export default function Reports() {
             onClick={() => setIsExportModalOpen(true)}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
-            📊 Export Report
+                          Export Report
           </button>
         </div>
 
@@ -208,43 +242,22 @@ export default function Reports() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <div className="p-6">
-              <div className="flex items-center">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <span className="text-2xl">💰</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Total Inventory Value</p>
-                  <p className="text-2xl font-bold text-foreground">${reportData.totalValue.toLocaleString()}</p>
-                </div>
-              </div>
+              <p className="text-sm font-medium text-muted-foreground">Total Inventory Value</p>
+              <p className="text-2xl font-bold text-foreground">${reportData.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </Card>
 
           <Card>
             <div className="p-6">
-              <div className="flex items-center">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <span className="text-2xl">📦</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Total Items</p>
-                  <p className="text-2xl font-bold text-foreground">{reportData.totalItems}</p>
-                </div>
-              </div>
+              <p className="text-sm font-medium text-muted-foreground">Total Items</p>
+              <p className="text-2xl font-bold text-foreground">{reportData.totalItems}</p>
             </div>
           </Card>
 
           <Card>
             <div className="p-6">
-              <div className="flex items-center">
-                <div className="p-3 bg-yellow-100 rounded-lg">
-                  <span className="text-2xl">⚠️</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Low Stock Items</p>
-                  <p className="text-2xl font-bold text-gray-900">{reportData.lowStockItems}</p>
-                </div>
-              </div>
+              <p className="text-sm font-medium text-gray-600">Low Stock Items</p>
+              <p className="text-2xl font-bold text-gray-900">{reportData.lowStockItems}</p>
             </div>
           </Card>
         </div>
@@ -253,7 +266,7 @@ export default function Reports() {
         <Card>
           <div className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Select Report Type</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <button 
                 onClick={() => setSelectedReport('summary')}
                 className={`p-4 text-left border rounded-lg transition-colors ${
@@ -262,12 +275,9 @@ export default function Reports() {
                     : 'border-border hover:border-primary hover:bg-accent'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">📊</span>
-                  <div>
-                    <p className="font-medium text-foreground">Inventory Summary</p>
-                    <p className="text-sm text-muted-foreground">Overview of all items</p>
-                  </div>
+                <div>
+                  <p className="font-medium text-foreground">Inventory Summary</p>
+                  <p className="text-sm text-muted-foreground">Overview of all items</p>
                 </div>
               </button>
 
@@ -279,12 +289,9 @@ export default function Reports() {
                     : 'border-border hover:border-primary hover:bg-accent'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">💰</span>
-                  <div>
-                    <p className="font-medium text-foreground">Value Report</p>
-                    <p className="text-sm text-muted-foreground">Total inventory value</p>
-                  </div>
+                <div>
+                  <p className="font-medium text-foreground">Value Report</p>
+                  <p className="text-sm text-muted-foreground">Total inventory value</p>
                 </div>
               </button>
 
@@ -296,12 +303,9 @@ export default function Reports() {
                     : 'border-border hover:border-primary hover:bg-accent'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">🏪</span>
-                  <div>
-                    <p className="font-medium text-foreground">Sales by Store</p>
-                    <p className="text-sm text-muted-foreground">Store performance</p>
-                  </div>
+                <div>
+                  <p className="font-medium text-foreground">Sales by Store</p>
+                  <p className="text-sm text-muted-foreground">Store performance</p>
                 </div>
               </button>
 
@@ -313,17 +317,86 @@ export default function Reports() {
                     : 'border-border hover:border-primary hover:bg-accent'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">📈</span>
-                  <div>
-                    <p className="font-medium text-foreground">Trends Analysis</p>
-                    <p className="text-sm text-muted-foreground">Sales and stock trends</p>
-                  </div>
+                <div>
+                  <p className="font-medium text-foreground">Trends Analysis</p>
+                  <p className="text-sm text-muted-foreground">Sales and stock trends</p>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => setSelectedReport('monthly')}
+                className={`p-4 text-left border rounded-lg transition-colors ${
+                  selectedReport === 'monthly' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary hover:bg-accent'
+                }`}
+              >
+                <div>
+                  <p className="font-medium text-foreground">Monthly Report</p>
+                  <p className="text-sm text-muted-foreground">This month's sales & profit</p>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => setSelectedReport('annual')}
+                className={`p-4 text-left border rounded-lg transition-colors ${
+                  selectedReport === 'annual' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary hover:bg-accent'
+                }`}
+              >
+                <div>
+                  <p className="font-medium text-foreground">Annual Report</p>
+                  <p className="text-sm text-muted-foreground">This year's sales & profit</p>
                 </div>
               </button>
             </div>
           </div>
         </Card>
+
+        {selectedReport === 'monthly' && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Monthly Report</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
+                  <p className="text-2xl font-bold text-foreground">${monthlySummary.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Profit</p>
+                  <p className="text-2xl font-bold text-foreground">${monthlySummary.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Items Sold</p>
+                  <p className="text-2xl font-bold text-foreground">{monthlySummary.totalItems}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'annual' && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Annual Report</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
+                  <p className="text-2xl font-bold text-foreground">${annualSummary.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Profit</p>
+                  <p className="text-2xl font-bold text-foreground">${annualSummary.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Items Sold</p>
+                  <p className="text-2xl font-bold text-foreground">{annualSummary.totalItems}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Chart Display */}
         {selectedReport === 'summary' && inventory && (
