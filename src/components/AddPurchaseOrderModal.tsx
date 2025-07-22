@@ -173,15 +173,15 @@ export default function AddPurchaseOrderModal({
     return items.reduce((sum, item) => sum + item.totalCost, 0);
   };
 
-  // Filter products based on search term (SKU, brand, or name)
+  // Filter products based on search term (brand and name)
   const getFilteredProducts = (itemIndex: number) => {
     const searchTerm = productSearchTerms[itemIndex] || '';
     return products.filter(product => {
       const searchLower = searchTerm.toLowerCase();
       return (
-        (product.sku && product.sku.toLowerCase().includes(searchLower)) ||
         product.brand.toLowerCase().includes(searchLower) ||
-        product.name.toLowerCase().includes(searchLower)
+        product.name.toLowerCase().includes(searchLower) ||
+        (product.sku && product.sku.toLowerCase().includes(searchLower))
       );
     });
   };
@@ -415,7 +415,7 @@ export default function AddPurchaseOrderModal({
                               setShowProductDropdown(index);
                             }
                           }}
-                          placeholder="Search by SKU, brand, or name..."
+                          placeholder="Search by brand, name, or SKU..."
                           required
                           readOnly={!!item.productId}
                           className={item.productId ? 'bg-gray-50 cursor-not-allowed' : ''}

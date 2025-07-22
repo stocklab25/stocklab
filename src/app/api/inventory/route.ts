@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
           id: true,
           productId: true,
           sku: true,
+          stocklabSku: true,
           size: true,
           condition: true,
           cost: true,
@@ -50,7 +51,6 @@ export async function GET(req: NextRequest) {
               brand: true,
               name: true,
               sku: true,
-              stocklabSku: true,
               createdAt: true,
               updatedAt: true
             }
@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
             id: true,
             productId: true,
             sku: true,
+            stocklabSku: true,
             size: true,
             condition: true,
             cost: true,
@@ -95,7 +96,6 @@ export async function GET(req: NextRequest) {
                 brand: true,
                 name: true,
                 sku: true,
-                stocklabSku: true,
                 createdAt: true,
                 updatedAt: true
               }
@@ -151,26 +151,33 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Generate StockLab SKU for the product if it doesn't have one
-    let productStocklabSku = null;
-    const existingProduct = await prisma.product.findUnique({
-      where: { id: data.productId },
-      select: { stocklabSku: true }
+    // Generate StockLab SKU for the inventory item
+    const lastInventoryItem = await prisma.inventoryItem.findFirst({
+      where: {
+        stocklabSku: {
+          not: null,
+        },
+      },
+      orderBy: {
+        stocklabSku: 'desc',
+      },
     });
-    
-    if (!existingProduct?.stocklabSku) {
-      productStocklabSku = await generateStockLabSku();
-      await prisma.product.update({
-        where: { id: data.productId },
-        data: { stocklabSku: productStocklabSku }
-      });
+
+    let nextNumber = 1;
+    if (lastInventoryItem?.stocklabSku) {
+      const match = lastInventoryItem.stocklabSku.match(/SL(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1]) + 1;
+      }
     }
+    const stocklabSku = `SL${nextNumber}`;
     
     // Create inventory item
     const inventoryItem = await prisma.inventoryItem.create({
       data: {
         productId: data.productId,
         sku: data.sku,
+        stocklabSku: stocklabSku,
         size: data.size,
         condition: data.condition,
         cost: parseFloat(data.cost),

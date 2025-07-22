@@ -46,7 +46,6 @@ model Product {
   name           String
   color          String?
   sku            String?         @unique
-  stocklabSku    String?         @unique
   createdAt      DateTime        @default(now())
   deletedAt      DateTime?
   updatedAt      DateTime        @default(now()) @updatedAt
@@ -61,6 +60,7 @@ model InventoryItem {
   id                String             @id @default(cuid())
   productId         String
   sku               String
+  stocklabSku       String?            @unique
   size              String
   cost              Decimal            @db.Decimal(10, 2)
   status            InventoryStatus

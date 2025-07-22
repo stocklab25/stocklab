@@ -52,6 +52,7 @@ interface StockTransaction {
   InventoryItem?: {
     id: string;
     sku: string;
+    stocklabSku?: string;
   product?: {
     id: string;
     brand: string;
@@ -111,6 +112,7 @@ export default function Transactions() {
       txn.InventoryItem?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       txn.InventoryItem?.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       txn.InventoryItem?.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (txn.InventoryItem?.stocklabSku && txn.InventoryItem.stocklabSku.toLowerCase().includes(searchTerm.toLowerCase())) ||
       txn.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       getStoreName(txn).toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -258,6 +260,7 @@ export default function Transactions() {
   const columns = [
     { key: 'date', label: 'Date' },
     { key: 'product', label: 'Product' },
+    { key: 'stocklabSku', label: 'StockLab SKU' },
     { key: 'sku', label: 'SKU' },
     { key: 'type', label: 'Type' },
     { key: 'quantity', label: 'Quantity' },
@@ -270,6 +273,7 @@ export default function Transactions() {
     id: txn.id,
     date: formatDate(txn.date),
     product: txn.InventoryItem?.product?.name || 'Unknown Product',
+    stocklabSku: txn.InventoryItem?.stocklabSku || 'N/A',
     sku: txn.InventoryItem?.sku || 'Unknown SKU',
     type: (
       <Badge 
@@ -344,7 +348,7 @@ export default function Transactions() {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Search by product name, brand, SKU, or user..."
+                  placeholder="Search by product name, brand, SKU, SL SKU, or user..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -392,6 +396,7 @@ export default function Transactions() {
                       <tr key={row.id} className="border-b border-muted hover:bg-accent">
                         <td className="py-2 px-4 text-sm">{row.date}</td>
                         <td className="py-2 px-4 text-sm">{row.product}</td>
+                        <td className="py-2 px-4 text-sm font-mono text-blue-600">{row.stocklabSku}</td>
                         <td className="py-2 px-4 text-sm">{row.sku}</td>
                         <td className="py-2 px-4 text-sm">{row.type}</td>
                         <td className="py-2 px-4 text-sm">{row.quantity}</td>
@@ -402,7 +407,7 @@ export default function Transactions() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center">
+                      <td colSpan={9} className="py-8 text-center">
                         <p className="text-muted-foreground">No transactions found</p>
                       </td>
                     </tr>

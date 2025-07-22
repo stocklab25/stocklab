@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
           brand: true,
           name: true,
           sku: true,
-          stocklabSku: true,
           itemType: true,
           deletedAt: true,
           createdAt: true,
@@ -82,7 +81,6 @@ export async function GET(request: NextRequest) {
             brand: true,
             name: true,
             sku: true,
-            stocklabSku: true,
             itemType: true,
             deletedAt: true,
             createdAt: true,
@@ -174,22 +172,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate StockLab SKU for the new product
-    const stocklabSku = await generateStockLabSku();
-
     const product = await prisma.product.create({
       data: {
         brand: data.brand,
         name: data.name,
         sku: data.sku,
-        stocklabSku: stocklabSku,
         itemType: data.itemType || 'SHOE', // Default to SHOE if not provided
       },
     });
 
     return NextResponse.json({
       ...product,
-      message: `Product created successfully with StockLab SKU: ${stocklabSku}. Add inventory items to manage stock.`
+      message: `Product created successfully. Add inventory items to manage stock.`
     }, { status: 201 });
   } catch (error) {
     

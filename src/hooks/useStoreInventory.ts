@@ -7,6 +7,7 @@ export interface StoreInventoryItem {
   inventoryItem: {
     id: string;
     sku: string;
+    stocklabSku?: string;
     size: string;
     condition: string;
     product: {

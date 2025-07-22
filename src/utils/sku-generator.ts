@@ -1,8 +1,8 @@
 import prisma from '@/lib/db';
 
 export async function generateStockLabSku(): Promise<string> {
-  // Find the last product with a StockLab SKU
-  const lastProduct = await prisma.product.findFirst({
+  // Find the last inventory item with a StockLab SKU
+  const lastInventoryItem = await prisma.inventoryItem.findFirst({
     where: {
       stocklabSku: {
         not: null,
@@ -14,12 +14,12 @@ export async function generateStockLabSku(): Promise<string> {
   });
 
   let nextNumber = 1;
-  if (lastProduct?.stocklabSku) {
-    const match = lastProduct.stocklabSku.match(/SL(\d+)/);
+  if (lastInventoryItem?.stocklabSku) {
+    const match = lastInventoryItem.stocklabSku.match(/SL(\d+)/);
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
     }
   }
 
-  return `SL${nextNumber.toString().padStart(3, '0')}`;
+  return `SL${nextNumber}`;
 } 

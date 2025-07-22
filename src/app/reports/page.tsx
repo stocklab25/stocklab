@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { PageLoader } from '@/components/Loader';
@@ -45,6 +45,12 @@ interface Transaction {
   date: string;
 }
 
+interface Store {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export default function Reports() {
   const { getAuthToken } = useAuth();
   const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
@@ -53,7 +59,13 @@ export default function Reports() {
   const { settings } = useSettings();
   const [selectedReport, setSelectedReport] = useState<string>('summary');
   const [salesData, setSalesData] = useState<any[]>([]);
+  const [storesData, setStoresData] = useState<Store[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  
+  // Date range and store selection state
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [selectedStore, setSelectedStore] = useState<string>('all');
   
   const [reportData, setReportData] = useState<ReportData>({
     totalValue: 0,
@@ -88,6 +100,58 @@ export default function Reports() {
     };
     fetchSales();
   }, []); // Removed getAuthToken from dependency array
+
+  // Fetch stores data
+  useEffect(() => {
+    const fetchStores = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) {
+          
+          return;
+        }
+
+        const response = await fetch('/api/stores?status=ACTIVE', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStoresData(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        
+      }
+    };
+    fetchStores();
+  }, []); // Removed getAuthToken from dependency array
+
+  // Filter sales data based on date range and store selection
+  const filteredSalesData = useMemo(() => {
+    if (!salesData.length) return [];
+
+    return salesData.filter(sale => {
+      // Filter by date range
+      if (startDate && endDate) {
+        const saleDate = sale.saleDate ? new Date(sale.saleDate) : null;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // Include the entire end date
+        
+        if (!saleDate || saleDate < start || saleDate > end) {
+          return false;
+        }
+      }
+
+      // Filter by store
+      if (selectedStore !== 'all' && sale.storeId !== selectedStore) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [salesData, startDate, endDate, selectedStore]);
 
   // Calculate report data when data is available
   useEffect(() => {
@@ -354,6 +418,72 @@ export default function Reports() {
           </div>
         </Card>
 
+        {/* Sales by Store Filters */}
+        {selectedReport === 'sales' && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Sales by Store - Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Start Date"
+                    />
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="End Date"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Store</label>
+                  <select
+                    value={selectedStore}
+                    onChange={(e) => setSelectedStore(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All Stores</option>
+                    {storesData.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setStartDate('');
+                      setEndDate('');
+                      setSelectedStore('all');
+                    }}
+                    className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+              {filteredSalesData.length > 0 && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    Showing {filteredSalesData.length} sales
+                    {startDate && endDate && ` from ${startDate} to ${endDate}`}
+                    {selectedStore !== 'all' && ` for ${storesData.find(s => s.id === selectedStore)?.name}`}
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {selectedReport === 'monthly' && (
           <Card>
             <div className="p-6">
@@ -417,11 +547,26 @@ export default function Reports() {
           </Card>
         )}
 
-        {selectedReport === 'sales' && salesData.length > 0 && (
+        {selectedReport === 'sales' && filteredSalesData.length > 0 && (
           <Card>
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Sales by Store</h3>
-              <SalesByStoreChart sales={salesData} />
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Sales by Store
+                {selectedStore !== 'all' && ` - ${storesData.find(s => s.id === selectedStore)?.name}`}
+                {selectedStore === 'all' && ' - Store Performance'}
+              </h3>
+              <SalesByStoreChart sales={filteredSalesData} />
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'sales' && filteredSalesData.length === 0 && (
+          <Card>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <p className="text-lg text-muted-foreground">No sales data found for the selected filters</p>
+                <p className="text-sm text-muted-foreground mt-2">Try adjusting your date range or store selection</p>
+              </div>
             </div>
           </Card>
         )}

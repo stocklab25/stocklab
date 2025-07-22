@@ -31,8 +31,27 @@ export async function GET(request: NextRequest) {
 
     const inventoryItems = await prisma.inventoryItem.findMany({
       where: whereClause,
-      include: {
-        product: true
+      select: {
+        id: true,
+        productId: true,
+        sku: true,
+        stocklabSku: true,
+        size: true,
+        condition: true,
+        cost: true,
+        status: true,
+        quantity: true,
+        createdAt: true,
+        updatedAt: true,
+        product: {
+          select: {
+            id: true,
+            brand: true,
+            name: true,
+            color: true,
+            sku: true
+          }
+        }
       },
       orderBy: {
         product: {

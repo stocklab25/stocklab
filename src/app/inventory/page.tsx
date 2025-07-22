@@ -25,6 +25,7 @@ interface InventoryItem {
   id: string;
   productId: string;
   sku: string;
+  stocklabSku?: string;
   size: string;
   condition: string;
   cost: number;
@@ -39,7 +40,6 @@ interface InventoryItem {
     name: string;
     color: string;
     sku: string;
-    stocklabSku?: string;
   };
 }
 
@@ -70,6 +70,7 @@ export default function Inventory() {
       item.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.stocklabSku && item.stocklabSku.toLowerCase().includes(searchTerm.toLowerCase())) ||
       item.size.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesSearch;
@@ -389,7 +390,7 @@ export default function Inventory() {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Search by product name, brand, SKU, or size..."
+                  placeholder="Search by product name, brand, SKU, SL SKU, or size..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -437,7 +438,7 @@ export default function Inventory() {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-mono text-sm text-blue-600">{item.product?.stocklabSku || 'N/A'}</span>
+                        <span className="font-mono text-sm text-blue-600">{item.stocklabSku || 'N/A'}</span>
                       </td>
                       <td className="py-3 px-4">
                         <span className="font-mono text-sm">{item.sku}</span>

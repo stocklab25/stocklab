@@ -6,6 +6,7 @@ interface InventoryItem {
   id: string;
   productId: string;
   sku: string;
+  stocklabSku?: string;
   size: string;
   condition: string;
   cost: number;

@@ -46,7 +46,7 @@ export async function POST(
     }
 
     // Generate StockLab SKU first
-    const lastProduct = await prisma.product.findFirst({
+    const lastInventoryItem = await prisma.inventoryItem.findFirst({
       where: {
         stocklabSku: {
           not: null,
@@ -58,8 +58,8 @@ export async function POST(
     });
 
     let nextNumber = 1;
-    if (lastProduct?.stocklabSku) {
-      const match = lastProduct.stocklabSku.match(/SL(\d+)/);
+    if (lastInventoryItem?.stocklabSku) {
+      const match = lastInventoryItem.stocklabSku.match(/SL(\d+)/);
       if (match) {
         nextNumber = parseInt(match[1]) + 1;
       }
@@ -85,7 +85,7 @@ export async function POST(
     const createdInventoryItems = [];
     
     for (const item of purchaseOrder.purchaseOrderItems) {
-      const stocklabSku = `SL${nextNumber.toString().padStart(3, '0')}`;
+      const stocklabSku = `SL${nextNumber}`;
       nextNumber++;
 
       // Create inventory item
@@ -93,7 +93,7 @@ export async function POST(
         data: {
           productId: item.productId,
           sku: item.product.sku || '',
-          // stocklabSku is now on product, not inventory item
+          stocklabSku: stocklabSku,
           size: item.size,
           condition: 'NEW', // Default to NEW for delivered items
           cost: item.unitCost,
@@ -105,13 +105,6 @@ export async function POST(
           product: true,
         },
       });
-      // Optionally update product's stocklabSku if not set
-      if (!item.product.stocklabSku) {
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: { stocklabSku },
-        });
-      }
 
       // Create stock transaction
       await prisma.stockTransaction.create({

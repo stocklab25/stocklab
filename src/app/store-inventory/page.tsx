@@ -34,6 +34,7 @@ interface StoreInventoryItem {
     id: string;
     productId: string;
     sku: string;
+    stocklabSku?: string;
     size: string;
     condition: string;
     cost: number;
@@ -422,6 +423,7 @@ export default function StoreInventoryPage() {
                           <th className="text-left py-3 px-4 font-medium text-foreground">Store</th>
                         )}
                         <th className="text-left py-3 px-4 font-medium text-foreground">Product</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground">StockLab SKU</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
                         <th className="text-center py-3 px-4 font-medium text-foreground">Store Quantity</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
@@ -434,7 +436,7 @@ export default function StoreInventoryPage() {
                     <tbody>
                       {inventory.length === 0 ? (
                         <tr>
-                          <td colSpan={selectedStoreId === 'ALL' ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                          <td colSpan={selectedStoreId === 'ALL' ? 10 : 9} className="text-center py-8 text-muted-foreground">
                             {selectedStoreId === 'ALL' ? 'No inventory found across all stores.' : 'No inventory found for this store.'}
                           </td>
                         </tr>
@@ -452,6 +454,9 @@ export default function StoreInventoryPage() {
                                 <p className="text-xs text-muted-foreground">{item.inventoryItem.product.name}</p>
                                 <p className="text-xs text-muted-foreground">{item.inventoryItem.product.sku}</p>
                               </div>
+                            </td>
+                            <td className="py-2 px-4 text-sm">
+                              <span className="font-mono text-sm text-blue-600">{item.inventoryItem.stocklabSku || 'N/A'}</span>
                             </td>
                             <td className="py-2 px-4 text-sm">
                               <span className="font-mono">{item.inventoryItem.sku}</span>
