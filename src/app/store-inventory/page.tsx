@@ -71,8 +71,6 @@ export default function StoreInventoryPage() {
   });
   const [addingStore, setAddingStore] = useState(false);
   const { data: warehouseInventory, isLoading: isWarehouseLoading, isError: isWarehouseError, mutate: mutateWarehouse } = useInventory();
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const [isTransferring, setIsTransferring] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ cost: string; quantity: string }>({ cost: '', quantity: '' });
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -181,7 +179,6 @@ export default function StoreInventoryPage() {
     try {
       const token = await getAuthToken();
       if (!token) {
-        
         return;
       }
 
@@ -200,10 +197,10 @@ export default function StoreInventoryPage() {
         setNewStore({ name: '', address: '', phone: '', email: '' });
         setShowAddStoreModal(false);
       } else {
-        
+        console.error('Failed to create store');
       }
     } catch (error) {
-      
+      console.error('Error creating store:', error);
     } finally {
       setAddingStore(false);
     }
@@ -249,41 +246,7 @@ export default function StoreInventoryPage() {
     }
   };
 
-  const handleTransferToStore = async (transferData: {
-    inventoryItemId: string;
-    storeId: string;
-    quantity: number;
-    transferCost: number;
-    notes?: string;
-  }) => {
-    setIsTransferring(true);
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      const response = await fetch('/api/transfers/warehouse-to-store', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(transferData),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to transfer to store');
-      }
-      // Refresh warehouse inventory and store inventory
-      mutateWarehouse();
-      setShowTransferModal(false);
-      // Optionally, refresh store inventory here
-    } catch (error) {
-      console.error('Transfer failed:', error);
-    } finally {
-      setIsTransferring(false);
-    }
-  };
+
 
   const handleEditClick = (item: StoreInventoryItem) => {
     setEditingRowId(item.id);
@@ -387,10 +350,10 @@ export default function StoreInventoryPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowTransferModal(true)}
+                onClick={() => setShowAddStoreModal(true)}
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
-                + Add to Store
+                + Add Store
               </button>
               <button 
                 onClick={exportToCSV}
@@ -471,7 +434,9 @@ export default function StoreInventoryPage() {
                                   className="w-20 px-2 py-1 border rounded"
                                 />
                               ) : (
-                                <span className="font-mono font-medium">{item.quantity}</span>
+                                <span className={`font-mono font-medium ${item.quantity === 0 ? 'text-red-600' : ''}`}>
+                                  {item.quantity === 0 ? 'SOLD' : item.quantity}
+                                </span>
                               )}
                             </td>
                             <td className="py-2 px-4 text-sm">
@@ -603,14 +568,6 @@ export default function StoreInventoryPage() {
           </div>
         </Modal>
 
-        <TransferToStoreModal
-          isOpen={showTransferModal}
-          onClose={() => setShowTransferModal(false)}
-          onSubmit={handleTransferToStore}
-          isLoading={isTransferring}
-          inventoryItems={warehouseInventory}
-          stores={stores}
-        />
       </div>
 
       {/* Dropdown Menu - Positioned outside table */}

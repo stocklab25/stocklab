@@ -110,6 +110,7 @@ export default function StoreSalesPage() {
     { key: "size", label: "Size" },
     { key: "condition", label: "Condition" },
     { key: "sku", label: "SKU" },
+    { key: "stocklabSku", label: "SL SKU" },
     { key: "quantity", label: "Qty" },
     { key: "cost", label: "Cost" },
     { key: "payout", label: "Payout" },
@@ -138,6 +139,7 @@ export default function StoreSalesPage() {
       size: sale.inventoryItem?.size || "-",
       condition: sale.inventoryItem?.condition || "-",
       sku: sale.inventoryItem?.sku || "-",
+      stocklabSku: sale.inventoryItem?.stocklabSku || "-",
       quantity: sale.quantity,
       cost: formatCurrency(cost),
       payout: formatCurrency(payout),
@@ -297,6 +299,7 @@ export default function StoreSalesPage() {
         onSubmit={addSale}
         stores={stores || []}
         fetchInventory={fetchInventory}
+        getAuthToken={getAuthToken}
         isLoading={isAdding}
       />
       <ImportSalesModal

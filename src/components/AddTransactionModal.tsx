@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { StockInIcon, StockOutIcon, MoveIcon, ReturnIcon, AuditIcon, WarningIcon } from '@/utils/icons';
 
@@ -8,6 +8,7 @@ interface InventoryItem {
   id: string;
   productId: string;
   sku: string;
+  stocklabSku?: string;
   size: string;
   condition: string;
   cost: number;
@@ -86,8 +87,78 @@ export default function AddTransactionModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [transactionList, setTransactionList] = useState<TransactionItem[]>([]);
   const [isSubmittingAll, setIsSubmittingAll] = useState(false);
+  
+  // SKU search states
+  const [skuSearch, setSkuSearch] = useState('');
+  const [showSkuDropdown, setShowSkuDropdown] = useState(false);
+  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
+  const [selectedItemIndex, setSelectedItemIndex] = useState(-1);
+  const skuSearchRef = useRef<HTMLInputElement>(null);
 
   const selectedInventoryItem = Array.isArray(inventoryItems) ? inventoryItems.find(item => item.id === formData.inventoryItemId) : undefined;
+
+  // Filter items based on SKU search
+  useEffect(() => {
+    if (skuSearch.trim()) {
+      const filtered = inventoryItems.filter(item => 
+        item.stocklabSku?.toLowerCase().includes(skuSearch.toLowerCase()) ||
+        item.sku.toLowerCase().includes(skuSearch.toLowerCase())
+      );
+      setFilteredItems(filtered);
+      setShowSkuDropdown(true);
+      setSelectedItemIndex(-1);
+    } else {
+      setFilteredItems([]);
+      setShowSkuDropdown(false);
+    }
+  }, [skuSearch, inventoryItems]);
+
+  // Handle keyboard navigation for SKU search
+  const handleSkuSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedItemIndex(prev => 
+        prev < filteredItems.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedItemIndex(prev => 
+        prev > 0 ? prev - 1 : filteredItems.length - 1
+      );
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedItemIndex >= 0 && filteredItems[selectedItemIndex]) {
+        selectItem(filteredItems[selectedItemIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSkuDropdown(false);
+      setSelectedItemIndex(-1);
+    }
+  };
+
+  const selectItem = (item: InventoryItem) => {
+    setFormData(prev => ({ ...prev, inventoryItemId: item.id }));
+    setSkuSearch(item.stocklabSku || item.sku);
+    setShowSkuDropdown(false);
+    setSelectedItemIndex(-1);
+    // Clear inventory item error when item is selected
+    setErrors(prev => ({ ...prev, inventoryItemId: '' }));
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (skuSearchRef.current && !skuSearchRef.current.contains(event.target as Node)) {
+        setShowSkuDropdown(false);
+        setSelectedItemIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fetch stores on component mount
   useEffect(() => {
@@ -95,7 +166,6 @@ export default function AddTransactionModal({
       try {
         const token = await getAuthToken();
         if (!token) {
-          
           setStores([]);
           return;
         }
@@ -103,29 +173,18 @@ export default function AddTransactionModal({
         const response = await fetch('/api/stores', {
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         });
 
-        if (!response.ok) {
-          
-          setStores([]);
-          return;
-        }
-
-        const data = await response.json();
-        
-        // Ensure data is an array and not empty object
-        if (Array.isArray(data) && data.length > 0) {
-          setStores(data);
-        } else if (Array.isArray(data)) {
-          // Empty array is fine
-          setStores([]);
+        if (response.ok) {
+          const storesData = await response.json();
+          setStores(storesData.filter((store: Store) => store.status === 'ACTIVE'));
         } else {
-          
           setStores([]);
         }
       } catch (error) {
-        
+        console.error('Error fetching stores:', error);
         setStores([]);
       }
     };
@@ -133,31 +192,23 @@ export default function AddTransactionModal({
     if (isOpen) {
       fetchStores();
     }
-  }, [isOpen]); // Removed getAuthToken from dependency array
+  }, [isOpen, getAuthToken]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.inventoryItemId) {
-      newErrors.inventoryItemId = 'Inventory item is required';
+      newErrors.inventoryItemId = 'Please select an inventory item';
     }
 
-    if (!formData.quantity || formData.quantity <= 0) {
+    if (!formData.storeId) {
+      newErrors.storeId = 'Please select a store';
+    }
+
+    if (formData.quantity <= 0) {
       newErrors.quantity = 'Quantity must be greater than 0';
-    }
-
-    // Check if OUT transaction would exceed available stock
-    if (formData.type === 'OUT' && selectedInventoryItem && formData.quantity > selectedInventoryItem.quantity) {
+    } else if (selectedInventoryItem && formData.quantity > selectedInventoryItem.quantity) {
       newErrors.quantity = `Insufficient stock. Available: ${selectedInventoryItem.quantity}`;
-    }
-
-    if (!formData.date) {
-      newErrors.date = 'Date is required';
-    }
-
-    // Validate store selection for OUT transactions
-    if (formData.type === 'OUT' && !formData.storeId) {
-      newErrors.storeId = 'Store selection is required for Stock Out transactions';
     }
 
     setErrors(newErrors);
@@ -181,9 +232,9 @@ export default function AddTransactionModal({
       notes: formData.notes,
     };
 
-    setTransactionList([...transactionList, newTransaction]);
+    setTransactionList(prev => [...prev, newTransaction]);
     
-    // Reset form for next transaction
+    // Reset form
     setFormData({
       type: 'OUT',
       inventoryItemId: '',
@@ -192,16 +243,16 @@ export default function AddTransactionModal({
       storeId: '',
       notes: '',
     });
+    setSkuSearch('');
     setErrors({});
   };
 
   const handleRemoveFromList = (id: string) => {
-    setTransactionList(transactionList.filter(transaction => transaction.id !== id));
+    setTransactionList(prev => prev.filter(item => item.id !== id));
   };
 
   const handleSubmitAll = async () => {
     if (transactionList.length === 0) {
-      alert('Please add at least one transaction before submitting.');
       return;
     }
 
@@ -209,21 +260,17 @@ export default function AddTransactionModal({
     try {
       for (const transaction of transactionList) {
         await onSubmit({
-          ...transaction,
-          userId: user?.id,
+          type: transaction.type,
+          inventoryItemId: transaction.inventoryItemId,
+          quantity: transaction.quantity,
+          date: transaction.date,
+          storeId: transaction.storeId,
+          notes: transaction.notes,
         });
       }
-      onClose();
+      
       setTransactionList([]);
-      setFormData({
-        type: 'OUT',
-        inventoryItemId: '',
-        quantity: 1,
-        date: new Date().toISOString().split('T')[0],
-        storeId: '',
-        notes: '',
-      });
-      setErrors({});
+      onClose();
     } catch (error) {
       console.error('Error submitting transactions:', error);
     } finally {
@@ -234,17 +281,15 @@ export default function AddTransactionModal({
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Clear error when user starts typing
+    // Clear errors when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-    
-    // Real-time validation for quantity when inventory item or quantity changes
-    if ((field === 'quantity' || field === 'inventoryItemId' || field === 'type') && selectedInventoryItem) {
-      const newQuantity = field === 'quantity' ? Number(value) : formData.quantity;
-      const newType = field === 'type' ? value as string : formData.type;
-      
-      if (newType === 'OUT' && newQuantity > selectedInventoryItem.quantity) {
+
+    // Validate quantity when it changes
+    if (field === 'quantity') {
+      const newQuantity = Number(value);
+      if (selectedInventoryItem && newQuantity > selectedInventoryItem.quantity) {
         setErrors(prev => ({ 
           ...prev, 
           quantity: `Insufficient stock. Available: ${selectedInventoryItem.quantity}` 
@@ -313,24 +358,51 @@ export default function AddTransactionModal({
             </div>
 
             {/* Inventory Item Selection */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Inventory Item
+                StockLab SKU
               </label>
-              <select
-                value={formData.inventoryItemId}
-                onChange={(e) => handleInputChange('inventoryItemId', e.target.value)}
+              <input
+                ref={skuSearchRef}
+                type="text"
+                value={skuSearch}
+                onChange={(e) => setSkuSearch(e.target.value)}
+                onKeyDown={handleSkuSearchKeyDown}
+                placeholder="Search by StockLab SKU..."
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
                   errors.inventoryItemId ? 'border-red-500' : 'border-gray-300'
                 }`}
-              >
-                <option value="">Select an inventory item</option>
-                {Array.isArray(inventoryItems) && inventoryItems.map(item => (
-                  <option key={item.id} value={item.id}>
-                    {item.product.brand} - {item.product.name} | SKU: {item.sku} | Size: {item.size} | Cost: ${item.cost} | Qty: {item.quantity}
-                  </option>
-                ))}
-              </select>
+              />
+              {showSkuDropdown && filteredItems.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {filteredItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
+                        index === selectedItemIndex ? 'bg-blue-100' : ''
+                      }`}
+                      onClick={() => selectItem(item)}
+                    >
+                      <div className="font-medium text-sm">
+                        {item.stocklabSku || item.sku}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {item.product.brand} {item.product.name} - {item.size} ({item.condition})
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Cost: ${item.cost} | Available: {item.quantity}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showSkuDropdown && filteredItems.length === 0 && skuSearch.trim() && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    No items found
+                  </div>
+                </div>
+              )}
               {errors.inventoryItemId && (
                 <p className="mt-1 text-sm text-red-600">{errors.inventoryItemId}</p>
               )}

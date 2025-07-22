@@ -14,6 +14,7 @@ import { useProducts } from '@/hooks';
 interface PurchaseOrder {
   id: string;
   vendorName: string;
+  r3vPurchaseOrderNumber: string;
   orderNumber?: string;
   orderDate: string;
   deliveryDate?: string;
@@ -177,6 +178,7 @@ export default function PurchaseOrders() {
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 font-medium text-foreground w-8"></th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Vendor</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">R3V P.O. #</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Order #</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Order Date</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Items</th>
@@ -189,7 +191,7 @@ export default function PurchaseOrders() {
                 <tbody>
                   {purchaseOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-8">
+                      <td colSpan={10} className="text-center py-8">
                         <p className="text-muted-foreground">No purchase orders found</p>
                       </td>
                     </tr>
@@ -212,6 +214,9 @@ export default function PurchaseOrders() {
                             </td>
                             <td className="py-3 px-4">
                               <p className="font-medium text-foreground">{order.vendorName}</p>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-sm text-blue-600">{order.r3vPurchaseOrderNumber}</span>
                             </td>
                             <td className="py-3 px-4">
                               <span className="font-mono text-sm">{order.orderNumber || 'N/A'}</span>
@@ -279,7 +284,7 @@ export default function PurchaseOrders() {
                         {/* Expanded Row Content */}
                         {isExpanded && (
                           <tr className="bg-gray-50">
-                            <td colSpan={9} className="px-4 py-4">
+                            <td colSpan={10} className="px-4 py-4">
                               <div className="space-y-4">
                                 <h4 className="font-medium text-foreground">Purchase Order Items</h4>
                                 <div className="overflow-x-auto">

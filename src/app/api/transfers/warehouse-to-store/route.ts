@@ -5,11 +5,11 @@ import prisma from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { inventoryItemId, storeId, quantity, transferCost, notes } = body;
+    const { inventoryItemId, storeId, transferCost, notes } = body;
 
-    if (!inventoryItemId || !storeId || !quantity || quantity <= 0) {
+    if (!inventoryItemId || !storeId) {
       return NextResponse.json(
-        { error: 'Valid inventory item ID, store ID, and quantity are required' },
+        { error: 'Valid inventory item ID and store ID are required' },
         { status: 400 }
       );
     }
@@ -37,37 +37,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if inventory item exists in warehouse with sufficient quantity
+    // Check if inventory item exists in warehouse and is not deleted
     const warehouseItem = await prisma.inventoryItem.findFirst({
       where: {
         id: inventoryItemId,
         deletedAt: null,
-        quantity: {
-          gte: quantity
-        }
+        quantity: 1 // Since we now have 1 item per record
       }
     });
 
     if (!warehouseItem) {
       return NextResponse.json(
-        { error: 'Inventory item not found or insufficient quantity in warehouse' },
+        { error: 'Inventory item not found in warehouse or already transferred' },
         { status: 400 }
       );
     }
 
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
-      // Deduct from warehouse
+      // Soft delete from warehouse (set deletedAt)
       const updatedWarehouseItem = await tx.inventoryItem.update({
         where: { id: inventoryItemId },
         data: {
-          quantity: {
-            decrement: quantity
-          }
+          deletedAt: new Date()
         }
       });
 
-      // Add to store inventory
+      // Check if store inventory already exists for this item
       const existingStoreInventory = await tx.storeInventory.findUnique({
         where: {
           storeId_inventoryItemId: {
@@ -79,15 +75,7 @@ export async function POST(request: NextRequest) {
 
       let storeInventory;
       if (existingStoreInventory) {
-        // Update existing store inventory - calculate weighted average cost
-        const currentQuantity = existingStoreInventory.quantity;
-        const currentCost = parseFloat(existingStoreInventory.transferCost.toString());
-        const newQuantity = quantity;
-        const newCost = parseFloat(transferCost);
-        
-        const totalQuantity = currentQuantity + newQuantity;
-        const weightedAverageCost = ((currentQuantity * currentCost) + (newQuantity * newCost)) / totalQuantity;
-        
+        // Update existing store inventory - quantity should always be 1
         storeInventory = await tx.storeInventory.update({
           where: {
             storeId_inventoryItemId: {
@@ -96,10 +84,9 @@ export async function POST(request: NextRequest) {
             }
           },
           data: {
-            quantity: {
-              increment: quantity
-            },
-            transferCost: weightedAverageCost
+            quantity: 1, // Always 1 since we have 1 item per record
+            transferCost: parseFloat(transferCost),
+            deletedAt: null // Ensure it's not soft deleted
           }
         });
       } else {
@@ -108,7 +95,7 @@ export async function POST(request: NextRequest) {
           data: {
             storeId,
             inventoryItemId,
-            quantity,
+            quantity: 1, // Always 1 since we have 1 item per record
             transferCost: parseFloat(transferCost)
           }
         });
@@ -118,12 +105,12 @@ export async function POST(request: NextRequest) {
       const transaction = await tx.stockTransaction.create({
         data: {
           type: 'TRANSFER_TO_STORE',
-          quantity,
+          quantity: 1, // Always 1 since we have 1 item per record
           date: new Date(),
           fromStoreId: null, // warehouse
           toStoreId: storeId,
           inventoryItemId,
-          notes: notes || `Transferred ${quantity} units from warehouse to ${store.name}`
+          notes: notes || `Transferred item from warehouse to ${store.name}`
         }
       });
 
@@ -137,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    
+    console.error('Error transferring from warehouse to store:', error);
     return NextResponse.json(
       { error: 'Failed to transfer from warehouse to store' },
       { status: 500 }

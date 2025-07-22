@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
+import { generateR3VPurchaseOrderNumber } from '@/utils/r3v-po-generator';
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,9 +84,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if orderNumber already exists (if provided)
+    if (orderNumber) {
+      const existingOrder = await prisma.purchaseOrder.findFirst({
+        where: {
+          orderNumber: orderNumber,
+          deletedAt: null,
+        },
+      });
+
+      if (existingOrder) {
+        return NextResponse.json(
+          { error: 'Order number already exists' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Generate R3V P.O. number
+    const r3vPurchaseOrderNumber = await generateR3VPurchaseOrderNumber();
+
     const purchaseOrder = await prisma.purchaseOrder.create({
       data: {
         vendorName,
+        r3vPurchaseOrderNumber,
         orderNumber,
         orderDate: orderDate ? new Date(orderDate) : new Date(),
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,

@@ -107,7 +107,7 @@ export async function PUT(
         condition: data.condition,
         cost: data.cost ? parseFloat(data.cost) : undefined,
         status: data.status,
-        quantity: data.quantity ? parseInt(data.quantity) : undefined,
+        quantity: 1, // Always 1 for individual items
         note: data.note,
         updatedAt: new Date(),
       },

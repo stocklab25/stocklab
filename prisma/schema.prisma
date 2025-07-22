@@ -23,60 +23,62 @@ model User {
 }
 
 model Store {
-  id               String             @id @default(cuid())
-  name             String
-  address          String?
-  phone            String?
-  email            String?
-  status           StoreStatus        @default(ACTIVE)
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  deletedAt        DateTime?
-  sales            Sale[]
-  fromTransactions StockTransaction[] @relation("FromStore")
-  toTransactions   StockTransaction[] @relation("ToStore")
-  storeInventory   StoreInventory[]
+  id                 String               @id @default(cuid())
+  name               String
+  address            String?
+  phone              String?
+  email              String?
+  status             StoreStatus          @default(ACTIVE)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
+  sales              Sale[]
+  fromTransactions   StockTransaction[]   @relation("FromStore")
+  toTransactions     StockTransaction[]   @relation("ToStore")
+  storeInventory     StoreInventory[]
+  transaction_orders transaction_orders[]
 
   @@map("stores")
 }
 
 model Product {
-  id             String          @id @default(cuid())
-  brand          String
-  name           String
-  color          String?
-  sku            String?         @unique
-  createdAt      DateTime        @default(now())
-  deletedAt      DateTime?
-  updatedAt      DateTime        @default(now()) @updatedAt
-  itemType       ItemType
-  inventoryItems InventoryItem[]
+  id                 String              @id @default(cuid())
+  brand              String
+  name               String
+  color              String?
+  sku                String?             @unique
+  createdAt          DateTime            @default(now())
+  deletedAt          DateTime?
+  updatedAt          DateTime            @default(now()) @updatedAt
+  itemType           ItemType
+  inventoryItems     InventoryItem[]
   purchaseOrderItems PurchaseOrderItem[]
 
   @@map("products")
 }
 
 model InventoryItem {
-  id                String             @id @default(cuid())
-  productId         String
-  sku               String
-  stocklabSku       String?            @unique
-  size              String
-  cost              Decimal            @db.Decimal(10, 2)
-  status            InventoryStatus
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?
-  quantity          Int                @default(1)
-  condition         ItemCondition
-  note              InventoryNote?
-  purchaseOrderId   String?
-  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  purchaseOrder     PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id])
-  purchases         Purchase[]
-  sales             Sale[]
-  stockTransactions StockTransaction[]
-  storeInventory    StoreInventory[]
+  id                      String                    @id @default(cuid())
+  productId               String
+  sku                     String
+  size                    String
+  cost                    Decimal                   @db.Decimal(10, 2)
+  status                  InventoryStatus
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  deletedAt               DateTime?
+  quantity                Int                       @default(1)
+  condition               ItemCondition
+  purchaseOrderId         String?
+  note                    InventoryNote?
+  stocklabSku             String?                   @unique
+  product                 Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purchaseOrder           PurchaseOrder?            @relation(fields: [purchaseOrderId], references: [id])
+  purchases               Purchase[]
+  sales                   Sale[]
+  stockTransactions       StockTransaction[]
+  storeInventory          StoreInventory[]
+  transaction_order_items transaction_order_items[]
 
   @@map("inventory_items")
 }
@@ -107,10 +109,10 @@ model StoreInventory {
   storeId         String
   inventoryItemId String
   quantity        Int           @default(0)
-  transferCost    Decimal       @db.Decimal(10, 2) @default(0)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
+  transferCost    Decimal       @default(0) @db.Decimal(10, 2)
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
   store           Store         @relation(fields: [storeId], references: [id])
 
@@ -184,19 +186,20 @@ model Expense {
 }
 
 model PurchaseOrder {
-  id              String              @id @default(cuid())
-  vendorName      String
-  orderNumber     String?             @unique
-  orderDate       DateTime            @default(now())
-  deliveryDate    DateTime?
-  status          PurchaseOrderStatus @default(DRAFT)
-  totalAmount     Decimal             @db.Decimal(10, 2)
-  notes           String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  deletedAt       DateTime?
-  inventoryItems  InventoryItem[]
-  purchaseOrderItems PurchaseOrderItem[]
+  id                     String              @id @default(cuid())
+  vendorName             String
+  orderNumber            String?             @unique
+  orderDate              DateTime            @default(now())
+  deliveryDate           DateTime?
+  status                 PurchaseOrderStatus @default(DRAFT)
+  totalAmount            Decimal             @db.Decimal(10, 2)
+  notes                  String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  deletedAt              DateTime?
+  r3vPurchaseOrderNumber String              @unique
+  inventoryItems         InventoryItem[]
+  purchaseOrderItems     PurchaseOrderItem[]
 
   @@map("purchase_orders")
 }
@@ -206,16 +209,43 @@ model PurchaseOrderItem {
   purchaseOrderId String
   productId       String
   size            String
-  condition       ItemCondition @default(NEW)
   quantityOrdered Int
   unitCost        Decimal       @db.Decimal(10, 2)
   totalCost       Decimal       @db.Decimal(10, 2)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  condition       ItemCondition @default(NEW)
   product         Product       @relation(fields: [productId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 
   @@map("purchase_order_items")
+}
+
+model transaction_order_items {
+  id                 String             @id
+  transactionOrderId String
+  inventoryItemId    String
+  quantity           Int
+  notes              String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime
+  inventory_items    InventoryItem      @relation(fields: [inventoryItemId], references: [id])
+  transaction_orders transaction_orders @relation(fields: [transactionOrderId], references: [id], onDelete: Cascade)
+}
+
+model transaction_orders {
+  id                      String                    @id
+  r3vTransactionNumber    String                    @unique
+  transactionDate         DateTime                  @default(now())
+  storeId                 String
+  type                    TransactionType
+  totalQuantity           Int
+  notes                   String?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  deletedAt               DateTime?
+  transaction_order_items transaction_order_items[]
+  stores                  Store                     @relation(fields: [storeId], references: [id])
 }
 
 enum UserRole {

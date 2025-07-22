@@ -5,11 +5,11 @@ import prisma from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { inventoryItemId, storeId, quantity, notes } = body;
+    const { inventoryItemId, storeId, notes } = body;
 
-    if (!inventoryItemId || !storeId || !quantity || quantity <= 0) {
+    if (!inventoryItemId || !storeId) {
       return NextResponse.json(
-        { error: 'Valid inventory item ID, store ID, and quantity are required' },
+        { error: 'Valid inventory item ID and store ID are required' },
         { status: 400 }
       );
     }
@@ -30,43 +30,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if inventory item exists at store with sufficient quantity
+    // Check if inventory item exists at store with quantity = 1
     const storeInventory = await prisma.storeInventory.findFirst({
       where: {
         storeId,
         inventoryItemId,
         deletedAt: null,
-        quantity: {
-          gte: quantity
-        }
+        quantity: 1 // Since we now have 1 item per record
       }
     });
 
     if (!storeInventory) {
       return NextResponse.json(
-        { error: 'Inventory item not found or insufficient quantity at store' },
+        { error: 'Inventory item not found at store or already transferred' },
         { status: 400 }
       );
     }
 
-    // Check if warehouse inventory item exists
+    // Check if warehouse inventory item exists (should be soft deleted)
     const warehouseItem = await prisma.inventoryItem.findFirst({
       where: {
-        id: inventoryItemId,
-        deletedAt: null
+        id: inventoryItemId
       }
     });
 
     if (!warehouseItem) {
       return NextResponse.json(
-        { error: 'Inventory item not found in warehouse' },
+        { error: 'Inventory item not found' },
         { status: 400 }
       );
     }
 
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
-      // Deduct from store inventory
+      // Soft delete from store inventory (set deletedAt)
       const updatedStoreInventory = await tx.storeInventory.update({
         where: {
           storeId_inventoryItemId: {
@@ -75,19 +72,16 @@ export async function POST(request: NextRequest) {
           }
         },
         data: {
-          quantity: {
-            decrement: quantity
-          }
+          deletedAt: new Date()
         }
       });
 
-      // Add to warehouse
+      // Restore to warehouse (unset deletedAt)
       const updatedWarehouseItem = await tx.inventoryItem.update({
         where: { id: inventoryItemId },
         data: {
-          quantity: {
-            increment: quantity
-          }
+          deletedAt: null,
+          quantity: 1 // Always 1 since we have 1 item per record
         }
       });
 
@@ -95,12 +89,12 @@ export async function POST(request: NextRequest) {
       const transaction = await tx.stockTransaction.create({
         data: {
           type: 'TRANSFER_FROM_STORE',
-          quantity,
+          quantity: 1, // Always 1 since we have 1 item per record
           date: new Date(),
           fromStoreId: storeId,
           toStoreId: null, // warehouse
           inventoryItemId,
-          notes: notes || `Transferred ${quantity} units from ${store.name} to warehouse`
+          notes: notes || `Transferred item from ${store.name} to warehouse`
         }
       });
 
@@ -114,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    
+    console.error('Error transferring from store to warehouse:', error);
     return NextResponse.json(
       { error: 'Failed to transfer from store to warehouse' },
       { status: 500 }

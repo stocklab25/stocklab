@@ -61,7 +61,7 @@ export default function Inventory() {
   const [isTransferring, setIsTransferring] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{ quantity: string; size: string; condition: string; note: string; cost: string }>({ quantity: '', size: '', condition: '', note: '', cost: '' });
+  const [editValues, setEditValues] = useState<{ size: string; condition: string; note: string; cost: string }>({ size: '', condition: '', note: '', cost: '' });
   const [isRowSaving, setIsRowSaving] = useState(false);
 
 
@@ -156,7 +156,6 @@ export default function Inventory() {
   const handleEditClick = (item: InventoryItem) => {
     setEditingRowId(item.id);
     setEditValues({
-      quantity: item.quantity.toString(),
       size: item.size,
       condition: item.condition,
       note: item.note === null || item.note === undefined ? '' : item.note,
@@ -170,7 +169,7 @@ export default function Inventory() {
 
   const handleEditCancel = () => {
     setEditingRowId(null);
-    setEditValues({ quantity: '', size: '', condition: '', note: '', cost: '' });
+    setEditValues({ size: '', condition: '', note: '', cost: '' });
   };
 
   const handleEditSave = async (item: InventoryItem) => {
@@ -184,7 +183,6 @@ export default function Inventory() {
         'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
-        quantity: parseInt(editValues.quantity, 10),
         size: editValues.size,
         condition: editValues.condition,
         note: editValues.note === '' ? null : editValues.note,
@@ -194,7 +192,7 @@ export default function Inventory() {
     if (response.ok) {
       mutate();
       setEditingRowId(null);
-      setEditValues({ quantity: '', size: '', condition: '', note: '', cost: '' });
+      setEditValues({ size: '', condition: '', note: '', cost: '' });
     }
     setIsRowSaving(false);
   };
@@ -230,10 +228,8 @@ export default function Inventory() {
   }, [getAuthToken]);
 
   const handleTransferToStore = async (transferData: {
-    inventoryItemId: string;
+    items: Array<{ inventoryItemId: string; transferCost: number }>;
     storeId: string;
-    quantity: number;
-    transferCost: number;
     notes?: string;
   }) => {
     setIsTransferring(true);
@@ -243,18 +239,26 @@ export default function Inventory() {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('/api/transfers/warehouse-to-store', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(transferData),
-      });
+      // Process each item individually for now (API might need to be updated for batch processing)
+      for (const item of transferData.items) {
+        const response = await fetch('/api/transfers/warehouse-to-store', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            inventoryItemId: item.inventoryItemId,
+            storeId: transferData.storeId,
+            transferCost: item.transferCost,
+            notes: transferData.notes
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to transfer to store');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to transfer to store');
+        }
       }
 
       // Refresh inventory data
@@ -419,7 +423,6 @@ export default function Inventory() {
                     <th className="text-left py-3 px-4 font-medium text-foreground">Product</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">StockLab SKU</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
-                    <th className="text-center py-3 px-4 font-medium text-foreground">Quantity</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Note</th>
@@ -442,19 +445,6 @@ export default function Inventory() {
                       </td>
                       <td className="py-3 px-4">
                         <span className="font-mono text-sm">{item.sku}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {editingRowId === item.id ? (
-                          <input
-                            type="number"
-                            name="quantity"
-                            value={editValues.quantity}
-                            onChange={handleEditChange}
-                            className="w-20 px-2 py-1 border rounded"
-                          />
-                        ) : (
-                          <span className="font-mono text-sm flex justify-center">{item.quantity}</span>
-                        )}
                       </td>
                       <td className="py-3 px-4">
                         {editingRowId === item.id ? (

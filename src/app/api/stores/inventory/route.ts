@@ -13,13 +13,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all inventory items across all stores
+    // Get all inventory items across all stores (including sold items with quantity 0)
     const allStoreInventory = await prisma.storeInventory.findMany({
       where: {
-        deletedAt: null,
-        quantity: {
-          gt: 0
-        }
+        deletedAt: null
       },
       include: {
         inventoryItem: {

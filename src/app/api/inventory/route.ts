@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
         condition: data.condition,
         cost: parseFloat(data.cost),
         status: data.status,
-        quantity: data.quantity || 1,
+        quantity: 1, // Always 1 for individual items
         purchaseOrderId: data.purchaseOrderId || null,
       },
       include: {
