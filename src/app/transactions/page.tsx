@@ -263,7 +263,6 @@ export default function Transactions() {
     { key: 'product', label: 'Product' },
     { key: 'sku', label: 'SKU' },
     { key: 'type', label: 'Type' },
-    { key: 'quantity', label: 'Quantity' },
     { key: 'store', label: 'Store' },
     { key: 'notes', label: 'Notes' },
     { key: 'actions', label: 'Actions' }
@@ -282,7 +281,6 @@ export default function Transactions() {
         {TRANSACTION_TYPE[txn.type as keyof typeof TRANSACTION_TYPE] || txn.type}
       </Badge>
     ),
-    quantity: txn.quantity,
     store: getStoreName(txn),
     notes: txn.notes || '-',
     actions: (
@@ -391,8 +389,8 @@ export default function Transactions() {
                       }
                       return (
                         <th key={column.key} className={`text-left py-3 px-4 font-medium text-foreground ${widthClass}`}>
-                          {column.label}
-                        </th>
+                        {column.label}
+                      </th>
                       );
                     })}
                   </tr>
@@ -406,7 +404,6 @@ export default function Transactions() {
                         <td className="py-2 px-4 text-sm w-80">{row.product}</td>
                         <td className="py-2 px-4 text-sm">{row.sku}</td>
                         <td className="py-2 px-4 text-sm">{row.type}</td>
-                        <td className="py-2 px-4 text-sm">{row.quantity}</td>
                         <td className="py-2 px-4 text-sm">{row.store}</td>
                         <td className="py-2 px-4 text-sm">{row.notes}</td>
                         <td className="py-2 px-4 text-sm">{row.actions}</td>

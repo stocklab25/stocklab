@@ -163,27 +163,39 @@ export async function fulfillPurchaseOrder(purchaseOrder: any) {
 
   for (const item of purchaseOrder.purchaseOrderItems) {
     for (let i = 0; i < item.quantityOrdered; i++) {
-      const stocklabSku = `SL${nextNumber}`;
-      nextNumber++;
-
-      // Create individual inventory item
-      const inventoryItem = await prisma.inventoryItem.create({
-        data: {
-          productId: item.productId,
-          sku: item.product?.sku || '',
-          stocklabSku: stocklabSku,
-          size: item.size,
-          condition: item.condition || 'NEW',
-          cost: item.unitCost,
-          status: 'InStock',
-          quantity: 1,
-          purchaseOrderId: purchaseOrder.id,
-        },
-        include: {
-          product: true,
-        },
-      });
-
+      let inventoryItem;
+      let attempts = 0;
+      while (!inventoryItem && attempts < 5) {
+        const stocklabSku = `SL${nextNumber}`;
+        try {
+          inventoryItem = await prisma.inventoryItem.create({
+            data: {
+              productId: item.productId,
+              sku: item.product?.sku || '',
+              stocklabSku: stocklabSku,
+              size: item.size,
+              condition: item.condition || 'NEW',
+              cost: item.unitCost,
+              status: 'InStock',
+              quantity: 1,
+              purchaseOrderId: purchaseOrder.id,
+            },
+            include: {
+              product: true,
+            },
+          });
+        } catch (err: any) {
+          if (err.code === 'P2002') {
+            // Unique constraint failed, try next number
+            nextNumber++;
+            attempts++;
+            continue;
+          }
+          throw err;
+        }
+        nextNumber++;
+      }
+      if (!inventoryItem) throw new Error('Failed to generate unique stocklabSku after 5 attempts');
       // Create stock transaction for individual item
       await prisma.stockTransaction.create({
         data: {
@@ -195,7 +207,6 @@ export async function fulfillPurchaseOrder(purchaseOrder: any) {
           userId: null,
         },
       });
-
       createdInventoryItems.push(inventoryItem);
     }
   }
