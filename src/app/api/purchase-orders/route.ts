@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
 import { generateR3VPurchaseOrderNumber } from '@/utils/r3v-po-generator';
+import { fulfillPurchaseOrder } from '@/prisma/services/purchase.service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -134,7 +135,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(purchaseOrder, { status: 201 });
+    // If status is DELIVERED, fulfill the purchase order
+    let createdInventoryItems: any[] = [];
+    if (status === 'DELIVERED') {
+      createdInventoryItems = await fulfillPurchaseOrder(purchaseOrder);
+    }
+
+    return NextResponse.json({
+      ...purchaseOrder,
+      inventoryItems: createdInventoryItems,
+    }, { status: 201 });
   } catch (error) {
     console.error('Error creating purchase order:', error);
     return NextResponse.json(
