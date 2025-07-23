@@ -137,28 +137,27 @@ export const purchaseService = {
   },
 };
 
-// Fulfill a purchase order: create inventory items and stock transactions for each item
-export async function fulfillPurchaseOrder(purchaseOrder: any) {
-  // Generate StockLab SKU first - find the highest existing SL number
-  const lastInventoryItem = await prisma.inventoryItem.findFirst({
+// Helper to get the next available SL SKU
+async function getNextAvailableStocklabSku() {
+  const items = await prisma.inventoryItem.findMany({
     where: {
-      stocklabSku: {
-        not: null,
-      },
+      stocklabSku: { not: null },
     },
-    orderBy: {
-      stocklabSku: 'desc',
-    },
+    select: { stocklabSku: true },
   });
+  const usedNumbers = new Set(
+    items
+      .map(i => i.stocklabSku)
+      .filter(Boolean)
+      .map(sku => parseInt((sku as string).replace('SL', ''), 10))
+      .filter(n => !isNaN(n))
+  );
+  let next = 1;
+  while (usedNumbers.has(next)) next++;
+  return `SL${next}`;
+}
 
-  let nextNumber = 1;
-  if (lastInventoryItem?.stocklabSku) {
-    const match = lastInventoryItem.stocklabSku.match(/SL(\d+)/);
-    if (match) {
-      nextNumber = parseInt(match[1]) + 1;
-    }
-  }
-
+export async function fulfillPurchaseOrder(purchaseOrder: any) {
   const createdInventoryItems = [];
 
   for (const item of purchaseOrder.purchaseOrderItems) {
@@ -166,13 +165,13 @@ export async function fulfillPurchaseOrder(purchaseOrder: any) {
       let inventoryItem;
       let attempts = 0;
       while (!inventoryItem && attempts < 5) {
-        const stocklabSku = `SL${nextNumber}`;
+        const stocklabSku = await getNextAvailableStocklabSku();
         try {
           inventoryItem = await prisma.inventoryItem.create({
             data: {
               productId: item.productId,
               sku: item.product?.sku || '',
-              stocklabSku: stocklabSku,
+              stocklabSku,
               size: item.size,
               condition: item.condition || 'NEW',
               cost: item.unitCost,
@@ -186,17 +185,13 @@ export async function fulfillPurchaseOrder(purchaseOrder: any) {
           });
         } catch (err: any) {
           if (err.code === 'P2002') {
-            // Unique constraint failed, try next number
-            nextNumber++;
             attempts++;
             continue;
           }
           throw err;
         }
-        nextNumber++;
       }
       if (!inventoryItem) throw new Error('Failed to generate unique stocklabSku after 5 attempts');
-      // Create stock transaction for individual item
       await prisma.stockTransaction.create({
         data: {
           type: 'IN',
