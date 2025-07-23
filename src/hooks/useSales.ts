@@ -71,6 +71,8 @@ export function useSales() {
     }
   }, [data, error, mutate]);
 
+
+  
   return {
     data: Array.isArray(data) ? data : [],
     isLoading: !error && !data,

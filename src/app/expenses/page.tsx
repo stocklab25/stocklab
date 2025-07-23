@@ -9,14 +9,7 @@ import Button from '@/components/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import ImportExpensesModal from '@/components/ImportExpensesModal';
 
-const CATEGORY_OPTIONS = [
-  { value: 'Parking', label: 'Parking' },
-  { value: 'Travel', label: 'Travel' },
-  { value: 'Inventory', label: 'Inventory' },
-  { value: 'Supplies', label: 'Supplies' },
-  { value: 'BusinessServices', label: 'Business Services' },
-  { value: 'Payment', label: 'Payment' },
-];
+
 
 export default function ExpensesPage() {
   const { getAuthToken } = useAuth();
@@ -27,7 +20,6 @@ export default function ExpensesPage() {
     transactionDate: '',
     description: '',
     amount: '',
-    type: '',
     category: '',
     card: '',
   });
@@ -96,7 +88,7 @@ export default function ExpensesPage() {
   const handleOpenModal = () => setShowModal(true);
   const handleCloseModal = () => {
     setShowModal(false);
-    setForm({ transactionDate: '', description: '', amount: '', type: '', category: '', card: '' });
+    setForm({ transactionDate: '', description: '', amount: '', category: '', card: '' });
     setSubmitError(null);
   };
 
@@ -127,7 +119,6 @@ export default function ExpensesPage() {
           transactionDate: form.transactionDate,
           description: form.description,
           amount: form.amount,
-          type: form.type,
           category: form.category,
           cardId: form.card,
         }),
@@ -160,7 +151,7 @@ export default function ExpensesPage() {
             </div>
             <div className="flex space-x-2">
               <Button onClick={() => setShowImportModal(true)}>
-                <span className="mr-2"></span>
+                <span className="mr-2">📁</span>
                 Import Expenses
               </Button>
               <Button onClick={handleOpenModal}>
@@ -186,7 +177,7 @@ export default function ExpensesPage() {
                       <TableHead>Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Amount</TableHead>
-                      <TableHead>Type</TableHead>
+
                       <TableHead>Category</TableHead>
                       <TableHead>Card</TableHead>
                     </TableRow>
@@ -197,7 +188,7 @@ export default function ExpensesPage() {
                         <TableCell>{expense.transactionDate ? new Date(expense.transactionDate).toLocaleDateString() : ''}</TableCell>
                         <TableCell>{expense.description}</TableCell>
                         <TableCell>{Number(expense.amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</TableCell>
-                        <TableCell>{expense.type}</TableCell>
+
                         <TableCell>{expense.category}</TableCell>
                         <TableCell>{expense.card ? `${expense.card.name}${expense.card.last4 ? ` ••••${expense.card.last4}` : ''}` : ''}</TableCell>
                       </TableRow>
@@ -250,30 +241,16 @@ export default function ExpensesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Type</label>
+                  <label className="block text-sm font-medium mb-1">Category</label>
                   <input
                     type="text"
-                    name="type"
-                    value={form.type}
-                    onChange={handleFormChange}
-                    required
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Category</label>
-                  <select
                     name="category"
                     value={form.category}
                     onChange={handleFormChange}
                     required
                     className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Select category</option>
-                    {CATEGORY_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                    placeholder="Enter category"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Card</label>

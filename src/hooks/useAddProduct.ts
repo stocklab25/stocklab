@@ -21,7 +21,7 @@ const useAddProduct = () => {
     })();
   });
 
-  const addProduct = async (productData: { brand: string; name: string; color?: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => {
+  const addProduct = async (productData: { brand: string; name: string; color?: string; sku?: string; itemType: string }) => {
     setIsLoading(true);
     try {
       const token = await getAuthToken();

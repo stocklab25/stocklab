@@ -32,6 +32,9 @@ export async function GET(request: NextRequest) {
     }
 
     const sales = await prisma.sale.findMany({
+      where: {
+        deletedAt: null,
+      },
       include: {
         store: true,
         inventoryItem: {
@@ -44,6 +47,8 @@ export async function GET(request: NextRequest) {
         saleDate: 'desc',
       },
     });
+
+
 
     return NextResponse.json(sales);
   } catch (error) {

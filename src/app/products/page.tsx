@@ -20,8 +20,7 @@ interface Product {
   brand: string;
   name: string;
   sku?: string;
-  stocklabSku?: string;
-  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
+  itemType: string;
   deletedAt?: string;
 }
 
@@ -68,14 +67,13 @@ export default function Products() {
   const filteredProducts = products.filter((product: Product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.stocklabSku && product.stocklabSku.toLowerCase().includes(searchTerm.toLowerCase()));
+      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const isArchived = !!product.deletedAt;
     return matchesSearch && (showArchived ? isArchived : !isArchived);
   });
 
-  const handleAddProduct = async (productData: { brand: string; name: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => {
+  const handleAddProduct = async (productData: { brand: string; name: string; sku?: string; itemType: string }) => {
     try {
       await addProduct(productData);
       setIsModalOpen(false);
@@ -132,7 +130,7 @@ export default function Products() {
     setOpenDropdown(null);
   };
 
-  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => {
+  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; sku?: string; itemType: string }) => {
     try {
       await editProduct(productId, { ...productData, id: productId });
     } catch (error) {
@@ -160,7 +158,6 @@ export default function Products() {
     { key: 'brand', label: 'Brand' },
     { key: 'name', label: 'Name' },
     { key: 'sku', label: 'SKU' },
-    { key: 'stocklabSku', label: 'StockLab SKU' },
     { key: 'itemType', label: 'Type' },
   ];
 
@@ -292,9 +289,7 @@ export default function Products() {
                       <td className="py-3 px-4">
                         <span className="text-sm text-muted-foreground font-mono">{product.sku}</span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm text-blue-600 font-mono font-medium">{product.stocklabSku || 'N/A'}</span>
-                      </td>
+
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                           product.itemType === 'SHOE' ? 'bg-blue-100 text-blue-800' :

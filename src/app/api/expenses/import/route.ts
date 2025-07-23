@@ -73,7 +73,6 @@ export async function POST(request: NextRequest) {
           transactionDate: expenseData.transactionDate || expenseData['Transaction Date'] || expenseData['TransactionDate'] || expenseData.Date,
           description: expenseData.description || expenseData.Description,
           amount: expenseData.amount || expenseData.Amount,
-          type: expenseData.type || expenseData.Type,
           category: expenseData.category || expenseData.Category,
           cardName: expenseData.cardName || expenseData['Card Name'] || expenseData['CardName'],
           // Direct ID (if provided)
@@ -81,7 +80,7 @@ export async function POST(request: NextRequest) {
         };
 
         // Validate required fields
-        if (!normalizedData.transactionDate || !normalizedData.description || !normalizedData.amount || !normalizedData.type || !normalizedData.category) {
+        if (!normalizedData.transactionDate || !normalizedData.description || !normalizedData.amount || !normalizedData.category) {
           results.errors.push(`Row ${i + 1}: Missing required fields`);
           results.skipped++;
           continue;
@@ -108,13 +107,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Validate category
-        const validCategories = ['Parking', 'Travel', 'Inventory', 'Supplies', 'BusinessServices', 'Payment'];
-        if (!validCategories.includes(normalizedData.category)) {
-          results.errors.push(`Invalid category: ${normalizedData.category}. Must be one of: ${validCategories.join(', ')}`);
-          results.skipped++;
-          continue;
-        }
+
 
 
 
@@ -124,8 +117,7 @@ export async function POST(request: NextRequest) {
             transactionDate: new Date(normalizedData.transactionDate),
             description: normalizedData.description,
             amount: parseFloat(normalizedData.amount),
-            type: normalizedData.type,
-            category: normalizedData.category as any,
+            category: normalizedData.category,
             cardId: card.id,
           },
         });

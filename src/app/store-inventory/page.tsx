@@ -385,14 +385,14 @@ export default function StoreInventoryPage() {
                         {selectedStoreId === 'ALL' && (
                           <th className="text-left py-3 px-4 font-medium text-foreground">Store</th>
                         )}
-                        <th className="text-left py-3 px-4 font-medium text-foreground">Product</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">StockLab SKU</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground w-80">Product</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
-                        <th className="text-center py-3 px-4 font-medium text-foreground">Store Quantity</th>
+                        <th className="text-center py-3 px-4 font-medium text-foreground">Status</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Warehouse Cost</th>
-                        <th className="text-left py-3 px-4 font-medium text-foreground">Store Cost</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground">Payout</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Actions</th>
                       </tr>
                     </thead>
@@ -412,14 +412,14 @@ export default function StoreInventoryPage() {
                               </td>
                             )}
                             <td className="py-2 px-4 text-sm">
+                              <span className="font-mono text-sm text-blue-600">{item.inventoryItem.stocklabSku || 'N/A'}</span>
+                            </td>
+                            <td className="py-2 px-4 text-sm w-80">
                               <div>
                                 <p className="font-medium text-foreground">{item.inventoryItem.product.brand}</p>
                                 <p className="text-xs text-muted-foreground">{item.inventoryItem.product.name}</p>
                                 <p className="text-xs text-muted-foreground">{item.inventoryItem.product.sku}</p>
                               </div>
-                            </td>
-                            <td className="py-2 px-4 text-sm">
-                              <span className="font-mono text-sm text-blue-600">{item.inventoryItem.stocklabSku || 'N/A'}</span>
                             </td>
                             <td className="py-2 px-4 text-sm">
                               <span className="font-mono">{item.inventoryItem.sku}</span>
@@ -434,8 +434,8 @@ export default function StoreInventoryPage() {
                                   className="w-20 px-2 py-1 border rounded"
                                 />
                               ) : (
-                                <span className={`font-mono font-medium ${item.quantity === 0 ? 'text-red-600' : ''}`}>
-                                  {item.quantity === 0 ? 'SOLD' : item.quantity}
+                                <span className={`font-medium ${item.quantity === 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  {item.quantity === 0 ? 'SOLD' : 'In Stock'}
                                 </span>
                               )}
                             </td>

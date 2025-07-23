@@ -420,8 +420,8 @@ export default function Inventory() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-medium text-foreground">Product</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">StockLab SKU</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground w-80">Product</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
@@ -434,14 +434,14 @@ export default function Inventory() {
                   {filteredInventory.map((item: InventoryItem) => (
                     <tr key={item.id} className="border-b border-muted hover:bg-accent">
                       <td className="py-3 px-4">
+                        <span className="font-mono text-sm text-blue-600">{item.stocklabSku || 'N/A'}</span>
+                      </td>
+                      <td className="py-3 px-4 w-80">
                         <div>
                           <p className="font-medium text-foreground">{item.product?.brand}</p>
                           <p className="text-sm text-muted-foreground">{item.product?.name}</p>
                           <p className="text-xs text-muted-foreground">{item.product?.sku}</p>
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="font-mono text-sm text-blue-600">{item.stocklabSku || 'N/A'}</span>
                       </td>
                       <td className="py-3 px-4">
                         <span className="font-mono text-sm">{item.sku}</span>

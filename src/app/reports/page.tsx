@@ -60,6 +60,7 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState<string>('summary');
   const [salesData, setSalesData] = useState<any[]>([]);
   const [storesData, setStoresData] = useState<Store[]>([]);
+  const [storeInventoryData, setStoreInventoryData] = useState<any[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
   // Date range and store selection state
@@ -127,6 +128,32 @@ export default function Reports() {
     fetchStores();
   }, []); // Removed getAuthToken from dependency array
 
+  // Fetch store inventory data for value calculation
+  useEffect(() => {
+    const fetchStoreInventory = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) {
+          
+          return;
+        }
+
+        const response = await fetch('/api/stores/inventory', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStoreInventoryData(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        
+      }
+    };
+    fetchStoreInventory();
+  }, []); // Removed getAuthToken from dependency array
+
   // Filter sales data based on date range and store selection
   const filteredSalesData = useMemo(() => {
     if (!salesData.length) return [];
@@ -165,7 +192,9 @@ export default function Reports() {
 
         // Calculate report data - multiply cost by quantity for each item
         const totalValue = inventory.reduce((sum: number, item: InventoryItem) => {
-          const itemValue = (item.cost || 0) * (item.quantity || 1);
+          const cost = Math.max(0, item.cost || 0);
+          const quantity = Math.max(0, item.quantity || 1);
+          const itemValue = cost * quantity;
           return sum + itemValue;
         }, 0);
         const totalItems = inventory.length;
@@ -234,22 +263,50 @@ export default function Reports() {
     let totalProfit = 0;
     let totalItems = 0;
     salesArr.forEach(sale => {
-      const payout = Number(sale.payout) || 0;
-      const discount = Number(sale.discount) || 0;
-      const cost = Number(sale.cost) || 0;
-      const quantity = Number(sale.quantity) || 1;
+      const payout = Math.max(0, Number(sale.payout) || 0);
+      const discount = Math.max(0, Number(sale.discount) || 0);
+      const cost = Math.max(0, Number(sale.cost) || 0);
+      const quantity = Math.max(0, Number(sale.quantity) || 1);
       totalSales += payout - discount;
       totalProfit += (payout - discount) - (cost * quantity);
       totalItems += quantity;
     });
     return {
-      totalSales,
+      totalSales: Math.max(0, totalSales),
       totalProfit,
       totalItems,
     };
   };
   const monthlySummary = getSalesSummary(monthlySales);
   const annualSummary = getSalesSummary(annualSales);
+
+  // Calculate total value per store for investment monitoring
+  const storeValueData = useMemo(() => {
+    if (!storeInventoryData.length) return [];
+
+    const storeValues: { [key: string]: { name: string; totalValue: number; itemCount: number } } = {};
+    
+    storeInventoryData.forEach((item) => {
+      const storeId = item.storeId;
+      const storeName = item.store?.name || 'Unknown Store';
+      const quantity = Math.max(0, item.quantity || 0); // Ensure quantity is not negative
+      const cost = Math.max(0, parseFloat(item.inventoryItem?.cost || 0)); // Ensure cost is not negative
+      const itemValue = cost * quantity;
+
+      if (!storeValues[storeId]) {
+        storeValues[storeId] = {
+          name: storeName,
+          totalValue: 0,
+          itemCount: 0
+        };
+      }
+
+      storeValues[storeId].totalValue += itemValue;
+      storeValues[storeId].itemCount += quantity;
+    });
+
+    return Object.values(storeValues).sort((a, b) => b.totalValue - a.totalValue);
+  }, [storeInventoryData]);
 
   // Check if any data is loading
   const isLoading = inventoryLoading || productsLoading || transactionsLoading;
@@ -303,7 +360,7 @@ export default function Reports() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <div className="p-6">
               <p className="text-sm font-medium text-muted-foreground">Total Inventory Value</p>
@@ -317,20 +374,13 @@ export default function Reports() {
               <p className="text-2xl font-bold text-foreground">{reportData.totalItems}</p>
             </div>
           </Card>
-
-          <Card>
-            <div className="p-6">
-              <p className="text-sm font-medium text-gray-600">Low Stock Items</p>
-              <p className="text-2xl font-bold text-gray-900">{reportData.lowStockItems}</p>
-            </div>
-          </Card>
         </div>
 
         {/* Report Selection */}
         <Card>
           <div className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Select Report Type</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
               <button 
                 onClick={() => setSelectedReport('summary')}
                 className={`p-4 text-left border rounded-lg transition-colors ${
@@ -412,6 +462,20 @@ export default function Reports() {
                 <div>
                   <p className="font-medium text-foreground">Annual Report</p>
                   <p className="text-sm text-muted-foreground">This year's sales & profit</p>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => setSelectedReport('store-value')}
+                className={`p-4 text-left border rounded-lg transition-colors ${
+                  selectedReport === 'store-value' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary hover:bg-accent'
+                }`}
+              >
+                <div>
+                  <p className="font-medium text-foreground">Store Investment</p>
+                  <p className="text-sm text-muted-foreground">Total value per store</p>
                 </div>
               </button>
             </div>
@@ -576,6 +640,66 @@ export default function Reports() {
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Trends Analysis</h3>
               <TrendsAnalysisChart sales={salesData} transactions={transactions} />
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'store-value' && storeValueData.length > 0 && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Store Investment Monitoring</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {storeValueData.map((store, index) => (
+                    <div key={index} className="p-4 border border-border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-foreground">{store.name}</h4>
+                        <span className="text-sm text-muted-foreground">#{index + 1}</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Value</p>
+                          <p className="text-xl font-bold text-foreground">
+                            ${store.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Items in Stock</p>
+                          <p className="text-lg font-semibold text-foreground">{store.itemCount}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium text-foreground mb-2">Investment Summary</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Investment Across All Stores</p>
+                      <p className="text-xl font-bold text-foreground">
+                        ${storeValueData.reduce((sum, store) => sum + store.totalValue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Average Value Per Store</p>
+                      <p className="text-xl font-bold text-foreground">
+                        ${(storeValueData.reduce((sum, store) => sum + store.totalValue, 0) / storeValueData.length).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'store-value' && storeValueData.length === 0 && (
+          <Card>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <p className="text-lg text-muted-foreground">No store inventory data found</p>
+                <p className="text-sm text-muted-foreground mt-2">Add inventory to stores to see investment values</p>
+              </div>
             </div>
           </Card>
         )}

@@ -11,13 +11,13 @@ interface Product {
   brand: string;
   name: string;
   sku?: string;
-  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
+  itemType: string;
 }
 
 interface EditProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (productId: string, product: { brand: string; name: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => void;
+  onSubmit: (productId: string, product: { brand: string; name: string; sku?: string; itemType: string }) => void;
   isLoading?: boolean;
   product?: Product | null;
 }
@@ -27,7 +27,7 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
     brand: '',
     name: '',
     sku: '',
-    itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'ACCESSORIES',
+    itemType: '',
   });
   const [skuError, setSkuError] = useState('');
   const { checkSkuExists, isChecking } = useCheckSku();
@@ -39,7 +39,7 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
         brand: product.brand || '',
         name: product.name || '',
         sku: product.sku || '',
-        itemType: product.itemType || 'SHOE',
+        itemType: product.itemType || '',
       });
       setSkuError('');
     }
@@ -128,19 +128,16 @@ export default function EditProductModal({ isOpen, onClose, onSubmit, isLoading 
             <label htmlFor="itemType" className="block text-sm font-medium text-foreground mb-1">
               Item Type *
             </label>
-            <select
+            <Input
               id="itemType"
+              type="text"
               value={formData.itemType}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, itemType: e.target.value as 'SHOE' | 'APPAREL' | 'ACCESSORIES' })}
-              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, itemType: e.target.value })}
+              placeholder="e.g., Shoe, Apparel, Accessories, Hat, Bag, etc."
               required
-            >
-              <option value="SHOE">Shoe</option>
-              <option value="APPAREL">Apparel</option>
-              <option value="ACCESSORIES">Accessories</option>
-            </select>
+            />
             <p className="text-xs text-muted-foreground mt-1">
-              Shoe & Apparel items typically have sizes. Accessories items (caps, bags, accessories) usually don't have sizes.
+              Enter any item type. Shoe & Apparel items typically have sizes. Accessories items (caps, bags, accessories) usually don't have sizes.
             </p>
           </div>
 

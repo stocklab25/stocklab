@@ -9,7 +9,7 @@ import useCheckSku from '@/hooks/useCheckSku';
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (product: { brand: string; name: string; sku?: string; itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES' }) => void;
+  onSubmit: (product: { brand: string; name: string; sku?: string; itemType: string }) => void;
   isLoading?: boolean;
 }
 
@@ -25,7 +25,7 @@ interface ProductItem {
   brand: string;
   name: string;
   sku?: string;
-  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
+  itemType: string;
 }
 
 export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading = false }: AddProductModalProps) {
@@ -33,7 +33,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
     brand: '',
     name: '',
     sku: '',
-    itemType: 'SHOE' as 'SHOE' | 'APPAREL' | 'ACCESSORIES',
+    itemType: '',
   });
   const [autoSku, setAutoSku] = useState(true);
   const [skuError, setSkuError] = useState('');
@@ -238,17 +238,14 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
                     <label htmlFor="itemType" className="block text-sm font-medium text-foreground mb-1">
                       Item Type *
                     </label>
-                    <select
+                    <Input
                       id="itemType"
+                      type="text"
                       value={formData.itemType}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, itemType: e.target.value as 'SHOE' | 'APPAREL' | 'ACCESSORIES' })}
-                      className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, itemType: e.target.value })}
+                      placeholder="e.g., Shoe, Apparel, Accessories, Hat, Bag, etc."
                       required
-                    >
-                      <option value="SHOE">Shoe</option>
-                      <option value="APPAREL">Apparel</option>
-                      <option value="ACCESSORIES">Accessories</option>
-                    </select>
+                    />
                   </div>
 
                   <div>

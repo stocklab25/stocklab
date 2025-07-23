@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { transactionDate, description, amount, type, category, cardId } = await req.json();
-    if (!transactionDate || !description || !amount || !type || !category || !cardId) {
+    const { transactionDate, description, amount, category, cardId } = await req.json();
+    if (!transactionDate || !description || !amount || !category || !cardId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     const expense = await prisma.expense.create({
@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
         transactionDate: new Date(transactionDate),
         description,
         amount: parseFloat(amount),
-        type,
         category,
         cardId,
       },

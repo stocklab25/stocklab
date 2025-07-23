@@ -259,8 +259,8 @@ export default function Transactions() {
 
   const columns = [
     { key: 'date', label: 'Date' },
+    { key: 'stocklabSku', label: 'SL SKU' },
     { key: 'product', label: 'Product' },
-    { key: 'stocklabSku', label: 'StockLab SKU' },
     { key: 'sku', label: 'SKU' },
     { key: 'type', label: 'Type' },
     { key: 'quantity', label: 'Quantity' },
@@ -383,11 +383,18 @@ export default function Transactions() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    {columns.map((column) => (
-                      <th key={column.key} className="text-left py-3 px-4 font-medium text-foreground">
-                        {column.label}
-                      </th>
-                    ))}
+                    {columns.map((column) => {
+                      // Add specific width class for product column
+                      let widthClass = '';
+                      if (column.key === 'product') {
+                        widthClass = 'w-80';
+                      }
+                      return (
+                        <th key={column.key} className={`text-left py-3 px-4 font-medium text-foreground ${widthClass}`}>
+                          {column.label}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -395,8 +402,8 @@ export default function Transactions() {
                     rows.map((row: any) => (
                       <tr key={row.id} className="border-b border-muted hover:bg-accent">
                         <td className="py-2 px-4 text-sm">{row.date}</td>
-                        <td className="py-2 px-4 text-sm">{row.product}</td>
                         <td className="py-2 px-4 text-sm font-mono text-blue-600">{row.stocklabSku}</td>
+                        <td className="py-2 px-4 text-sm w-80">{row.product}</td>
                         <td className="py-2 px-4 text-sm">{row.sku}</td>
                         <td className="py-2 px-4 text-sm">{row.type}</td>
                         <td className="py-2 px-4 text-sm">{row.quantity}</td>

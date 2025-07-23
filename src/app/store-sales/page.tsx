@@ -8,6 +8,7 @@ import Button from '@/components/Button';
 import useSWR from "swr";
 import AddSaleModal from '@/components/AddSaleModal';
 import ImportSalesModal from '@/components/ImportSalesModal';
+import PromptModal from '@/components/PromptModal';
 import { useStores } from '@/hooks/useStores';
 import { useStoreInventory } from '@/hooks/useStoreInventory';
 import { useAddSale } from '@/hooks/useAddSale';
@@ -35,6 +36,9 @@ export default function StoreSalesPage() {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ cost: string; payout: string; quantity: string; notes: string; discount: string }>({ cost: '', payout: '', quantity: '', notes: '', discount: '' });
   const [isRowSaving, setIsRowSaving] = useState(false);
+  const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ show: boolean; row: any | null }>({ show: false, row: null });
 
   const handleEditClick = (row: any, sale: any) => {
     setEditingRowId(row.id);
@@ -82,6 +86,74 @@ export default function StoreSalesPage() {
     setIsRowSaving(false);
   };
 
+  const handleDelete = async (row: any) => {
+    setDeleteConfirmModal({ show: true, row });
+  };
+
+  const confirmDelete = async () => {
+    const row = deleteConfirmModal.row;
+    if (!row) return;
+
+    setDeletingRowId(row.id);
+    const token = await getAuthToken();
+    if (!token) {
+      alert('No authentication token found');
+      setDeletingRowId(null);
+      setDeleteConfirmModal({ show: false, row: null });
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/sales/${row.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        mutate();
+        console.log('Sale deleted successfully');
+      } else {
+        const errorData = await response.json();
+        console.error('Delete failed:', errorData);
+        alert(`Failed to delete sale: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete sale: Network error');
+    }
+    
+    setDeletingRowId(null);
+    setDeleteConfirmModal({ show: false, row: null });
+  };
+
+  const toggleDropdown = (rowId: string) => {
+    setOpenDropdown(openDropdown === rowId ? null : rowId);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openDropdown) {
+        const target = event.target as Element;
+        // Check if click is outside the dropdown
+        const dropdownElement = document.querySelector(`[data-dropdown="${openDropdown}"]`);
+        const buttonElement = document.querySelector(`[data-dropdown-button="${openDropdown}"]`);
+        
+        if (dropdownElement && !dropdownElement.contains(target) && 
+            buttonElement && !buttonElement.contains(target)) {
+          setOpenDropdown(null);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [openDropdown]);
+
   // Fetch inventory for selected store (for modal)
   const fetchInventory = useCallback(async (storeId: string) => {
     const token = await getAuthToken();
@@ -102,15 +174,17 @@ export default function StoreSalesPage() {
     ? sales 
     : sales.filter((sale: any) => sale.store?.id === storeFilter);
 
+
+
   const columns = [
     { key: "orderNumber", label: "Order #" },
     { key: "store", label: "Store" },
+    { key: "stocklabSku", label: "SL SKU" },
     { key: "brand", label: "Brand" },
     { key: "productName", label: "Product" },
     { key: "size", label: "Size" },
     { key: "condition", label: "Condition" },
     { key: "sku", label: "SKU" },
-    { key: "stocklabSku", label: "SL SKU" },
     { key: "quantity", label: "Qty" },
     { key: "cost", label: "Cost" },
     { key: "payout", label: "Payout" },
@@ -209,9 +283,20 @@ export default function StoreSalesPage() {
                 <Table className="w-full min-w-max">
                   <TableHeader>
                     <TableRow>
-                      {columns.map((col) => (
-                        <TableHead key={col.key}>{col.label}</TableHead>
-                      ))}
+                      {columns.map((col) => {
+                        // Add specific width classes for brand and product columns
+                        let widthClass = '';
+                        if (col.key === 'brand') {
+                          widthClass = 'w-40';
+                        } else if (col.key === 'productName') {
+                          widthClass = 'w-80';
+                        }
+                        return (
+                          <TableHead key={col.key} className={widthClass}>
+                            {col.label}
+                          </TableHead>
+                        );
+                      })}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -247,7 +332,14 @@ export default function StoreSalesPage() {
                                   </TableCell>
                                 );
                               }
-                              return <TableCell key={col.key}>{row[col.key]}</TableCell>;
+                              // Add specific width classes for brand and product columns
+                              let widthClass = '';
+                              if (col.key === 'brand') {
+                                widthClass = 'w-40';
+                              } else if (col.key === 'productName') {
+                                widthClass = 'w-80';
+                              }
+                              return <TableCell key={col.key} className={widthClass}>{row[col.key]}</TableCell>;
                             })}
                             <TableCell>
                               {editingRowId === row.id ? (
@@ -268,12 +360,46 @@ export default function StoreSalesPage() {
                                   </button>
                                 </div>
                               ) : (
-                                <button
-                                  className="px-2 py-1 bg-blue-500 text-white rounded"
-                                  onClick={() => handleEditClick(row, sale)}
-                                >
-                                  Edit
-                                </button>
+                                <div className="relative">
+                                  <button
+                                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                                    onClick={() => toggleDropdown(row.id)}
+                                    data-dropdown-button={row.id}
+                                  >
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                    </svg>
+                                  </button>
+                                  
+                                  {openDropdown === row.id && (
+                                    <div 
+                                      className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                                      data-dropdown={row.id}
+                                    >
+                                      <div className="py-1">
+                                        <button
+                                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                          onClick={() => {
+                                            handleEditClick(row, sale);
+                                            setOpenDropdown(null);
+                                          }}
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                                          onClick={() => {
+                                            handleDelete(row);
+                                            setOpenDropdown(null);
+                                          }}
+                                          disabled={deletingRowId === row.id}
+                                        >
+                                          {deletingRowId === row.id ? 'Deleting...' : 'Delete'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>
@@ -310,6 +436,32 @@ export default function StoreSalesPage() {
           mutate();
         }}
       />
+      <PromptModal
+        show={deleteConfirmModal.show}
+        title="Confirm Delete"
+        onClose={() => setDeleteConfirmModal({ show: false, row: null })}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            Are you sure you want to delete this sale? This action cannot be undone.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => setDeleteConfirmModal({ show: false, row: null })}
+              className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              disabled={deletingRowId === deleteConfirmModal.row?.id}
+              className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {deletingRowId === deleteConfirmModal.row?.id ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </PromptModal>
     </Layout>
   );
 } 

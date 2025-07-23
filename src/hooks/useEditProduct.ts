@@ -6,7 +6,7 @@ interface Product {
   brand: string;
   name: string;
   sku?: string;
-  itemType: 'SHOE' | 'APPAREL' | 'ACCESSORIES';
+  itemType: string;
 }
 
 interface EditProductOptions {
