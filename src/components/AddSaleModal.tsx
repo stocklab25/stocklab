@@ -138,10 +138,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
   }, [isOpen, getAuthToken]);
 
   // Filter store items based on SKU search
-  useEffect(() => {
+        useEffect(() => {
     if (!skuSearch.trim()) {
-      setFilteredStoreItems([]);
-      setShowSkuDropdown(false);
+            setFilteredStoreItems([]);
+            setShowSkuDropdown(false);
       return;
     }
 
@@ -166,7 +166,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
     setFilteredStoreItems(filtered);
     setShowSkuDropdown(filtered.length > 0);
     setSelectedItemIndex(-1);
-  }, [skuSearch, allStoreInventory]);
+        }, [skuSearch, allStoreInventory]);
 
   const handleSkuSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -283,7 +283,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
       setError('Please add at least one item to the sale.');
       return;
     }
-
+    
     try {
       await onSubmit(saleItems);
       setSaleItems([]);
@@ -316,63 +316,63 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
           {/* Left Column - Add Item Form */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Add Item</h3>
-            
-            {/* SKU Search */}
-            <div className="relative">
-              <label className="block text-sm font-medium mb-1">Search by StockLab SKU<span className="text-red-500">*</span></label>
-              <input
-                ref={skuSearchRef}
-                type="text"
-                value={skuSearch}
-                onChange={(e) => setSkuSearch(e.target.value)}
-                onKeyDown={handleSkuSearchKeyDown}
-                placeholder="Search by StockLab SKU or product SKU..."
-                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-              {showSkuDropdown && filteredStoreItems.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredStoreItems.map((storeItem, index) => (
-                    <div
-                      key={storeItem.id}
-                      className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
-                        index === selectedItemIndex ? 'bg-blue-100' : ''
-                      }`}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        selectStoreItem(storeItem);
-                      }}
-                    >
-                      <div className="font-medium text-sm">
-                        {storeItem.inventoryItem.stocklabSku || storeItem.inventoryItem.sku}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {storeItem.inventoryItem.product.brand} {storeItem.inventoryItem.product.name} - {storeItem.inventoryItem.size} ({storeItem.inventoryItem.condition})
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Store: {storeItem.store.name} | Available: {storeItem.quantity} | Cost: ${storeItem.inventoryItem.cost}
-                      </div>
-                    </div>
-                  ))}
+        
+        {/* SKU Search */}
+        <div className="relative">
+          <label className="block text-sm font-medium mb-1">Search by StockLab SKU<span className="text-red-500">*</span></label>
+          <input
+            ref={skuSearchRef}
+            type="text"
+            value={skuSearch}
+            onChange={(e) => setSkuSearch(e.target.value)}
+            onKeyDown={handleSkuSearchKeyDown}
+            placeholder="Search by StockLab SKU or product SKU..."
+            className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+          />
+          {showSkuDropdown && filteredStoreItems.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+              {filteredStoreItems.map((storeItem, index) => (
+                <div
+                  key={storeItem.id}
+                  className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
+                    index === selectedItemIndex ? 'bg-blue-100' : ''
+                  }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectStoreItem(storeItem);
+                  }}
+                >
+                  <div className="font-medium text-sm">
+                    {storeItem.inventoryItem.stocklabSku || storeItem.inventoryItem.sku}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {storeItem.inventoryItem.product.brand} {storeItem.inventoryItem.product.name} - {storeItem.inventoryItem.size} ({storeItem.inventoryItem.condition})
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Store: {storeItem.store.name} | Available: {storeItem.quantity} | Cost: ${storeItem.inventoryItem.cost}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
+          )}
+        </div>
 
-            {/* Auto-assigned Store Display */}
+        {/* Auto-assigned Store Display */}
             {currentItem.selectedStore && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Store<span className="text-red-500">*</span></label>
-                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+          <div>
+            <label className="block text-sm font-medium mb-1">Store<span className="text-red-500">*</span></label>
+            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
                   {currentItem.selectedStore.name}
-                </div>
-              </div>
-            )}
+            </div>
+          </div>
+        )}
 
             {/* Item Details Display */}
             {currentItem.selectedItem && (
-              <div>
+        <div>
                 <label className="block text-sm font-medium mb-1">Selected Item<span className="text-red-500">*</span></label>
-                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
                   <div className="font-medium">
                     {currentItem.selectedItem.product.brand} {currentItem.selectedItem.product.name}
                   </div>
@@ -380,64 +380,64 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                     SKU: {currentItem.selectedItem.sku} | Size: {currentItem.selectedItem.size} | Condition: {currentItem.selectedItem.condition}
                   </div>
                 </div>
-              </div>
+          </div>
             )}
-            
+        
             <div className="grid grid-cols-2 gap-2">
                               <div>
-                  <label className="block text-sm font-medium mb-1">Cost<span className="text-red-500">*</span></label>
-                  <Input 
-                    type="number" 
-                    min="0" 
-                    step="0.01" 
+            <label className="block text-sm font-medium mb-1">Cost<span className="text-red-500">*</span></label>
+            <Input 
+              type="number" 
+              min="0" 
+              step="0.01" 
                     value={currentItem.cost || ''} 
                     onChange={e => setCurrentItem(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))} 
-                    required 
-                    placeholder="0.00"
+              required 
+              placeholder="0.00"
                     disabled
                     className="bg-gray-50 cursor-not-allowed"
-                  />
-                </div>
+            />
+          </div>
                               <div>
                   <label className="block text-sm font-medium mb-1">Payout</label>
-                  <Input 
-                    type="number" 
-                    min="0" 
-                    step="0.01" 
+            <Input 
+              type="number" 
+              min="0" 
+              step="0.01" 
                     value={currentItem.payout || ''} 
                     onChange={e => setCurrentItem(prev => ({ ...prev, payout: parseFloat(e.target.value) || 0 }))} 
-                    placeholder="0.00"
-                  />
-                </div>
-            </div>
+              placeholder="0.00"
+            />
+          </div>
+        </div>
             
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm font-medium mb-1">Discount</label>
-                <Input 
-                  type="number" 
-                  min="0" 
-                  step="0.01" 
+            <label className="block text-sm font-medium mb-1">Discount</label>
+            <Input 
+              type="number" 
+              min="0" 
+              step="0.01" 
                   value={currentItem.discount || ''} 
                   onChange={e => setCurrentItem(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))} 
-                  placeholder="0.00"
-                />
-              </div>
+              placeholder="0.00"
+            />
+          </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Quantity<span className="text-red-500">*</span></label>
-                <Input 
-                  type="number" 
-                  value="1" 
-                  readOnly
-                  className="bg-gray-50 cursor-not-allowed"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Each inventory item represents one physical item
-                </p>
-              </div>
-            </div>
-            
-            <div>
+            <label className="block text-sm font-medium mb-1">Quantity<span className="text-red-500">*</span></label>
+            <Input 
+              type="number" 
+              value="1" 
+              readOnly
+              className="bg-gray-50 cursor-not-allowed"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Each inventory item represents one physical item
+            </p>
+          </div>
+        </div>
+        
+        <div>
               <label className="block text-sm font-medium mb-1">Notes</label>
               <Input 
                 type="text" 

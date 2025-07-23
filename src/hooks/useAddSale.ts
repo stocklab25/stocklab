@@ -39,17 +39,17 @@ export function useAddSale(onSuccess?: () => void, onError?: (error: string) => 
           notes: item.notes,
         };
 
-        const response = await fetch('/api/sales', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+      const response = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
           body: JSON.stringify(saleData),
-        });
+      });
         
-        const result = await response.json();
-        if (!response.ok) {
+      const result = await response.json();
+      if (!response.ok) {
           throw new Error(`Failed to add sale for ${item.skuDisplay}: ${result.error || 'Unknown error'}`);
         }
         results.push(result);

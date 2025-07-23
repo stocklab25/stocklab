@@ -377,15 +377,15 @@ export default function StoreSalesPage() {
                                       data-dropdown={row.id}
                                     >
                                       <div className="py-1">
-                                        <button
+                                <button
                                           className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                           onClick={() => {
                                             handleEditClick(row, sale);
                                             setOpenDropdown(null);
                                           }}
-                                        >
-                                          Edit
-                                        </button>
+                                >
+                                  Edit
+                                </button>
                                         <button
                                           className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                                           onClick={() => {
