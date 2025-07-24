@@ -67,6 +67,12 @@ export default function Reports() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedStore, setSelectedStore] = useState<string>('all');
+  const [selectedInventoryStore, setSelectedInventoryStore] = useState<string>('all');
+  const [selectedValueStore, setSelectedValueStore] = useState<string>('all');
+  const [inventoryStartDate, setInventoryStartDate] = useState<string>('');
+  const [inventoryEndDate, setInventoryEndDate] = useState<string>('');
+  const [valueStartDate, setValueStartDate] = useState<string>('');
+  const [valueEndDate, setValueEndDate] = useState<string>('');
   
   const [reportData, setReportData] = useState<ReportData>({
     totalValue: 0,
@@ -179,6 +185,110 @@ export default function Reports() {
       return true;
     });
   }, [salesData, startDate, endDate, selectedStore]);
+
+  // Filter inventory data based on store selection and date range
+  const filteredInventoryData = useMemo(() => {
+    // If "all" is selected, use warehouse inventory
+    if (selectedInventoryStore === 'all') {
+      if (!inventory || !Array.isArray(inventory)) return [];
+
+      let filtered = inventory;
+
+      // Filter by date range (using createdAt date)
+      if (inventoryStartDate && inventoryEndDate) {
+        const start = new Date(inventoryStartDate);
+        const end = new Date(inventoryEndDate);
+        end.setHours(23, 59, 59, 999); // Include the entire end date
+        
+        filtered = filtered.filter(item => {
+          const itemDate = item.createdAt ? new Date(item.createdAt) : null;
+          return itemDate && itemDate >= start && itemDate <= end;
+        });
+      }
+
+      return filtered;
+    }
+
+    // If specific store is selected, use store inventory data
+    if (!storeInventoryData || !Array.isArray(storeInventoryData)) return [];
+
+    let filtered = storeInventoryData
+      .filter(item => item.storeId === selectedInventoryStore)
+      .map(item => ({
+        ...item.inventoryItem,
+        quantity: item.quantity, // Use store quantity instead of warehouse quantity
+        storeSku: item.storeSku,
+        transferCost: item.transferCost,
+        createdAt: item.createdAt, // Use store inventory creation date
+        updatedAt: item.updatedAt
+      }));
+
+    // Filter by date range (using store inventory createdAt date)
+    if (inventoryStartDate && inventoryEndDate) {
+      const start = new Date(inventoryStartDate);
+      const end = new Date(inventoryEndDate);
+      end.setHours(23, 59, 59, 999); // Include the entire end date
+      
+      filtered = filtered.filter(item => {
+        const itemDate = item.createdAt ? new Date(item.createdAt) : null;
+        return itemDate && itemDate >= start && itemDate <= end;
+      });
+    }
+
+    return filtered;
+  }, [inventory, storeInventoryData, selectedInventoryStore, inventoryStartDate, inventoryEndDate]);
+
+  // Filter inventory data for value report based on store selection and date range
+  const filteredValueInventoryData = useMemo(() => {
+    // If "all" is selected, use warehouse inventory
+    if (selectedValueStore === 'all') {
+      if (!inventory || !Array.isArray(inventory)) return [];
+
+      let filtered = inventory;
+
+      // Filter by date range (using createdAt date)
+      if (valueStartDate && valueEndDate) {
+        const start = new Date(valueStartDate);
+        const end = new Date(valueEndDate);
+        end.setHours(23, 59, 59, 999); // Include the entire end date
+        
+        filtered = filtered.filter(item => {
+          const itemDate = item.createdAt ? new Date(item.createdAt) : null;
+          return itemDate && itemDate >= start && itemDate <= end;
+        });
+      }
+
+      return filtered;
+    }
+
+    // If specific store is selected, use store inventory data
+    if (!storeInventoryData || !Array.isArray(storeInventoryData)) return [];
+
+    let filtered = storeInventoryData
+      .filter(item => item.storeId === selectedValueStore)
+      .map(item => ({
+        ...item.inventoryItem,
+        quantity: item.quantity, // Use store quantity instead of warehouse quantity
+        storeSku: item.storeSku,
+        transferCost: item.transferCost,
+        createdAt: item.createdAt, // Use store inventory creation date
+        updatedAt: item.updatedAt
+      }));
+
+    // Filter by date range (using store inventory createdAt date)
+    if (valueStartDate && valueEndDate) {
+      const start = new Date(valueStartDate);
+      const end = new Date(valueEndDate);
+      end.setHours(23, 59, 59, 999); // Include the entire end date
+      
+      filtered = filtered.filter(item => {
+        const itemDate = item.createdAt ? new Date(item.createdAt) : null;
+        return itemDate && itemDate >= start && itemDate <= end;
+      });
+    }
+
+    return filtered;
+  }, [inventory, storeInventoryData, selectedValueStore, valueStartDate, valueEndDate]);
 
   // Calculate report data when data is available
   useEffect(() => {
@@ -548,6 +658,138 @@ export default function Reports() {
           </Card>
         )}
 
+        {/* Inventory Summary Filters */}
+        {selectedReport === 'summary' && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Inventory Summary - Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      value={inventoryStartDate}
+                      onChange={(e) => setInventoryStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Start Date"
+                    />
+                    <input
+                      type="date"
+                      value={inventoryEndDate}
+                      onChange={(e) => setInventoryEndDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="End Date"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Store</label>
+                  <select
+                    value={selectedInventoryStore}
+                    onChange={(e) => setSelectedInventoryStore(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All Stores</option>
+                    {storesData.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setSelectedInventoryStore('all');
+                      setInventoryStartDate('');
+                      setInventoryEndDate('');
+                    }}
+                    className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+              {filteredInventoryData.length > 0 && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    Showing {filteredInventoryData.length} inventory items
+                    {inventoryStartDate && inventoryEndDate && ` from ${inventoryStartDate} to ${inventoryEndDate}`}
+                    {selectedInventoryStore !== 'all' && ` for ${storesData.find(s => s.id === selectedInventoryStore)?.name}`}
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Value Report Filters */}
+        {selectedReport === 'value' && (
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Value Report - Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      value={valueStartDate}
+                      onChange={(e) => setValueStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Start Date"
+                    />
+                    <input
+                      type="date"
+                      value={valueEndDate}
+                      onChange={(e) => setValueEndDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="End Date"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Store</label>
+                  <select
+                    value={selectedValueStore}
+                    onChange={(e) => setSelectedValueStore(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All Stores</option>
+                    {storesData.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setSelectedValueStore('all');
+                      setValueStartDate('');
+                      setValueEndDate('');
+                    }}
+                    className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+              {filteredValueInventoryData.length > 0 && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    Showing {filteredValueInventoryData.length} inventory items
+                    {valueStartDate && valueEndDate && ` from ${valueStartDate} to ${valueEndDate}`}
+                    {selectedValueStore !== 'all' && ` for ${storesData.find(s => s.id === selectedValueStore)?.name}`}
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {selectedReport === 'monthly' && (
           <Card>
             <div className="p-6">
@@ -593,20 +835,50 @@ export default function Reports() {
         )}
 
         {/* Chart Display */}
-        {selectedReport === 'summary' && inventory && (
+        {selectedReport === 'summary' && filteredInventoryData && (
           <Card>
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Inventory Summary</h3>
-              <InventorySummaryChart inventory={inventory} />
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Inventory Summary
+                {selectedInventoryStore !== 'all' && ` - ${storesData.find(s => s.id === selectedInventoryStore)?.name}`}
+                {selectedInventoryStore === 'all' && ' - All Stores'}
+              </h3>
+              <InventorySummaryChart inventory={filteredInventoryData} />
             </div>
           </Card>
         )}
 
-        {selectedReport === 'value' && inventory && (
+        {selectedReport === 'value' && filteredValueInventoryData && (
           <Card>
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Value Report</h3>
-              <ValueReportChart inventory={inventory} />
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Value Report
+                {selectedValueStore !== 'all' && ` - ${storesData.find(s => s.id === selectedValueStore)?.name}`}
+                {selectedValueStore === 'all' && ' - All Stores'}
+              </h3>
+              <ValueReportChart inventory={filteredValueInventoryData} />
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'summary' && filteredInventoryData.length === 0 && (
+          <Card>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <p className="text-lg text-muted-foreground">No inventory data found for the selected store</p>
+                <p className="text-sm text-muted-foreground mt-2">Try selecting a different store or check if the store has inventory</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {selectedReport === 'value' && filteredValueInventoryData.length === 0 && (
+          <Card>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <p className="text-lg text-muted-foreground">No inventory data found for the selected store</p>
+                <p className="text-sm text-muted-foreground mt-2">Try selecting a different store or check if the store has inventory</p>
+              </div>
             </div>
           </Card>
         )}

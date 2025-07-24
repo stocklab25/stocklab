@@ -18,25 +18,29 @@ interface Store {
   address: string | null;
   phone: string | null;
   email: string | null;
+  storeSkuBase: string | null;
   status: 'ACTIVE' | 'INACTIVE' | 'CLOSED';
   createdAt: string;
   updatedAt: string;
 }
 
 export default function StoresPage() {
-  const { getAuthToken } = useAuth();
+  const { getAuthToken, user } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAdminConfirmationModal, setShowAdminConfirmationModal] = useState(false);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [confirmationCode, setConfirmationCode] = useState('');
   const [form, setForm] = useState({
     name: '',
     address: '',
     phone: '',
     email: '',
+    storeSkuBase: '',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'CLOSED',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -71,7 +75,7 @@ export default function StoresPage() {
   };
 
   const handleOpenAddModal = () => {
-    setForm({ name: '', address: '', phone: '', email: '', status: 'ACTIVE' });
+    setForm({ name: '', address: '', phone: '', email: '', storeSkuBase: '', status: 'ACTIVE' });
     setSubmitError(null);
     setShowAddModal(true);
   };
@@ -83,6 +87,7 @@ export default function StoresPage() {
       address: store.address || '',
       phone: store.phone || '',
       email: store.email || '',
+      storeSkuBase: store.storeSkuBase || '',
       status: store.status,
     });
     setSubmitError(null);
@@ -98,8 +103,10 @@ export default function StoresPage() {
     setShowAddModal(false);
     setShowEditModal(false);
     setShowDeleteModal(false);
+    setShowAdminConfirmationModal(false);
     setSelectedStore(null);
     setSubmitError(null);
+    setConfirmationCode('');
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -173,19 +180,36 @@ export default function StoresPage() {
   const handleDeleteStore = async () => {
     if (!selectedStore) return;
     
+    // Show confirmation modal
+    setShowAdminConfirmationModal(true);
+  };
+
+  const handleConfirmDeleteWithCode = async () => {
+    if (!selectedStore || !confirmationCode.trim()) {
+      setSubmitError('Please enter the confirmation code');
+      return;
+    }
+    
     setSubmitting(true);
     try {
       const token = await getAuthToken();
       if (!token) {
         throw new Error('No authentication token available');
       }
+      
       const res = await fetch(`/api/stores/${selectedStore.id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ confirmationCode })
       });
+      
       const data = await res.json();
       if (res.ok) {
         handleCloseModals();
+        setConfirmationCode('');
         fetchStores();
       } else {
         setSubmitError(data.error || 'Failed to delete store');
@@ -245,6 +269,7 @@ export default function StoresPage() {
                       <TableHead>Address</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Store Base SKU</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
@@ -257,6 +282,7 @@ export default function StoresPage() {
                         <TableCell>{store.address || '-'}</TableCell>
                         <TableCell>{store.phone || '-'}</TableCell>
                         <TableCell>{store.email || '-'}</TableCell>
+                        <TableCell>{store.storeSkuBase || '-'}</TableCell>
                         <TableCell>{getStatusBadge(store.status)}</TableCell>
                         <TableCell>{new Date(store.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell>
@@ -336,6 +362,16 @@ export default function StoresPage() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1">Store SKU Base</label>
+                <Input
+                  type="text"
+                  name="storeSkuBase"
+                  value={form.storeSkuBase}
+                  onChange={handleFormChange}
+                  placeholder="e.g., STORE1, STORE2"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
                 <Select
                   name="status"
@@ -410,6 +446,16 @@ export default function StoresPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Store SKU Base</label>
+              <Input
+                type="text"
+                name="storeSkuBase"
+                value={form.storeSkuBase}
+                onChange={handleFormChange}
+                placeholder="e.g., STORE1, STORE2"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">Status</label>
               <Select
                 name="status"
@@ -456,6 +502,45 @@ export default function StoresPage() {
               </Button>
             </div>
           </div>
+          </div>
+        </Modal>
+
+        {/* Confirmation Modal */}
+        <Modal
+          open={showAdminConfirmationModal}
+          onClose={handleCloseModals}
+        >
+          <div>
+            <h2 className="text-xl font-bold mb-4">Confirmation Required</h2>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                To delete <strong>{selectedStore?.name}</strong>, please enter the confirmation code to proceed.
+              </p>
+              <div>
+                <label className="block text-sm font-medium mb-1">Delete Code *</label>
+                <Input
+                  type="text"
+                  value={confirmationCode}
+                  onChange={(e) => setConfirmationCode(e.target.value)}
+                  placeholder="Enter delete code"
+                  required
+                />
+              </div>
+              {submitError && <div className="text-red-500 text-sm">{submitError}</div>}
+              <div className="flex space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleCloseModals} disabled={submitting}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="destructive" 
+                  onClick={handleConfirmDeleteWithCode} 
+                  disabled={submitting || !confirmationCode.trim()}
+                >
+                  {submitting ? 'Deleting...' : 'Confirm Delete'}
+                </Button>
+              </div>
+            </div>
           </div>
         </Modal>
       </PageContainer>

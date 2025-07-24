@@ -54,8 +54,8 @@ export default function Dashboard() {
 
   // Get available years and months from sales data
   const availableYears = useMemo(() => {
-    // Always include 2023-2025
-    const defaultYears = [2025, 2024, 2023];
+    // Always include 2025
+    const defaultYears = [2025];
     
     // Also include any years from sales data
     const years = new Set<number>(defaultYears);

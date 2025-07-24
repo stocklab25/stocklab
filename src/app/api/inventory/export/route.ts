@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       'Product Brand',
       'Product Name',
       'Product SKU',
-      'StockLab SKU',
+      'SL SKU',
       'Inventory SKU',
       'Size',
       'Condition',

@@ -28,6 +28,16 @@ const exportOptions: { id: string; label: string; description: string }[] = [
     description: 'Inventory at each store location',
   },
   {
+    id: 'inventory-summary',
+    label: 'Inventory Summary Report',
+    description: 'Inventory summary with brand and condition distribution',
+  },
+  {
+    id: 'value-report',
+    label: 'Value Report',
+    description: 'Inventory value analysis by brand and cost ranges',
+  },
+  {
     id: 'sales',
     label: 'Sales Report',
     description: 'All sales transactions with product and store info',
@@ -57,6 +67,7 @@ const exportOptions: { id: string; label: string; description: string }[] = [
 export default function ExportReportsModal({ isOpen, onClose }: ExportReportsModalProps) {
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [currentExport, setCurrentExport] = useState<string>('');
   const { getAuthToken } = useAuth();
 
   const handleReportToggle = (reportId: string) => {
@@ -79,24 +90,65 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
     if (selectedReports.length === 0) return;
 
     setIsExporting(true);
+    setCurrentExport('');
+    const failedReports: string[] = [];
+    const successfulReports: string[] = [];
+    
     try {
-      for (const reportId of selectedReports) {
-        await downloadReport(reportId);
+      for (let i = 0; i < selectedReports.length; i++) {
+        const reportId = selectedReports[i];
+        const reportLabel = exportOptions.find(opt => opt.id === reportId)?.label || reportId;
+        setCurrentExport(`Exporting ${reportLabel}...`);
+        
+        const result = await downloadReport(reportId);
+        
+        if (result.success) {
+          successfulReports.push(reportLabel);
+        } else {
+          console.error(`Failed to export ${reportLabel}:`, result.message);
+          
+          // Check if it's a "no data" error
+          if (result.message.includes('No data available')) {
+            failedReports.push(`${reportLabel} (no data available)`);
+          } else {
+            failedReports.push(reportLabel);
+          }
+        }
+        
+        // Add a small delay between downloads to prevent browser blocking
+        if (i < selectedReports.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
+      
+      // Show results
+      if (successfulReports.length > 0 && failedReports.length === 0) {
+        // All successful
+        alert(`Successfully exported ${successfulReports.length} report${successfulReports.length !== 1 ? 's' : ''}!`);
+      } else if (successfulReports.length > 0 && failedReports.length > 0) {
+        // Some successful, some failed
+        alert(`Exported ${successfulReports.length} report${successfulReports.length !== 1 ? 's' : ''} successfully.\n\nFailed to export:\n${failedReports.join('\n')}`);
+      } else if (successfulReports.length === 0 && failedReports.length > 0) {
+        // All failed
+        alert(`No reports were exported.\n\nFailed to export:\n${failedReports.join('\n')}`);
+      }
+      
       onClose();
       setSelectedReports([]);
     } catch (error) {
-      
+      console.error('Export error:', error);
+      alert('Export process failed. Please try again.');
     } finally {
       setIsExporting(false);
+      setCurrentExport('');
     }
   };
 
-  const downloadReport = async (reportId: string) => {
+  const downloadReport = async (reportId: string): Promise<{ success: boolean; message: string }> => {
     try {
       const token = await getAuthToken();
       if (!token) {
-        throw new Error('No authentication token found');
+        return { success: false, message: 'No authentication token found' };
       }
       
       const response = await fetch(`/api/reports/export/${reportId}`, {
@@ -108,21 +160,43 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to export ${reportId}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || response.statusText;
+        
+        // Check if it's a "no data" error
+        if (errorMessage.includes('No data available') || response.status === 404) {
+          return { success: false, message: `No data available for ${reportId} report` };
+        }
+        
+        return { success: false, message: `Failed to export ${reportId}: ${errorMessage}` };
       }
 
       const blob = await response.blob();
+      
+      // Check if blob is empty or invalid
+      if (blob.size === 0) {
+        return { success: false, message: `Empty report generated for ${reportId}` };
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${reportId}-report-${new Date().toISOString().split('T')[0]}.csv`;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
       
-      throw error;
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+      
+      return { success: true, message: `Successfully exported ${reportId} report` };
+      
+    } catch (error) {
+      console.error(`Error downloading ${reportId}:`, error);
+      return { success: false, message: `Error downloading ${reportId}: ${error}` };
     }
   };
 
@@ -151,6 +225,9 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
         <div className="mb-6">
           <p className="text-muted-foreground mb-4">
             Select the reports you want to export as CSV files:
+          </p>
+          <p className="text-sm text-amber-600 mb-4">
+            Note: Reports with no data will be skipped automatically.
           </p>
           
           <div className="flex space-x-3 mb-4">
@@ -202,7 +279,7 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
             disabled={selectedReports.length === 0 || isExporting}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isExporting ? 'Exporting...' : `Export ${selectedReports.length} Report${selectedReports.length !== 1 ? 's' : ''}`}
+            {isExporting ? (currentExport || 'Exporting...') : `Export ${selectedReports.length} Report${selectedReports.length !== 1 ? 's' : ''}`}
           </button>
         </div>
       </div>

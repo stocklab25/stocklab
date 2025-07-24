@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 
+// Helper function to generate store SKU
+const generateStoreSku = async (storeId: string) => {
+  const store = await prisma.store.findUnique({
+    where: { id: storeId }
+  });
+  
+  if (!store?.storeSkuBase) {
+    throw new Error('Store does not have a SKU base configured');
+  }
+  
+  // Count existing store inventory items for this store
+  const existingCount = await prisma.storeInventory.count({
+    where: { 
+      storeId,
+      deletedAt: null 
+    }
+  });
+  
+  return `${store.storeSkuBase}${existingCount + 1}`;
+};
+
 // POST /api/transfers/warehouse-to-store - Transfer items from warehouse to store
 export async function POST(request: NextRequest) {
   try {
@@ -90,13 +111,17 @@ export async function POST(request: NextRequest) {
           }
         });
       } else {
+        // Generate store SKU for new inventory
+        const storeSku = await generateStoreSku(storeId);
+        
         // Create new store inventory record
         storeInventory = await tx.storeInventory.create({
           data: {
             storeId,
             inventoryItemId,
             quantity: 1, // Always 1 since we have 1 item per record
-            transferCost: parseFloat(transferCost)
+            transferCost: parseFloat(transferCost),
+            storeSku
           }
         });
       }

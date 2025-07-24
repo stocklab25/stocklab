@@ -420,7 +420,7 @@ export default function Inventory() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-medium text-foreground">StockLab SKU</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">SL SKU</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground w-80">Product</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>

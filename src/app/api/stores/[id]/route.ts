@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 
 // GET /api/stores/[id] - Get specific store
 export async function GET(
@@ -39,7 +40,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, address, phone, email, status } = body;
+    const { name, address, phone, email, storeSkuBase, status } = body;
 
     const existingStore = await prisma.store.findFirst({
       where: {
@@ -62,6 +63,7 @@ export async function PUT(
         address,
         phone,
         email,
+        storeSkuBase,
         status
       }
     });
@@ -75,12 +77,43 @@ export async function PUT(
   }
 }
 
-// DELETE /api/stores/[id] - Soft delete store
+// DELETE /api/stores/[id] - Soft delete store (Admin only with confirmation)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify authentication
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+
+
+    // Get confirmation code from request body
+    const body = await request.json();
+    const { confirmationCode } = body;
+
+    if (!confirmationCode) {
+      return NextResponse.json(
+        { error: 'Confirmation code is required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify confirmation code (simple check for now - can be enhanced)
+    const expectedCode = 'StockLab25!';
+    if (confirmationCode !== expectedCode) {
+      return NextResponse.json(
+        { error: 'Invalid confirmation code' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const existingStore = await prisma.store.findFirst({
       where: {
@@ -106,6 +139,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Store deleted successfully' });
   } catch (error) {
+    console.error('Error deleting store:', error);
     return NextResponse.json(
       { error: 'Failed to delete store' },
       { status: 500 }

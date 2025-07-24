@@ -30,6 +30,7 @@ interface StoreInventoryItem {
   storeId: string;
   inventoryItemId: string;
   quantity: number;
+  storeSku?: string;
   inventoryItem: InventoryItem;
   store: Store;
 }
@@ -151,13 +152,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
         return false;
       }
 
-      const sku = storeItem.inventoryItem.stocklabSku || storeItem.inventoryItem.sku;
+      const stocklabSku = storeItem.inventoryItem.stocklabSku || '';
+      const productSku = storeItem.inventoryItem.sku || '';
+      const storeSku = storeItem.storeSku || '';
       const brand = storeItem.inventoryItem.product.brand;
       const name = storeItem.inventoryItem.product.name;
       const searchTerm = skuSearch.toLowerCase();
       
       return (
-        sku.toLowerCase().includes(searchTerm) ||
+        stocklabSku.toLowerCase().includes(searchTerm) ||
+        productSku.toLowerCase().includes(searchTerm) ||
+        storeSku.toLowerCase().includes(searchTerm) ||
         brand.toLowerCase().includes(searchTerm) ||
         name.toLowerCase().includes(searchTerm)
       );
@@ -319,14 +324,14 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
         
         {/* SKU Search */}
         <div className="relative">
-          <label className="block text-sm font-medium mb-1">Search by StockLab SKU<span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium mb-1">Search by SKU<span className="text-red-500">*</span></label>
           <input
             ref={skuSearchRef}
             type="text"
             value={skuSearch}
             onChange={(e) => setSkuSearch(e.target.value)}
             onKeyDown={handleSkuSearchKeyDown}
-            placeholder="Search by StockLab SKU or product SKU..."
+            placeholder="Search by StockLab SKU, Product SKU, or Store SKU..."
             className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           {showSkuDropdown && filteredStoreItems.length > 0 && (
@@ -345,12 +350,14 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                 >
                   <div className="font-medium text-sm">
                     {storeItem.inventoryItem.stocklabSku || storeItem.inventoryItem.sku}
+                    {storeItem.storeSku && ` (Store: ${storeItem.storeSku})`}
                   </div>
                   <div className="text-xs text-gray-600">
                     {storeItem.inventoryItem.product.brand} {storeItem.inventoryItem.product.name} - {storeItem.inventoryItem.size} ({storeItem.inventoryItem.condition})
                   </div>
                   <div className="text-xs text-gray-500">
                     Store: {storeItem.store.name} | Available: {storeItem.quantity} | Cost: ${storeItem.inventoryItem.cost}
+                    {storeItem.storeSku && ` | Store SKU: ${storeItem.storeSku}`}
                   </div>
                 </div>
               ))}

@@ -28,6 +28,7 @@ interface StoreInventoryItem {
   inventoryItemId: string;
   quantity: number;
   transferCost: number;
+  storeSku?: string;
   createdAt: string;
   updatedAt: string;
   inventoryItem: {
@@ -67,7 +68,8 @@ export default function StoreInventoryPage() {
     name: '',
     address: '',
     phone: '',
-    email: ''
+    email: '',
+    storeSkuBase: ''
   });
   const [addingStore, setAddingStore] = useState(false);
   const { data: warehouseInventory, isLoading: isWarehouseLoading, isError: isWarehouseError, mutate: mutateWarehouse } = useInventory();
@@ -194,7 +196,7 @@ export default function StoreInventoryPage() {
       if (response.ok) {
         const createdStore = await response.json();
         setStores([...stores, createdStore]);
-        setNewStore({ name: '', address: '', phone: '', email: '' });
+        setNewStore({ name: '', address: '', phone: '', email: '', storeSkuBase: '' });
         setShowAddStoreModal(false);
       } else {
         console.error('Failed to create store');
@@ -385,7 +387,8 @@ export default function StoreInventoryPage() {
                         {selectedStoreId === 'ALL' && (
                           <th className="text-left py-3 px-4 font-medium text-foreground">Store</th>
                         )}
-                        <th className="text-left py-3 px-4 font-medium text-foreground">StockLab SKU</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground">SL SKU</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground">Store SKU</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground w-80">Product</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
                         <th className="text-center py-3 px-4 font-medium text-foreground">Status</th>
@@ -399,7 +402,7 @@ export default function StoreInventoryPage() {
                     <tbody>
                       {inventory.length === 0 ? (
                         <tr>
-                          <td colSpan={selectedStoreId === 'ALL' ? 10 : 9} className="text-center py-8 text-muted-foreground">
+                          <td colSpan={selectedStoreId === 'ALL' ? 11 : 10} className="text-center py-8 text-muted-foreground">
                             {selectedStoreId === 'ALL' ? 'No inventory found across all stores.' : 'No inventory found for this store.'}
                           </td>
                         </tr>
@@ -413,6 +416,9 @@ export default function StoreInventoryPage() {
                             )}
                             <td className="py-2 px-4 text-sm">
                               <span className="font-mono text-sm text-blue-600">{item.inventoryItem.stocklabSku || 'N/A'}</span>
+                            </td>
+                            <td className="py-2 px-4 text-sm">
+                              <span className="font-mono text-sm text-green-600">{item.storeSku || 'N/A'}</span>
                             </td>
                             <td className="py-2 px-4 text-sm w-80">
                               <div>
@@ -546,6 +552,16 @@ export default function StoreInventoryPage() {
                   onChange={(e) => setNewStore({ ...newStore, email: e.target.value })}
                   className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Enter email address"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Store SKU Base</label>
+                <input
+                  type="text"
+                  value={newStore.storeSkuBase}
+                  onChange={(e) => setNewStore({ ...newStore, storeSkuBase: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="e.g., STORE1, STORE2"
                 />
               </div>
               <div className="flex gap-3 pt-4">

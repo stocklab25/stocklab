@@ -260,6 +260,7 @@ export default function AddPurchaseOrderModal({
         },
         body: JSON.stringify({
           ...formData,
+          status: 'SUBMITTED', // Always auto-submitted
           totalAmount,
           items,
         }),
@@ -362,9 +363,9 @@ export default function AddPurchaseOrderModal({
             <Select
               value={formData.status}
               onChange={(e) => handleInputChange('status', e.target.value)}
+              disabled // Always auto-submitted
             >
               <option value="SUBMITTED">Submitted</option>
-              <option value="DELIVERED">Delivered</option>
               <option value="CANCELLED">Cancelled</option>
             </Select>
           </div>

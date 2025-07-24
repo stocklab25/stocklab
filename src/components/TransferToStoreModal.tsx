@@ -25,6 +25,7 @@ interface TransferToStoreModalProps {
   stores: Array<{
     id: string;
     name: string;
+    storeSkuBase?: string;
   }>;
 }
 
@@ -43,6 +44,7 @@ export default function TransferToStoreModal({
   const [showSkuDropdown, setShowSkuDropdown] = useState(false);
   const [filteredItems, setFilteredItems] = useState<typeof inventoryItems>([]);
   const [selectedItemIndex, setSelectedItemIndex] = useState(-1);
+  const [generatedStoreSku, setGeneratedStoreSku] = useState('');
   const skuSearchRef = useRef<HTMLInputElement>(null);
 
   const selectedItemsData = selectedItems.map(item => 
@@ -71,6 +73,22 @@ export default function TransferToStoreModal({
       setShowSkuDropdown(false);
     }
   }, [skuSearch, inventoryItems]);
+
+  // Calculate generated store SKU when store is selected
+  useEffect(() => {
+    if (selectedStore) {
+      const store = stores.find(s => s.id === selectedStore);
+      if (store?.storeSkuBase) {
+        // For preview purposes, we'll show the next number
+        // The actual number will be calculated on the server
+        setGeneratedStoreSku(`${store.storeSkuBase}${selectedItems.length + 1}`);
+      } else {
+        setGeneratedStoreSku('');
+      }
+    } else {
+      setGeneratedStoreSku('');
+    }
+  }, [selectedStore, stores, selectedItems.length]);
 
   // Handle keyboard navigation
   const handleSkuSearchKeyDown = (e: React.KeyboardEvent) => {
@@ -224,6 +242,18 @@ export default function TransferToStoreModal({
               </Select>
             </div>
           </div>
+
+          {generatedStoreSku && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Generated Store SKU</label>
+              <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                <span className="font-mono text-sm text-green-600">{generatedStoreSku}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                This SKU will be automatically assigned to the transferred items
+              </p>
+            </div>
+          )}
 
           {selectedItems.length > 0 && (
             <div>

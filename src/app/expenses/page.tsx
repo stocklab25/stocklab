@@ -242,15 +242,27 @@ export default function ExpensesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Category</label>
-                  <input
-                    type="text"
+                  <select
                     name="category"
                     value={form.category}
                     onChange={handleFormChange}
                     required
                     className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Enter category"
-                  />
+                  >
+                    <option value="">Select category</option>
+                    <option value="Fees">Fees</option>
+                    <option value="Business Meals">Business Meals</option>
+                    <option value="Gifts">Gifts</option>
+                    <option value="Inventory">Inventory</option>
+                    <option value="Business Services">Business Services</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Parking">Parking</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Supplies">Supplies</option>
+                    <option value="Equipment">Equipment</option>
+                    <option value="Payment">Payment</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Card</label>
