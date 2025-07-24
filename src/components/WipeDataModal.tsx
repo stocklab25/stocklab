@@ -39,8 +39,8 @@ export default function WipeDataModal({ isOpen, onClose, onSuccess }: WipeDataMo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-background rounded-lg p-6 w-1/2 mx-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
+      <div className="bg-background rounded-lg shadow-2xl border border-white/10 backdrop-blur-sm p-6 w-1/2 mx-4 animate-in zoom-in-95 duration-200">
         {step === 'warning' ? (
           <>
             <div className="flex items-center mb-4">
@@ -62,8 +62,13 @@ export default function WipeDataModal({ isOpen, onClose, onSuccess }: WipeDataMo
                 <li>All transactions</li>
                 <li>All sales</li>
                 <li>All purchases</li>
+                <li>All purchase orders</li>
                 <li>All stores</li>
                 <li>All store inventory</li>
+                <li>All transaction orders</li>
+                <li>All expenses</li>
+                <li>All accounting records</li>
+                <li>All cards</li>
                 <li>All historical data</li>
               </ul>
               <p className="text-sm text-green-600 font-medium mb-2">

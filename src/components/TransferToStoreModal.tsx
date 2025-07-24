@@ -187,16 +187,16 @@ export default function TransferToStoreModal({
                 onChange={(e) => setSkuSearch(e.target.value)}
                 onKeyDown={handleSkuSearchKeyDown}
                 placeholder="Search by StockLab SKU..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
               {showSkuDropdown && filteredItems.length > 0 && (
-                <div className="sku-dropdown-container absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="sku-dropdown-container absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                   {filteredItems.map((item, index) => (
                     <button
                       key={item.id}
                       type="button"
-                      className={`w-full text-left px-3 py-2 cursor-pointer hover:bg-gray-100 ${
-                        index === selectedItemIndex ? 'bg-blue-100' : ''
+                      className={`w-full text-left px-3 py-2 cursor-pointer hover:bg-accent ${
+                        index === selectedItemIndex ? 'bg-primary/10' : ''
                       }`}
                       onMouseDown={(e) => {
                         e.preventDefault();
@@ -204,13 +204,13 @@ export default function TransferToStoreModal({
                         selectItem(item);
                       }}
                     >
-                      <div className="font-medium text-sm">
+                      <div className="font-medium text-sm text-foreground">
                         {item.stocklabSku || item.sku}
                       </div>
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-muted-foreground">
                         {item.product.brand} {item.product.name} - {item.size} ({item.condition})
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         Cost: ${item.cost}
                       </div>
                     </button>
@@ -218,8 +218,8 @@ export default function TransferToStoreModal({
                 </div>
               )}
               {showSkuDropdown && filteredItems.length === 0 && skuSearch.trim() && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-                  <div className="px-3 py-2 text-sm text-gray-500">
+                <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg">
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
                     No items found
                   </div>
                 </div>

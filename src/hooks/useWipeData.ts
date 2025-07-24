@@ -33,8 +33,14 @@ export function useWipeData() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ confirm: true }),
+        body: JSON.stringify({ confirm: 'WIPE ALL DATA' }),
       });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned non-JSON response. Please try again.');
+      }
 
       const data = await response.json();
 

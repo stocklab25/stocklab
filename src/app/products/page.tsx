@@ -227,10 +227,10 @@ export default function Products() {
                   placeholder={`Search ${showArchived ? 'archived ' : ''}products by name, brand, or SKU...`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
-              <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+              <select className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                 <option value="">All Brands</option>
                 <option value="Jordan">Jordan</option>
                 <option value="Nike">Nike</option>

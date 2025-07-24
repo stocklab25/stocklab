@@ -312,20 +312,20 @@ export default function AddTransactionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-md"
         onClick={onClose}
       />
       
       {/* Modal */}
-      <div className="relative w-5xl max-h-[90vh] bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col">
+      <div className="relative w-5xl max-h-[90vh] bg-background rounded-lg shadow-2xl border border-white/10 backdrop-blur-sm flex flex-col animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">
             Add Transaction
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -347,7 +347,7 @@ export default function AddTransactionModal({
               <select
                 value={formData.type}
                 onChange={(e) => handleInputChange('type', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 {transactionTypes.map(type => (
                   <option key={type.value} value={type.value}>
@@ -370,26 +370,26 @@ export default function AddTransactionModal({
                 onKeyDown={handleSkuSearchKeyDown}
                 placeholder="Search by StockLab SKU..."
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  errors.inventoryItemId ? 'border-red-500' : 'border-gray-300'
+                  errors.inventoryItemId ? 'border-red-500' : 'border-input'
                 }`}
               />
               {showSkuDropdown && filteredItems.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                   {filteredItems.map((item, index) => (
                     <div
                       key={item.id}
-                      className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
-                        index === selectedItemIndex ? 'bg-blue-100' : ''
+                      className={`px-3 py-2 cursor-pointer hover:bg-accent ${
+                        index === selectedItemIndex ? 'bg-primary/10' : ''
                       }`}
                       onClick={() => selectItem(item)}
                     >
-                      <div className="font-medium text-sm">
+                      <div className="font-medium text-sm text-foreground">
                         {item.stocklabSku || item.sku}
                       </div>
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-muted-foreground">
                         {item.product.brand} {item.product.name} - {item.size} ({item.condition})
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         Cost: ${item.cost} | Available: {item.quantity}
                       </div>
                     </div>
@@ -397,8 +397,8 @@ export default function AddTransactionModal({
                 </div>
               )}
               {showSkuDropdown && filteredItems.length === 0 && skuSearch.trim() && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-                  <div className="px-3 py-2 text-sm text-gray-500">
+                <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg">
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
                     No items found
                   </div>
                 </div>
@@ -419,7 +419,7 @@ export default function AddTransactionModal({
                 value={formData.quantity}
                 onChange={(e) => handleInputChange('quantity', parseInt(e.target.value) || 1)}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  errors.quantity ? 'border-red-500' : 'border-gray-300'
+                  errors.quantity ? 'border-red-500' : 'border-input'
                 }`}
               />
               {errors.quantity && (
@@ -440,7 +440,7 @@ export default function AddTransactionModal({
                 value={formData.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  errors.date ? 'border-red-500' : 'border-gray-300'
+                  errors.date ? 'border-red-500' : 'border-input'
                 }`}
               />
               {errors.date && (

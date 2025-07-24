@@ -451,19 +451,19 @@ export default function AddPurchaseOrderModal({
                       
                       {/* Product Dropdown */}
                       {showProductDropdown === index && productSearchTerms[index] && !item.productId && (
-                        <div className="product-dropdown-item absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        <div className="product-dropdown-item absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                           {(() => {
                             const filteredProducts = getFilteredProducts(index);
                             return filteredProducts.length === 0 ? (
-                              <div className="px-4 py-2 text-sm text-gray-500">
+                              <div className="px-4 py-2 text-sm text-muted-foreground">
                                 No products found
                               </div>
                             ) : (
                               filteredProducts.map((product: Product, productIndex: number) => (
                                 <div
                                   key={product.id}
-                                  className={`product-dropdown-item px-4 py-2 cursor-pointer hover:bg-gray-100 ${
-                                    productIndex === selectedProductIndex ? 'bg-blue-50' : ''
+                                  className={`product-dropdown-item px-4 py-2 cursor-pointer hover:bg-accent ${
+                                    productIndex === selectedProductIndex ? 'bg-primary/10' : ''
                                   }`}
                                   onClick={(e) => {
                                     e.preventDefault();
@@ -473,11 +473,11 @@ export default function AddPurchaseOrderModal({
                                 >
                                   <div className="flex justify-between items-center">
                                     <div>
-                                      <div className="font-medium">
+                                      <div className="font-medium text-foreground">
                                         {product.brand} - {product.name}
                                       </div>
                                       {product.sku && (
-                                        <div className="text-sm text-gray-500 font-mono">
+                                        <div className="text-sm text-muted-foreground font-mono">
                                           SKU: {product.sku}
                                         </div>
                                       )}

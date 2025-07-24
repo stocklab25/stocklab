@@ -335,12 +335,12 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
             className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           {showSkuDropdown && filteredStoreItems.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
               {filteredStoreItems.map((storeItem, index) => (
                 <div
                   key={storeItem.id}
-                  className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
-                    index === selectedItemIndex ? 'bg-blue-100' : ''
+                  className={`px-3 py-2 cursor-pointer hover:bg-accent ${
+                    index === selectedItemIndex ? 'bg-primary/10' : ''
                   }`}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -348,14 +348,14 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                     selectStoreItem(storeItem);
                   }}
                 >
-                  <div className="font-medium text-sm">
+                  <div className="font-medium text-sm text-foreground">
                     {storeItem.inventoryItem.stocklabSku || storeItem.inventoryItem.sku}
                     {storeItem.storeSku && ` (Store: ${storeItem.storeSku})`}
                   </div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-muted-foreground">
                     {storeItem.inventoryItem.product.brand} {storeItem.inventoryItem.product.name} - {storeItem.inventoryItem.size} ({storeItem.inventoryItem.condition})
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     Store: {storeItem.store.name} | Available: {storeItem.quantity} | Cost: ${storeItem.inventoryItem.cost}
                     {storeItem.storeSku && ` | Store SKU: ${storeItem.storeSku}`}
                   </div>
@@ -369,7 +369,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
             {currentItem.selectedStore && (
           <div>
             <label className="block text-sm font-medium mb-1">Store<span className="text-red-500">*</span></label>
-            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+            <div className="px-3 py-2 bg-muted border border-border rounded-lg text-sm">
                   {currentItem.selectedStore.name}
             </div>
           </div>
@@ -379,11 +379,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
             {currentItem.selectedItem && (
         <div>
                 <label className="block text-sm font-medium mb-1">Selected Item<span className="text-red-500">*</span></label>
-          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
-                  <div className="font-medium">
+          <div className="px-3 py-2 bg-muted border border-border rounded-lg text-sm">
+                  <div className="font-medium text-foreground">
                     {currentItem.selectedItem.product.brand} {currentItem.selectedItem.product.name}
                   </div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-muted-foreground">
                     SKU: {currentItem.selectedItem.sku} | Size: {currentItem.selectedItem.size} | Condition: {currentItem.selectedItem.condition}
                   </div>
                 </div>

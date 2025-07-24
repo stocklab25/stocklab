@@ -297,34 +297,34 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
             {/* Product List */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-foreground">Products in List ({productList.length})</h3>
-              <div className="overflow-x-auto max-h-64 border border-gray-200 rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                              <div className="overflow-x-auto max-h-64 border border-border rounded-lg">
+                  <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted">
                     <tr>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Brand
                       </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Product Name
                       </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         SKU
                       </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Type
                       </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Action
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-background divide-y divide-border">
                     {productList.map((product) => (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.brand}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.name}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono">{product.sku}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.itemType}</td>
+                      <tr key={product.id} className="hover:bg-accent">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">{product.brand}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-muted-foreground">{product.name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground font-mono">{product.sku}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-muted-foreground">{product.itemType}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                           <button
                             type="button"
