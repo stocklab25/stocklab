@@ -381,7 +381,7 @@ export default function AddTransactionModal({
                       className={`px-3 py-2 cursor-pointer hover:bg-accent ${
                         index === selectedItemIndex ? 'bg-primary/10' : ''
                       }`}
-                      onClick={() => selectItem(item)}
+                      onMouseDown={() => selectItem(item)}
                     >
                       <div className="font-medium text-sm text-foreground">
                         {item.stocklabSku || item.sku}
