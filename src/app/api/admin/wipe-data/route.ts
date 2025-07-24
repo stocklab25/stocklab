@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     await prisma.card.deleteMany({});
     console.log('Deleted card');
     
-    // Note: We don't delete users to preserve admin access
+      // Note: We don't delete users to preserve admin access
 
     return NextResponse.json({
       success: true,

@@ -2,23 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 
 // Helper function to generate store SKU
-const generateStoreSku = async (storeId: string) => {
-  const store = await prisma.store.findUnique({
-    where: { id: storeId }
-  });
-  
-  if (!store?.storeSkuBase) {
-    throw new Error('Store does not have a SKU base configured');
-  }
-  
+const generateStoreSku = async (store: any) => {
   // Count existing store inventory items for this store
   const existingCount = await prisma.storeInventory.count({
     where: { 
-      storeId,
+      storeId: store.id,
       deletedAt: null 
     }
   });
-  
   return `${store.storeSkuBase}${existingCount + 1}`;
 };
 
@@ -55,6 +46,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Store not found or inactive' },
         { status: 404 }
+      );
+    }
+    if (!store.storeSkuBase) {
+      return NextResponse.json(
+        { error: 'Store does not have a SKU base configured', code: 'MISSING_STORE_SKU_BASE' },
+        { status: 400 }
       );
     }
 
@@ -112,7 +109,7 @@ export async function POST(request: NextRequest) {
         });
       } else {
         // Generate store SKU for new inventory
-        const storeSku = await generateStoreSku(storeId);
+        const storeSku = await generateStoreSku(store);
         
         // Create new store inventory record
         storeInventory = await tx.storeInventory.create({

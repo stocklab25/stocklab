@@ -81,7 +81,9 @@ const useAddTransaction = () => {
         
         if (!transferResponse.ok) {
           const errorData = await transferResponse.json();
-          throw new Error(errorData.error || 'Failed to transfer to store');
+          const error = new Error(errorData.error || 'Failed to transfer to store');
+          if (errorData.code) (error as any).code = errorData.code;
+          throw error;
         }
         
         const result = await transferResponse.json();
@@ -106,7 +108,9 @@ const useAddTransaction = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add transaction');
+        const error = new Error(errorData.error || 'Failed to add transaction');
+        if (errorData.code) (error as any).code = errorData.code;
+        throw error;
       }
 
       const result = await response.json();

@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
       quantity,
       notes,
       transactionDate,
+      toStoreId,
     } = body;
 
     // Validate required fields
@@ -105,6 +106,23 @@ export async function POST(req: NextRequest) {
         { error: 'Missing required fields: inventoryItemId, type, quantity' },
         { status: 400 }
       );
+    }
+
+    // If TRANSFER_TO_STORE, check for storeSkuBase
+    if (type === 'TRANSFER_TO_STORE') {
+      if (!toStoreId) {
+        return NextResponse.json(
+          { error: 'Missing toStoreId for TRANSFER_TO_STORE', code: 'MISSING_TO_STORE_ID' },
+          { status: 400 }
+        );
+      }
+      const store = await prisma.store.findUnique({ where: { id: toStoreId } });
+      if (!store?.storeSkuBase) {
+        return NextResponse.json(
+          { error: 'Store does not have a SKU base configured', code: 'MISSING_STORE_SKU_BASE' },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if inventory item exists
