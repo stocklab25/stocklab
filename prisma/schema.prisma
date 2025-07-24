@@ -186,6 +186,18 @@ model Expense {
   card            Card            @relation(fields: [cardId], references: [id])
 }
 
+model Accounting {
+  id              String      @id @default(cuid())
+  transactionDate DateTime
+  name            String
+  description     String
+  accountType     AccountType
+  amount          Decimal     @db.Decimal(10, 2)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+}
+
 model PurchaseOrder {
   id                     String              @id @default(cuid())
   vendorName             String
@@ -285,6 +297,10 @@ enum ItemCondition {
   PRE_OWNED
 }
 
+enum AccountType {
+  RECEIVABLE
+  PAYABLE
+}
 
 
 enum PurchaseOrderStatus {

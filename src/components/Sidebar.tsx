@@ -45,6 +45,7 @@ const navigation: (NavItem | NavGroup)[] = [
     name: 'Accounting',
     icon: 'accounting',
     items: [
+      { name: 'Accounts', href: '/accounting', icon: 'accounting' },
       { name: 'Expenses', href: '/expenses', icon: 'expenses' },
       { name: 'Cards', href: '/cards', icon: 'cards' },
     ]

@@ -172,12 +172,12 @@ export async function GET(
           });
           console.log(`Found ${cardCount} cards in database`);
           
-          data = await prisma.expense.findMany({
-            where: { deletedAt: null },
-            include: {
-              card: true,
-            },
-            orderBy: { transactionDate: 'desc' },
+        data = await prisma.expense.findMany({
+          where: { deletedAt: null },
+          include: {
+            card: true,
+          },
+          orderBy: { transactionDate: 'desc' },
           });
           console.log(`Expenses report: ${data.length} expenses found`);
           
@@ -580,12 +580,12 @@ function convertToCSV(data: any[], type: string): string {
       headers = Object.keys(data[0]);
       csvRows = [];
 
-      for (const row of data) {
-        const values = headers.map(header => {
-          const value = row[header];
+  for (const row of data) {
+    const values = headers.map(header => {
+      const value = row[header];
           return escapeCSV(value);
-        });
-        csvRows.push(values.join(','));
+    });
+    csvRows.push(values.join(','));
       }
   }
 

@@ -188,8 +188,8 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
       
       // Clean up
       setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
       }, 100);
       
       return { success: true, message: `Successfully exported ${reportId} report` };

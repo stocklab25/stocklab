@@ -538,9 +538,9 @@ export default function StoresPage() {
                   disabled={submitting || !confirmationCode.trim()}
                 >
                   {submitting ? 'Deleting...' : 'Confirm Delete'}
-                </Button>
-              </div>
+              </Button>
             </div>
+          </div>
           </div>
         </Modal>
       </PageContainer>
