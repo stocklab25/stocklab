@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySupabaseAuth } from '@/lib/supabase-auth';
 import prisma from '@/lib/db';
+import { verifySupabaseAuth } from '@/lib/supabase-auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { user, isValid } = await verifySupabaseAuth(request);
     if (!isValid || !user) {
@@ -15,27 +16,25 @@ export async function GET(
       );
     }
 
-    const { id } = await params;
-
-    const card = await prisma.card.findUnique({
+    const accounting = await prisma.accounting.findUnique({
       where: { 
         id: id,
         deletedAt: null 
       }
     });
 
-    if (!card) {
+    if (!accounting) {
       return NextResponse.json(
-        { error: 'Card not found' },
+        { error: 'Accounting entry not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(card);
+    return NextResponse.json(accounting);
   } catch (error) {
-    console.error('Error fetching card:', error);
+    console.error('Error fetching accounting entry:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch card' },
+      { error: 'Failed to fetch accounting entry' },
       { status: 500 }
     );
   }
@@ -45,6 +44,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { user, isValid } = await verifySupabaseAuth(request);
     if (!isValid || !user) {
@@ -54,48 +54,48 @@ export async function PUT(
       );
     }
 
-    const { id } = await params;
     const body = await request.json();
-    const { name, last4, bank, type } = body;
+    const { transactionDate, name, description, accountType, amount } = body;
 
-    if (!name) {
+    if (!transactionDate || !name || !description || !accountType || !amount) {
       return NextResponse.json(
-        { error: 'Name is required' },
+        { error: 'All fields are required' },
         { status: 400 }
       );
     }
 
-    // Check if the card exists
-    const existingCard = await prisma.card.findUnique({
+    // Check if the accounting entry exists
+    const existingEntry = await prisma.accounting.findUnique({
       where: { 
         id: id,
         deletedAt: null 
       }
     });
 
-    if (!existingCard) {
+    if (!existingEntry) {
       return NextResponse.json(
-        { error: 'Card not found' },
+        { error: 'Accounting entry not found' },
         { status: 404 }
       );
     }
 
-    const updatedCard = await prisma.card.update({
+    const updatedAccounting = await prisma.accounting.update({
       where: { id: id },
       data: {
+        transactionDate: new Date(transactionDate),
         name,
-        last4: last4 || null,
-        bank: bank || null,
-        type: type || null,
+        description,
+        accountType,
+        amount: parseFloat(amount),
         updatedAt: new Date()
       }
     });
 
-    return NextResponse.json(updatedCard);
+    return NextResponse.json(updatedAccounting);
   } catch (error) {
-    console.error('Error updating card:', error);
+    console.error('Error updating accounting entry:', error);
     return NextResponse.json(
-      { error: 'Failed to update card' },
+      { error: 'Failed to update accounting entry' },
       { status: 500 }
     );
   }
@@ -105,54 +105,44 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { user, isValid } = await verifySupabaseAuth(request);
     if (!isValid || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized - Authentication required' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const { id } = await params;
-
-    // Check if card exists
-    const card = await prisma.card.findUnique({
-      where: { id },
-      include: {
-        expenses: true
+    // Check if the accounting entry exists
+    const existingEntry = await prisma.accounting.findUnique({
+      where: { 
+        id: id,
+        deletedAt: null 
       }
     });
 
-    if (!card) {
+    if (!existingEntry) {
       return NextResponse.json(
-        { error: 'Card not found' },
+        { error: 'Accounting entry not found' },
         { status: 404 }
       );
     }
 
-    // Check if card has associated expenses
-    if (card.expenses.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete card with associated expenses. Please delete or reassign expenses first.' },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete the card
-    await prisma.card.update({
-      where: { id },
-      data: { deletedAt: new Date() }
+    // Soft delete the accounting entry
+    await prisma.accounting.update({
+      where: { id: id },
+      data: {
+        deletedAt: new Date()
+      }
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Card deleted successfully'
-    });
+    return NextResponse.json({ message: 'Accounting entry deleted successfully' });
   } catch (error) {
-    console.error('Error deleting card:', error);
+    console.error('Error deleting accounting entry:', error);
     return NextResponse.json(
-      { error: 'Failed to delete card' },
+      { error: 'Failed to delete accounting entry' },
       { status: 500 }
     );
   }

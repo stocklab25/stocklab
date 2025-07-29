@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigation } from '@/contexts/NavigationContext';
@@ -11,6 +12,7 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { isNavigating } = useNavigation();
+  const router = useRouter();
 
   return (
     <header className="bg-background border-b border-border px-6 py-4 h-16">
@@ -47,7 +49,10 @@ export default function Header() {
               <p className="text-xs text-muted-foreground">{user?.role || 'Administrator'}</p>
             </div>
             <button
-              onClick={logout}
+              onClick={async () => {
+                await logout();
+                router.push('/login');
+              }}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted-foreground hover:text-background transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
               title="Logout"
             >

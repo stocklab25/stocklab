@@ -125,6 +125,78 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const data = await request.json();
+
+    // Check if inventory item exists
+    const existingItem = await prisma.inventoryItem.findUnique({
+      where: { id },
+    });
+
+    if (!existingItem) {
+      return NextResponse.json(
+        { error: 'Inventory item not found' },
+        { status: 404 }
+      );
+    }
+
+    // If SKU is being updated, check for uniqueness
+    if (data.sku && data.sku !== existingItem.sku) {
+      const duplicateSku = await prisma.inventoryItem.findFirst({
+        where: {
+          sku: data.sku,
+          id: { not: id },
+          deletedAt: null,
+        },
+      });
+
+      if (duplicateSku) {
+        return NextResponse.json(
+          { error: 'SKU already exists' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updatedItem = await prisma.inventoryItem.update({
+      where: { id },
+      data: {
+        sku: data.sku,
+        size: data.size,
+        condition: data.condition,
+        cost: data.cost ? parseFloat(data.cost) : undefined,
+        status: data.status,
+        quantity: 1, // Always 1 for individual items
+        note: data.note,
+        updatedAt: new Date(),
+      },
+      include: {
+        product: true,
+      },
+    });
+
+    return NextResponse.json(updatedItem);
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to update inventory item' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

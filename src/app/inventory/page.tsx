@@ -7,7 +7,6 @@ import { StockInIcon, EditIcon, DeleteIcon, MoreIcon } from '@/utils/icons';
 import { useAuth } from '@/contexts/AuthContext';
 
 import AddInventoryModal from '@/components/AddInventoryModal';
-import EditInventoryModal from '@/components/EditInventoryModal';
 import BulkTransferModal from '@/components/BulkTransferModal';
 import { useInventory } from '@/hooks';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -54,8 +53,6 @@ export default function Inventory() {
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
 
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
-  const [showEditInventoryModal, setShowEditInventoryModal] = useState(false);
-  const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [isTransferring, setIsTransferring] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -197,11 +194,7 @@ export default function Inventory() {
     }
   };
 
-  const handleEditInventory = (item: InventoryItem) => {
-    setSelectedInventoryItem(item);
-    setShowEditInventoryModal(true);
-    setOpenDropdown(null);
-  };
+
 
   const handleEditClick = (item: InventoryItem) => {
     setEditingRowId(item.id);
@@ -714,13 +707,7 @@ export default function Inventory() {
           onSuccess={handleAddInventorySuccess}
         /> */}
 
-        {/* Edit Inventory Modal */}
-        {/* <EditInventoryModal
-          isOpen={showEditInventoryModal}
-          onClose={() => setShowEditInventoryModal(false)}
-          onSuccess={handleAddInventorySuccess}
-          inventoryItem={selectedInventoryItem}
-        /> */}
+
 
         {/* Bulk Transfer Modal */}
         <BulkTransferModal

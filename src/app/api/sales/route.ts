@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
         quantity: {
           decrement: quantity,
         },
-        status: 'SOLD' as const,
+        status: 'SOLD',
       },
     });
 
