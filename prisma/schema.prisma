@@ -106,17 +106,18 @@ model StockTransaction {
 }
 
 model StoreInventory {
-  id              String        @id @default(cuid())
+  id              String                @id @default(cuid())
   storeId         String
   inventoryItemId String
-  quantity        Int           @default(0)
+  quantity        Int                   @default(0)
   storeSku        String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  status          StoreInventoryStatus  @default(IN_STOCK)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   deletedAt       DateTime?
-  transferCost    Decimal       @default(0) @db.Decimal(10, 2)
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
-  store           Store         @relation(fields: [storeId], references: [id])
+  transferCost    Decimal               @default(0) @db.Decimal(10, 2)
+  inventoryItem   InventoryItem         @relation(fields: [inventoryItemId], references: [id])
+  store           Store                 @relation(fields: [storeId], references: [id])
 
   @@unique([storeId, inventoryItemId])
   @@map("store_inventory")
@@ -133,6 +134,7 @@ model Sale {
   discount        Decimal?      @db.Decimal(10, 2)
   saleDate        DateTime      @default(now())
   notes           String?
+  status          SaleStatus    @default(COMPLETED)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
@@ -315,4 +317,15 @@ enum InventoryNote {
   NO_BOX
   REP_BOX
   FLAWED
+}
+
+enum SaleStatus {
+  COMPLETED
+  RETURNED
+}
+
+enum StoreInventoryStatus {
+  IN_STOCK
+  SOLD
+  RETURNED
 }

@@ -17,7 +17,7 @@ const generateStoreSku = async (store: any) => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { inventoryItemId, storeId, transferCost, notes } = body;
+    const { inventoryItemId, storeId, transferCost, storeSku, notes } = body;
 
     if (!inventoryItemId || !storeId) {
       return NextResponse.json(
@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!transferCost || transferCost <= 0) {
+    if (transferCost === undefined || transferCost === null) {
       return NextResponse.json(
-        { error: 'Valid transfer cost is required' },
+        { error: 'Transfer cost is required' },
         { status: 400 }
       );
     }
@@ -48,12 +48,7 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-    if (!store.storeSkuBase) {
-      return NextResponse.json(
-        { error: 'Store does not have a SKU base configured', code: 'MISSING_STORE_SKU_BASE' },
-        { status: 400 }
-      );
-    }
+    // Store SKU is completely optional - no validation required
 
     // Check if inventory item exists in warehouse and is not deleted
     const warehouseItem = await prisma.inventoryItem.findFirst({
@@ -108,17 +103,14 @@ export async function POST(request: NextRequest) {
           }
         });
       } else {
-        // Generate store SKU for new inventory
-        const storeSku = await generateStoreSku(store);
-        
-        // Create new store inventory record
+        // Create new store inventory record - store SKU is optional
         storeInventory = await tx.storeInventory.create({
           data: {
             storeId,
             inventoryItemId,
             quantity: 1, // Always 1 since we have 1 item per record
             transferCost: parseFloat(transferCost),
-            storeSku
+            storeSku: storeSku || null // Use provided SKU or null
           }
         });
       }

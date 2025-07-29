@@ -6,6 +6,7 @@ import { Card } from '@/components/Card';
 import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import TransferToStoreModal from '@/components/TransferToStoreModal';
+import AddSaleModal from '@/components/AddSaleModal';
 import { useInventory } from '@/hooks';
 
 interface Store {
@@ -29,6 +30,7 @@ interface StoreInventoryItem {
   quantity: number;
   transferCost: number;
   storeSku?: string;
+  status: string;
   createdAt: string;
   updatedAt: string;
   inventoryItem: {
@@ -59,7 +61,7 @@ interface StoreInventoryItem {
 export default function StoreInventoryPage() {
   const { getAuthToken } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState('ALL');
   const [inventory, setInventory] = useState<StoreInventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -77,6 +79,15 @@ export default function StoreInventoryPage() {
   const [editValues, setEditValues] = useState<{ cost: string; quantity: string }>({ cost: '', quantity: '' });
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  
+  // Row selection states
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showAddSaleModal, setShowAddSaleModal] = useState(false);
+  const [isAddingSale, setIsAddingSale] = useState(false);
+  const [isRowSaving, setIsRowSaving] = useState(false);
+  const [isDeletingItem, setIsDeletingItem] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -319,6 +330,125 @@ export default function StoreInventoryPage() {
     setOpenDropdown(itemId);
   };
 
+  // Row selection functions
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const availableItems = filteredInventory.filter(item => item.quantity > 0);
+    const selectedAvailableItems = availableItems.filter(item => selectedItems.has(item.id));
+    
+    if (selectedAvailableItems.length === availableItems.length && availableItems.length > 0) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(availableItems.map(item => item.id)));
+    }
+  };
+
+  const getSelectedInventoryItems = () => {
+    return inventory.filter(item => selectedItems.has(item.id));
+  };
+
+  // Filter inventory based on search term and status
+  const filteredInventory = inventory.filter(item => {
+    // Status filter
+    if (statusFilter !== 'ALL' && item.status !== statusFilter) {
+      return false;
+    }
+    
+    // Search filter
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      item.inventoryItem.stocklabSku?.toLowerCase().includes(searchLower) ||
+      item.storeSku?.toLowerCase().includes(searchLower) ||
+      item.inventoryItem.sku.toLowerCase().includes(searchLower) ||
+      item.inventoryItem.product.brand.toLowerCase().includes(searchLower) ||
+      item.inventoryItem.product.name.toLowerCase().includes(searchLower) ||
+      item.inventoryItem.product.sku.toLowerCase().includes(searchLower) ||
+      item.inventoryItem.size.toLowerCase().includes(searchLower) ||
+      item.inventoryItem.condition.toLowerCase().includes(searchLower) ||
+      item.store?.name.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const handleBulkAddSale = async (saleItems: any[]) => {
+    setIsAddingSale(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      // Process each sale item
+      for (const saleItem of saleItems) {
+        const res = await fetch('/api/sales', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(saleItem),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to add sale');
+        }
+      }
+
+      // Refresh inventory data
+      if (selectedStoreId) {
+        const fetchInventory = async () => {
+          setLoading(true);
+          try {
+            const token = await getAuthToken();
+            if (!token) {
+              setInventory([]);
+              return;
+            }
+
+            const response = await fetch(`/api/stores/inventory${selectedStoreId === 'ALL' ? '' : `?storeId=${selectedStoreId}`}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              setInventory(Array.isArray(data) ? data : []);
+            } else {
+              setInventory([]);
+            }
+          } catch (error) {
+            setInventory([]);
+          } finally {
+            setLoading(false);
+          }
+        };
+        fetchInventory();
+      }
+
+      // Clear selection
+      setSelectedItems(new Set());
+      setShowAddSaleModal(false);
+    } catch (error) {
+      console.error('Error adding bulk sales:', error);
+    } finally {
+      setIsAddingSale(false);
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -332,38 +462,58 @@ export default function StoreInventoryPage() {
   return (
     <Layout>
       <div>
-        <h1 className="text-2xl font-bold mb-6">Store Inventory</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Store Inventory</h1>
+          <button 
+            onClick={exportToCSV}
+            disabled={isExporting || !selectedStoreId}
+            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isExporting ? 'Exporting...' : 'Export CSV'}
+          </button>
+        </div>
         <Card>
-          <div className="p-6 flex items-center justify-between">
+          <div className="p-6 space-y-4">
             <div className="flex items-center gap-4">
-              <label htmlFor="store-select" className="font-medium">Select Store:</label>
-              <select
-                id="store-select"
-                value={selectedStoreId}
-                onChange={e => setSelectedStoreId(e.target.value)}
-                className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="">-- Choose a store --</option>
-                <option value="ALL">ALL Stores</option>
-                {Array.isArray(stores) && stores.map(store => (
-                  <option key={store.id} value={store.id}>{store.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowAddStoreModal(true)}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                + Add Store
-              </button>
-              <button 
-                onClick={exportToCSV}
-                disabled={isExporting || !selectedStoreId}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isExporting ? 'Exporting...' : 'Export CSV'}
-              </button>
+              <div className="flex-1">
+                <label htmlFor="search-input" className="block text-sm font-medium mb-1">Search Inventory:</label>
+                <input
+                  id="search-input"
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by SKU, brand, name, size, condition, or store..."
+                  className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label htmlFor="status-filter" className="block text-sm font-medium mb-1">Status:</label>
+                <select
+                  id="status-filter"
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="IN_STOCK">In Stock</option>
+                  <option value="SOLD">Sold</option>
+                  <option value="RETURNED">Returned</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="store-select" className="block text-sm font-medium mb-1">Select Store:</label>
+                <select
+                  id="store-select"
+                  value={selectedStoreId}
+                  onChange={e => setSelectedStoreId(e.target.value)}
+                  className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="ALL">ALL Stores</option>
+                  {Array.isArray(stores) && stores.map(store => (
+                    <option key={store.id} value={store.id}>{store.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </Card>
@@ -371,12 +521,22 @@ export default function StoreInventoryPage() {
         {selectedStoreId && (
           <Card>
             <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4">
-                {selectedStoreId === 'ALL' 
-                  ? 'Inventory for All Stores' 
-                  : `Inventory for ${stores.find(s => s.id === selectedStoreId)?.name}`
-                }
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">
+                  {selectedStoreId === 'ALL' 
+                    ? 'Inventory for All Stores' 
+                    : `Inventory for ${stores.find(s => s.id === selectedStoreId)?.name}`
+                  }
+                </h2>
+                {selectedItems.size > 0 && (
+                  <button
+                    onClick={() => setShowAddSaleModal(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Add Sale ({selectedItems.size} selected)
+                  </button>
+                )}
+              </div>
               {loading ? (
                 <div>Loading...</div>
               ) : (
@@ -384,6 +544,18 @@ export default function StoreInventoryPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
+                        <th className="text-left py-3 px-4 font-medium text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={(() => {
+                              const availableItems = filteredInventory.filter(item => item.quantity > 0);
+                              const selectedAvailableItems = availableItems.filter(item => selectedItems.has(item.id));
+                              return selectedAvailableItems.length === availableItems.length && availableItems.length > 0;
+                            })()}
+                            onChange={toggleSelectAll}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                        </th>
                         {selectedStoreId === 'ALL' && (
                           <th className="text-left py-3 px-4 font-medium text-foreground">Store</th>
                         )}
@@ -391,24 +563,39 @@ export default function StoreInventoryPage() {
                         <th className="text-left py-3 px-4 font-medium text-foreground">Store SKU</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground w-80">Product</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
+
                         <th className="text-center py-3 px-4 font-medium text-foreground">Status</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Warehouse Cost</th>
-                        <th className="text-left py-3 px-4 font-medium text-foreground">Payout</th>
+
                         <th className="text-left py-3 px-4 font-medium text-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {inventory.length === 0 ? (
+                      {filteredInventory.length === 0 ? (
                         <tr>
                           <td colSpan={selectedStoreId === 'ALL' ? 11 : 10} className="text-center py-8 text-muted-foreground">
-                            {selectedStoreId === 'ALL' ? 'No inventory found across all stores.' : 'No inventory found for this store.'}
+                            {searchTerm 
+                              ? `No inventory found matching "${searchTerm}".` 
+                              : selectedStoreId === 'ALL' 
+                                ? 'No inventory found across all stores.' 
+                                : 'No inventory found for this store.'
+                            }
                           </td>
                         </tr>
                       ) : (
-                        inventory.map(item => (
+                        filteredInventory.map(item => (
                           <tr key={item.id} className="border-b border-muted hover:bg-accent">
+                            <td className="py-2 px-4 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={selectedItems.has(item.id)}
+                                onChange={() => toggleItemSelection(item.id)}
+                                disabled={item.quantity === 0}
+                                className="rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                            </td>
                             {selectedStoreId === 'ALL' && (
                               <td className="py-2 px-4 text-sm">
                                 <span className="font-medium text-blue-600">{item.store?.name || 'Unknown Store'}</span>
@@ -423,27 +610,24 @@ export default function StoreInventoryPage() {
                             <td className="py-2 px-4 text-sm w-80">
                               <div>
                                 <p className="font-medium text-foreground">{item.inventoryItem.product.brand}</p>
-                                <p className="text-xs text-muted-foreground">{item.inventoryItem.product.name}</p>
-                                <p className="text-xs text-muted-foreground">{item.inventoryItem.product.sku}</p>
+                                <p className="font-medium text-foreground">{item.inventoryItem.product.name}</p>
+                                <p className="font-medium text-foreground">{item.inventoryItem.product.sku}</p>
                               </div>
                             </td>
                             <td className="py-2 px-4 text-sm">
                               <span className="font-mono">{item.inventoryItem.sku}</span>
                             </td>
+
                             <td className="py-2 px-4 text-sm text-center">
-                              {editingRowId === item.id ? (
-                                <input
-                                  type="number"
-                                  name="quantity"
-                                  value={editValues.quantity}
-                                  onChange={handleEditChange}
-                                  className="w-20 px-2 py-1 border rounded"
-                                />
-                              ) : (
-                                <span className={`font-medium ${item.quantity === 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                  {item.quantity === 0 ? 'SOLD' : 'In Stock'}
-                                </span>
-                              )}
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                item.status === 'IN_STOCK' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : item.status === 'SOLD'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {item.status === 'IN_STOCK' ? 'IN STOCK' : item.status}
+                              </span>
                             </td>
                             <td className="py-2 px-4 text-sm">
                               <span>{item.inventoryItem.size}</span>
@@ -454,20 +638,7 @@ export default function StoreInventoryPage() {
                             <td className="py-2 px-4 text-sm">
                               <span className="font-mono">${item.inventoryItem.cost}</span>
                             </td>
-                            <td className="py-2 px-4 text-sm">
-                             {editingRowId === item.id ? (
-                               <input
-                                 type="number"
-                                 name="cost"
-                                 value={editValues.cost}
-                                 onChange={handleEditChange}
-                                 className="w-24 px-2 py-1 border rounded"
-                                 step="0.01"
-                               />
-                             ) : (
-                               <span className="font-mono font-medium text-blue-600">${item.transferCost}</span>
-                             )}
-                            </td>
+
                             <td className="py-2 px-4 text-sm">
                              {editingRowId === item.id ? (
                                <div className="flex gap-2">
@@ -626,6 +797,59 @@ export default function StoreInventoryPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Add Sale Modal */}
+      {showAddSaleModal && (
+        <AddSaleModal
+          isOpen={showAddSaleModal}
+          onClose={() => setShowAddSaleModal(false)}
+          onSubmit={handleBulkAddSale}
+          stores={stores}
+          fetchInventory={async (storeId: string) => {
+            const token = await getAuthToken();
+            if (!token) return [];
+            
+            const response = await fetch(`/api/stores/inventory?storeId=${storeId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              return Array.isArray(data) ? data.map((item: any) => item.inventoryItem) : [];
+            }
+            return [];
+          }}
+          getAuthToken={getAuthToken}
+          isLoading={isAddingSale}
+          preSelectedItems={getSelectedInventoryItems().map(item => ({
+            id: item.id,
+            storeId: item.storeId,
+            inventoryItemId: item.inventoryItemId,
+            cost: item.inventoryItem.cost,
+            payout: item.inventoryItem.cost,
+            discount: 0,
+            quantity: 1,
+            notes: '',
+            selectedStore: item.store || null,
+            selectedItem: {
+              id: item.inventoryItem.id,
+              sku: item.inventoryItem.sku,
+              stocklabSku: item.inventoryItem.stocklabSku,
+              size: item.inventoryItem.size,
+              condition: item.inventoryItem.condition,
+              cost: item.inventoryItem.cost,
+              product: {
+                id: item.inventoryItem.product.id,
+                brand: item.inventoryItem.product.brand,
+                name: item.inventoryItem.product.name,
+                sku: item.inventoryItem.product.sku,
+              },
+              quantity: item.quantity,
+            },
+            skuDisplay: item.inventoryItem.sku,
+          }))}
+        />
       )}
     </Layout>
   );

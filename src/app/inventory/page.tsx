@@ -5,12 +5,14 @@ import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { StockInIcon, EditIcon, DeleteIcon, MoreIcon } from '@/utils/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { EditModal } from '@/components/EditModal';
+
 import AddInventoryModal from '@/components/AddInventoryModal';
 import EditInventoryModal from '@/components/EditInventoryModal';
-import TransferToStoreModal from '@/components/TransferToStoreModal';
-import { useInventory, useUpdateInventoryQuantity } from '@/hooks';
+import BulkTransferModal from '@/components/BulkTransferModal';
+import { useInventory } from '@/hooks';
 import { useSettings } from '@/contexts/SettingsContext';
+import PromptModal from '@/components/PromptModal';
+import Toast from '@/components/Toast';
 
 interface Product {
   id: string;
@@ -45,17 +47,14 @@ interface InventoryItem {
 
 export default function Inventory() {
   const { data: inventory, isLoading, isError, mutate } = useInventory();
-  const { updateQuantity, isLoading: isUpdating } = useUpdateInventoryQuantity();
   const { settings } = useSettings();
   const { getAuthToken } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
   const [showEditInventoryModal, setShowEditInventoryModal] = useState(false);
-  const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [isTransferring, setIsTransferring] = useState(false);
@@ -63,6 +62,12 @@ export default function Inventory() {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ size: string; condition: string; note: string; cost: string }>({ size: '', condition: '', note: '', cost: '' });
   const [isRowSaving, setIsRowSaving] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showBulkTransferModal, setShowBulkTransferModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedItemToDelete, setSelectedItemToDelete] = useState<InventoryItem | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   const filteredInventory = inventory.filter((item: InventoryItem) => {
@@ -141,10 +146,55 @@ export default function Inventory() {
     }
   };
 
-  const handleEditQuantity = (item: InventoryItem) => {
-    setSelectedItem(item);
-    setEditModalOpen(true);
+  const handleDeleteItem = (item: InventoryItem) => {
+    setSelectedItemToDelete(item);
+    setShowDeleteModal(true);
     setOpenDropdown(null);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!selectedItemToDelete) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`/api/inventory/${selectedItemToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Refresh the inventory data
+        mutate();
+        setShowDeleteModal(false);
+        setSelectedItemToDelete(null);
+        
+        // Show success message with warning if present
+        if (result.warning) {
+          setToast({ type: 'success', message: `Item deleted successfully. ${result.warning}` });
+        } else {
+          setToast({ type: 'success', message: 'Item deleted successfully.' });
+        }
+      } else {
+        const errorData = await response.json();
+        setToast({ type: 'error', message: `Failed to delete item: ${errorData.error || 'Unknown error'}` });
+      }
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
+      setToast({ type: 'error', message: 'Failed to delete inventory item' });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleEditInventory = (item: InventoryItem) => {
@@ -228,7 +278,7 @@ export default function Inventory() {
   }, [getAuthToken]);
 
   const handleTransferToStore = async (transferData: {
-    items: Array<{ inventoryItemId: string; transferCost: number }>;
+    items: Array<{ inventoryItemId: string; transferCost: number; storeSku?: string }>;
     storeId: string;
     notes?: string;
   }) => {
@@ -251,6 +301,7 @@ export default function Inventory() {
             inventoryItemId: item.inventoryItemId,
             storeId: transferData.storeId,
             transferCost: item.transferCost,
+            storeSku: item.storeSku,
             notes: transferData.notes
           }),
         });
@@ -263,7 +314,8 @@ export default function Inventory() {
 
       // Refresh inventory data
       mutate();
-      setShowTransferModal(false);
+      setShowBulkTransferModal(false);
+      setSelectedItems(new Set()); // Clear selection after successful transfer
     } catch (error) {
       console.error('Transfer failed:', error);
     } finally {
@@ -323,6 +375,39 @@ export default function Inventory() {
     setOpenDropdown(itemId);
   };
 
+  // Checkbox selection functions
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === filteredInventory.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredInventory.map((item: InventoryItem) => item.id)));
+    }
+  };
+
+  const getSelectedInventoryItems = () => {
+    return filteredInventory.filter((item: InventoryItem) => selectedItems.has(item.id));
+  };
+
+  const handleRemoveFromSelection = (itemId: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(itemId);
+      return newSet;
+    });
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -372,10 +457,11 @@ export default function Inventory() {
           </div>
           <div className="flex space-x-3">
             <button 
-              onClick={() => setShowTransferModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => setShowBulkTransferModal(true)}
+              disabled={selectedItems.size === 0}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Transfer to Store
+              Transfer to Store {selectedItems.size > 0 && `(${selectedItems.size} selected)`}
             </button>
             <button 
               onClick={exportToCSV}
@@ -420,6 +506,14 @@ export default function Inventory() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 font-medium text-foreground w-8">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.size === filteredInventory.length && filteredInventory.length > 0}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 text-primary focus:ring-primary border-input rounded"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">SL SKU</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground w-80">Product</th>
                     <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
@@ -434,13 +528,21 @@ export default function Inventory() {
                   {filteredInventory.map((item: InventoryItem) => (
                     <tr key={item.id} className="border-b border-muted hover:bg-accent">
                       <td className="py-3 px-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(item.id)}
+                          onChange={() => toggleItemSelection(item.id)}
+                          className="h-4 w-4 text-primary focus:ring-primary border-input rounded"
+                        />
+                      </td>
+                      <td className="py-3 px-4">
                         <span className="font-mono text-sm text-blue-600">{item.stocklabSku || 'N/A'}</span>
                       </td>
                       <td className="py-3 px-4 w-80">
                         <div>
                           <p className="font-medium text-foreground">{item.product?.brand}</p>
-                          <p className="text-sm text-muted-foreground">{item.product?.name}</p>
-                          <p className="text-xs text-muted-foreground">{item.product?.sku}</p>
+                          <p className="font-medium text-foreground">{item.product?.name}</p>
+                          <p className="font-medium text-foreground">{item.product?.sku}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -591,15 +693,14 @@ export default function Inventory() {
                   onClick={(e) => {
                     e.stopPropagation();
                     const item = filteredInventory.find((item: InventoryItem) => item.id === openDropdown);
-                    if (item) handleEditQuantity(item);
+                    if (item) handleDeleteItem(item);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
-                  disabled={isUpdating}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                 >
-                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  Edit Quantity
+                  Delete Item
                 </button>
               </div>
             </div>
@@ -621,15 +722,66 @@ export default function Inventory() {
           inventoryItem={selectedInventoryItem}
         /> */}
 
-        {/* Transfer to Store Modal */}
-        <TransferToStoreModal
-          isOpen={showTransferModal}
-          onClose={() => setShowTransferModal(false)}
+        {/* Bulk Transfer Modal */}
+        <BulkTransferModal
+          isOpen={showBulkTransferModal}
+          onClose={() => setShowBulkTransferModal(false)}
           onSubmit={handleTransferToStore}
+          onRemoveItem={handleRemoveFromSelection}
           isLoading={isTransferring}
-          inventoryItems={filteredInventory}
+          selectedItems={getSelectedInventoryItems()}
           stores={stores}
         />
+
+        {/* Delete Confirmation Modal */}
+        <PromptModal
+          show={showDeleteModal}
+          title="Delete Inventory Item"
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedItemToDelete(null);
+          }}
+        >
+          <div className="space-y-4">
+            <p>
+              Are you sure you want to delete this inventory item? This action cannot be undone.
+              {selectedItemToDelete && (
+                <span className="block mt-2 text-sm text-muted-foreground">
+                  Item: {selectedItemToDelete.product?.brand} {selectedItemToDelete.product?.name} - {selectedItemToDelete.sku}
+                </span>
+              )}
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedItemToDelete(null);
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={confirmDeleteItem}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </PromptModal>
+
+        {/* Toast */}
+        {toast && (
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            isVisible={true}
+            onClose={() => setToast(null)}
+          />
+        )}
       </div>
     </Layout>
   );

@@ -405,7 +405,7 @@ export default function AddTransactionModal({
                         <div className="font-medium text-sm text-foreground">
                           {item.stocklabSku || item.sku}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="font-medium text-foreground">
                           {item.product.brand} {item.product.name} - {item.size} ({item.condition})
                         </div>
                         <div className="text-xs text-muted-foreground">

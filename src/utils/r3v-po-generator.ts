@@ -5,7 +5,7 @@ export async function generateR3VPurchaseOrderNumber(): Promise<string> {
   const lastPurchaseOrder = await prisma.purchaseOrder.findFirst({
     where: {
       r3vPurchaseOrderNumber: {
-        startsWith: 'R3V',
+        startsWith: 'R3VPO',
       },
     },
     orderBy: {
@@ -15,13 +15,13 @@ export async function generateR3VPurchaseOrderNumber(): Promise<string> {
 
   let nextNumber = 1;
   if (lastPurchaseOrder?.r3vPurchaseOrderNumber) {
-    // Extract the number from the last R3V P.O. number (e.g., "R3V-0001" -> 1)
-    const match = lastPurchaseOrder.r3vPurchaseOrderNumber.match(/R3V-(\d+)/);
+    // Extract the number from the last R3V P.O. number (e.g., "R3VPO1" -> 1)
+    const match = lastPurchaseOrder.r3vPurchaseOrderNumber.match(/R3VPO(\d+)/);
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
     }
   }
 
-  // Format as R3V-XXXX (4-digit zero-padded number)
-  return `R3V-${nextNumber.toString().padStart(4, '0')}`;
+  // Format as R3VPO1, R3VPO2, etc.
+  return `R3VPO${nextNumber}`;
 } 

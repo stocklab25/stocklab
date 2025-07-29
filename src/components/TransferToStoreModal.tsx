@@ -55,9 +55,7 @@ export default function TransferToStoreModal({
 
   // Auto-populate transfer cost for newly selected items
   const addItemWithDefaultCost = (item: typeof inventoryItems[0]) => {
-    const markup = parseFloat(item.cost.toString()) * 0.1;
-    const suggestedCost = parseFloat(item.cost.toString()) + markup;
-    return { id: item.id, transferCost: suggestedCost.toFixed(2) };
+    return { id: item.id, transferCost: "0" };
   };
 
   // Filter items based on SKU search
@@ -139,7 +137,7 @@ export default function TransferToStoreModal({
       await onSubmit({
         items: selectedItems.map(item => ({
           inventoryItemId: item.id,
-          transferCost: parseFloat(item.transferCost)
+          transferCost: 0
         })),
         storeId: selectedStore,
         notes: notes.trim() || undefined
@@ -216,7 +214,7 @@ export default function TransferToStoreModal({
                         <div className="font-medium text-sm text-foreground">
                           {item.stocklabSku || item.sku}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="font-medium text-foreground">
                           {item.product.brand} {item.product.name} - {item.size} ({item.condition})
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -276,7 +274,7 @@ export default function TransferToStoreModal({
                           <div className="font-medium text-sm">
                             {itemData?.stocklabSku || itemData?.sku}
                           </div>
-                          <div className="text-xs text-gray-600">
+                          <div className="font-medium text-foreground">
                             {itemData?.product.brand} {itemData?.product.name} - {itemData?.size} ({itemData?.condition})
                           </div>
                           <div className="text-xs text-gray-500">
@@ -284,23 +282,6 @@ export default function TransferToStoreModal({
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.transferCost}
-                            onChange={(e) => {
-                              setSelectedItems(prev => 
-                                prev.map((selectedItem, i) => 
-                                  i === index 
-                                    ? { ...selectedItem, transferCost: e.target.value }
-                                    : selectedItem
-                                )
-                              );
-                            }}
-                            className="w-20 px-2 py-1 border rounded text-sm"
-                            placeholder="Cost"
-                          />
                           <button
                             type="button"
                             onClick={() => {

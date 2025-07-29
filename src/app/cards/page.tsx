@@ -22,10 +22,36 @@ export default function CardsPage() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
 
+  // Row editing states
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{
+    name: string;
+    last4: string;
+    bank: string;
+    type: string;
+  }>({
+    name: '',
+    last4: '',
+    bank: '',
+    type: '',
+  });
+  const [isRowSaving, setIsRowSaving] = useState(false);
+
   useEffect(() => {
     fetchCards();
     // eslint-disable-next-line
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (target.closest('.dropdown-menu')) return;
+      if (openDropdown) setOpenDropdown(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdown]);
 
   const fetchCards = async () => {
     setLoading(true);
@@ -90,6 +116,84 @@ export default function CardsPage() {
     }
   };
 
+  // Row editing functions
+  const handleEditClick = (card: any) => {
+    setEditingRowId(card.id);
+    setEditValues({
+      name: card.name || '',
+      last4: card.last4 || '',
+      bank: card.bank || '',
+      type: card.type || '',
+    });
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditValues({ ...editValues, [e.target.name]: e.target.value });
+  };
+
+  const handleEditCancel = () => {
+    setEditingRowId(null);
+    setEditValues({
+      name: '',
+      last4: '',
+      bank: '',
+      type: '',
+    });
+  };
+
+  const handleEditSave = async (card: any) => {
+    setIsRowSaving(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const res = await fetch(`/api/cards/${card.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: editValues.name,
+          last4: editValues.last4,
+          bank: editValues.bank,
+          type: editValues.type,
+        }),
+      });
+
+      if (res.ok) {
+        // Update local state
+        setCards(prev => prev.map(item => 
+          item.id === card.id 
+            ? {
+                ...item,
+                name: editValues.name,
+                last4: editValues.last4,
+                bank: editValues.bank,
+                type: editValues.type,
+              }
+            : item
+        ));
+        setEditingRowId(null);
+        setEditValues({
+          name: '',
+          last4: '',
+          bank: '',
+          type: '',
+        });
+      } else {
+        const data = await res.json();
+        console.error('Failed to update card:', data.error);
+      }
+    } catch (error) {
+      console.error('Error updating card:', error);
+    } finally {
+      setIsRowSaving(false);
+    }
+  };
+
   const handleDeleteCard = async () => {
     if (!cardToDelete) return;
     
@@ -123,19 +227,17 @@ export default function CardsPage() {
   };
 
   const toggleDropdown = (cardId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
     if (openDropdown === cardId) {
       setOpenDropdown(null);
-      setCardToDelete(null);
-    } else {
-      const rect = event.currentTarget.getBoundingClientRect();
-      setDropdownPosition({
-        x: rect.right - 192, // 192px is the width of the dropdown (w-48)
-        y: rect.bottom + 8
-      });
-      setOpenDropdown(cardId);
-      const card = cards.find((c) => c.id === cardId);
-      setCardToDelete(card || null);
+      return;
     }
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDropdownPosition({
+      x: rect.right - 192,
+      y: rect.bottom + 5
+    });
+    setOpenDropdown(cardId);
   };
 
   return (
@@ -176,23 +278,99 @@ export default function CardsPage() {
                   <TableBody>
                     {cards.map((card) => (
                       <TableRow key={card.id}>
-                        <TableCell>{card.name}</TableCell>
-                        <TableCell>{card.last4 || '-'}</TableCell>
-                        <TableCell>{card.bank || '-'}</TableCell>
-                        <TableCell>{card.type || '-'}</TableCell>
-                        <TableCell>{new Date(card.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="relative">
+                        <TableCell>
+                          {editingRowId === card.id ? (
+                            <input
+                              type="text"
+                              name="name"
+                              value={editValues.name}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            card.name
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === card.id ? (
+                            <input
+                              type="text"
+                              name="last4"
+                              value={editValues.last4}
+                              onChange={handleEditChange}
+                              maxLength={4}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            card.last4 || '-'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === card.id ? (
+                            <input
+                              type="text"
+                              name="bank"
+                              value={editValues.bank}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            card.bank || '-'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === card.id ? (
+                            <input
+                              type="text"
+                              name="type"
+                              value={editValues.type}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            card.type || '-'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(card.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === card.id ? (
+                            <div className="flex gap-2">
+                              <button
+                                className="px-2 py-1 bg-primary text-white rounded flex items-center justify-center text-sm"
+                                onClick={() => handleEditSave(card)}
+                                disabled={isRowSaving}
+                              >
+                                {isRowSaving ? (
+                                  <svg className="animate-spin h-4 w-4 mr-2 text-white" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                  </svg>
+                                ) : null}
+                                {isRowSaving ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                className="px-2 py-1 bg-gray-300 text-gray-800 rounded text-sm"
+                                onClick={handleEditCancel}
+                                disabled={isRowSaving}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
                             <button
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
                               onClick={(e) => toggleDropdown(card.id, e)}
-                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
                               disabled={isDeleting}
                             >
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="6" r="1.5" />
+                                <circle cx="12" cy="12" r="1.5" />
+                                <circle cx="12" cy="18" r="1.5" />
                               </svg>
                             </button>
-                          </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -302,7 +480,7 @@ export default function CardsPage() {
               onClick={() => setOpenDropdown(null)}
             />
             <div 
-              className="fixed z-50 bg-white rounded-md shadow-lg border border-gray-200 w-48"
+              className="fixed z-50 bg-white rounded-md shadow-lg border border-gray-200 w-48 dropdown-menu"
               style={{
                 left: `${dropdownPosition.x}px`,
                 top: `${dropdownPosition.y}px`
@@ -310,16 +488,30 @@ export default function CardsPage() {
             >
               <div className="py-1">
                 <button
-                  onClick={() => {
-                    setShowDeleteModal(true);
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const card = cards.find((item) => item.id === openDropdown);
+                    if (card) handleEditClick(card);
+                    setOpenDropdown(null);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                  disabled={isRowSaving}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const card = cards.find((item) => item.id === openDropdown);
+                    if (card) {
+                      setCardToDelete(card);
+                      setShowDeleteModal(true);
+                    }
                     setOpenDropdown(null);
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                  disabled={isDeleting}
+                  disabled={isRowSaving}
                 >
-                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
                   Delete
                 </button>
               </div>

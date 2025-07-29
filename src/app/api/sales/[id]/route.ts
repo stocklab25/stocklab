@@ -48,7 +48,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { cost, payout, discount, notes } = body;
+    const { cost, payout, discount, notes, status } = body;
 
     // Check if sale exists
     const existingSale = await prisma.sale.findFirst({
@@ -73,6 +73,7 @@ export async function PUT(
         payout: payout ? parseFloat(payout) : undefined,
         discount: discount !== undefined ? (discount ? parseFloat(discount) : null) : undefined,
         notes,
+        ...(status !== undefined && { status }),
         updatedAt: new Date(),
       },
       include: {

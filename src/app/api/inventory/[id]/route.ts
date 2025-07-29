@@ -165,12 +165,12 @@ export async function DELETE(
       );
     }
 
-    // Check if inventory item has active transactions or sales
-    if (existingItem.stockTransactions.length > 0 || existingItem.sales.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete inventory item with active transactions or sales' },
-        { status: 400 }
-      );
+    // Check if inventory item has active transactions or sales (for warning purposes)
+    const hasActiveTransactions = existingItem.stockTransactions.length > 0 || existingItem.sales.length > 0;
+    let warningMessage = '';
+    
+    if (hasActiveTransactions) {
+      warningMessage = 'Warning: This item has active transactions or sales. Deleting it may affect data integrity.';
     }
 
     if (isHardDelete) {
@@ -181,7 +181,8 @@ export async function DELETE(
       
       return NextResponse.json({
         success: true,
-        message: 'Inventory item permanently deleted'
+        message: 'Inventory item permanently deleted',
+        warning: warningMessage
       });
     } else {
       // Soft delete (archive) - just set deletedAt timestamp
@@ -196,7 +197,8 @@ export async function DELETE(
       return NextResponse.json({
         data: deletedItem,
         success: true,
-        message: 'Inventory item archived successfully'
+        message: 'Inventory item archived successfully',
+        warning: warningMessage
       });
     }
   } catch (error) {

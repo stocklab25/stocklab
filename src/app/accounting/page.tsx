@@ -35,9 +35,39 @@ export default function AccountingPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Row editing states
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{
+    transactionDate: string;
+    name: string;
+    description: string;
+    accountType: string;
+    amount: string;
+  }>({
+    transactionDate: '',
+    name: '',
+    description: '',
+    accountType: '',
+    amount: '',
+  });
+  const [isRowSaving, setIsRowSaving] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
   useEffect(() => {
     fetchAccounting();
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (target.closest('.dropdown-menu')) return;
+      if (openDropdown) setOpenDropdown(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdown]);
 
   const fetchAccounting = async () => {
     setLoading(true);
@@ -111,6 +141,131 @@ export default function AccountingPage() {
     }
   };
 
+  // Row editing functions
+  const handleEditClick = (entry: AccountingEntry) => {
+    setEditingRowId(entry.id);
+    setEditValues({
+      transactionDate: entry.transactionDate ? entry.transactionDate.split('T')[0] : '',
+      name: entry.name || '',
+      description: entry.description || '',
+      accountType: entry.accountType || '',
+      amount: entry.amount?.toString() || '',
+    });
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setEditValues({ ...editValues, [e.target.name]: e.target.value });
+  };
+
+  const handleEditCancel = () => {
+    setEditingRowId(null);
+    setEditValues({
+      transactionDate: '',
+      name: '',
+      description: '',
+      accountType: '',
+      amount: '',
+    });
+  };
+
+  const handleEditSave = async (entry: AccountingEntry) => {
+    setIsRowSaving(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const res = await fetch(`/api/accounting/${entry.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          transactionDate: editValues.transactionDate,
+          name: editValues.name,
+          description: editValues.description,
+          accountType: editValues.accountType,
+          amount: parseFloat(editValues.amount),
+        }),
+      });
+
+      if (res.ok) {
+        // Update local state
+        setAccounting(prev => prev.map(item => 
+          item.id === entry.id 
+            ? {
+                ...item,
+                transactionDate: editValues.transactionDate,
+                name: editValues.name,
+                description: editValues.description,
+                accountType: editValues.accountType as 'RECEIVABLE' | 'PAYABLE',
+                amount: editValues.amount,
+              }
+            : item
+        ));
+        setEditingRowId(null);
+        setEditValues({
+          transactionDate: '',
+          name: '',
+          description: '',
+          accountType: '',
+          amount: '',
+        });
+      } else {
+        const data = await res.json();
+        console.error('Failed to update accounting entry:', data.error);
+      }
+    } catch (error) {
+      console.error('Error updating accounting entry:', error);
+    } finally {
+      setIsRowSaving(false);
+    }
+  };
+
+  const handleDelete = async (entry: AccountingEntry) => {
+    if (!window.confirm('Are you sure you want to delete this accounting entry?')) return;
+    
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const res = await fetch(`/api/accounting/${entry.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        setAccounting(prev => prev.filter(item => item.id !== entry.id));
+      } else {
+        const data = await res.json();
+        console.error('Failed to delete accounting entry:', data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting accounting entry:', error);
+    }
+  };
+
+  const toggleDropdown = (entryId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (openDropdown === entryId) {
+      setOpenDropdown(null);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDropdownPosition({
+      x: rect.right - 192,
+      y: rect.bottom + 5
+    });
+    setOpenDropdown(entryId);
+  };
+
   // Calculate totals
   const totalReceivables = accounting
     .filter(entry => entry.accountType === 'RECEIVABLE')
@@ -176,32 +331,131 @@ export default function AccountingPage() {
                       <TableHead>Description</TableHead>
                       <TableHead>Account Type</TableHead>
                       <TableHead>Amount</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {accounting.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>
-                          {entry.transactionDate ? new Date(entry.transactionDate).toLocaleDateString() : ''}
+                          {editingRowId === entry.id ? (
+                            <input
+                              type="date"
+                              name="transactionDate"
+                              value={editValues.transactionDate}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            entry.transactionDate ? new Date(entry.transactionDate).toLocaleDateString() : ''
+                          )}
                         </TableCell>
-                        <TableCell className="font-medium">{entry.name}</TableCell>
-                        <TableCell>{entry.description}</TableCell>
                         <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            entry.accountType === 'RECEIVABLE' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {entry.accountType}
-                          </span>
+                          {editingRowId === entry.id ? (
+                            <input
+                              type="text"
+                              name="name"
+                              value={editValues.name}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            <span className="font-medium">{entry.name}</span>
+                          )}
                         </TableCell>
-                        <TableCell className={`font-medium ${
-                          entry.accountType === 'RECEIVABLE' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {Number(entry.amount).toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD' 
-                          })}
+                        <TableCell>
+                          {editingRowId === entry.id ? (
+                            <input
+                              type="text"
+                              name="description"
+                              value={editValues.description}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            entry.description
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === entry.id ? (
+                            <select
+                              name="accountType"
+                              value={editValues.accountType}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            >
+                              <option value="">Select account type</option>
+                              <option value="RECEIVABLE">Receivable</option>
+                              <option value="PAYABLE">Payable</option>
+                            </select>
+                          ) : (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              entry.accountType === 'RECEIVABLE' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {entry.accountType}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === entry.id ? (
+                            <input
+                              type="number"
+                              name="amount"
+                              value={editValues.amount}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                              step="0.01"
+                              min="0"
+                            />
+                          ) : (
+                            <span className={`font-medium ${
+                              entry.accountType === 'RECEIVABLE' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {Number(entry.amount).toLocaleString('en-US', { 
+                                style: 'currency', 
+                                currency: 'USD' 
+                              })}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === entry.id ? (
+                            <div className="flex gap-2">
+                              <button
+                                className="px-2 py-1 bg-primary text-white rounded flex items-center justify-center text-sm"
+                                onClick={() => handleEditSave(entry)}
+                                disabled={isRowSaving}
+                              >
+                                {isRowSaving ? (
+                                  <svg className="animate-spin h-4 w-4 mr-2 text-white" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                  </svg>
+                                ) : null}
+                                {isRowSaving ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                className="px-2 py-1 bg-gray-300 text-gray-800 rounded text-sm"
+                                onClick={handleEditCancel}
+                                disabled={isRowSaving}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                              onClick={(e) => toggleDropdown(entry.id, e)}
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="6" r="1.5" />
+                                <circle cx="12" cy="12" r="1.5" />
+                                <circle cx="12" cy="18" r="1.5" />
+                              </svg>
+                            </button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -293,6 +547,50 @@ export default function AccountingPage() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Dropdown Menu - Positioned outside table */}
+        {openDropdown && (
+          <>
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setOpenDropdown(null)}
+            />
+            <div 
+              className="fixed z-50 bg-white rounded-md shadow-lg border border-gray-200 w-48 dropdown-menu"
+              style={{
+                left: `${dropdownPosition.x}px`,
+                top: `${dropdownPosition.y}px`
+              }}
+            >
+              <div className="py-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const entry = accounting.find((item) => item.id === openDropdown);
+                    if (entry) handleEditClick(entry);
+                    setOpenDropdown(null);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                  disabled={isRowSaving}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const entry = accounting.find((item) => item.id === openDropdown);
+                    if (entry) handleDelete(entry);
+                    setOpenDropdown(null);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  disabled={isRowSaving}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </PageContainer>
     </Layout>

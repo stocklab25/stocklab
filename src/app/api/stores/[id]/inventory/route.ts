@@ -209,4 +209,82 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+// PUT /api/stores/[id]/inventory - Update store inventory item
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, isValid } = await verifySupabaseAuth(request);
+    if (!isValid || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    const { id: storeInventoryId, transferCost, quantity, status } = body;
+
+    if (!storeInventoryId) {
+      return NextResponse.json(
+        { error: 'Store inventory item ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if store exists and is active
+    const store = await prisma.store.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        status: 'ACTIVE'
+      }
+    });
+
+    if (!store) {
+      return NextResponse.json(
+        { error: 'Store not found or inactive' },
+        { status: 404 }
+      );
+    }
+
+    // Check if store inventory item exists
+    const storeInventoryItem = await prisma.storeInventory.findFirst({
+      where: {
+        id: storeInventoryId,
+        storeId: id,
+        deletedAt: null
+      }
+    });
+
+    if (!storeInventoryItem) {
+      return NextResponse.json(
+        { error: 'Store inventory item not found' },
+        { status: 404 }
+      );
+    }
+
+    // Update the store inventory item
+    const updatedStoreInventory = await prisma.storeInventory.update({
+      where: {
+        id: storeInventoryId
+      },
+      data: {
+        ...(transferCost !== undefined && { transferCost: parseFloat(transferCost) }),
+        ...(quantity !== undefined && { quantity: parseInt(quantity, 10) }),
+        ...(status !== undefined && { status })
+      }
+    });
+
+    return NextResponse.json(updatedStoreInventory);
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to update store inventory item' },
+      { status: 500 }
+    );
+  }
 } 

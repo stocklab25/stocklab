@@ -25,6 +25,8 @@ export default function StoreSalesPage() {
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [storeFilter, setStoreFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const { addSale, isLoading: isAdding } = useAddSale(
     () => {
       setIsModalOpen(false);
@@ -39,6 +41,10 @@ export default function StoreSalesPage() {
   const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ show: boolean; row: any | null }>({ show: false, row: null });
+  
+  // Row selection states for bulk return
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isBulkReturning, setIsBulkReturning] = useState(false);
 
   const handleEditClick = (row: any, sale: any) => {
     setEditingRowId(row.id);
@@ -132,6 +138,112 @@ export default function StoreSalesPage() {
     setOpenDropdown(openDropdown === rowId ? null : rowId);
   };
 
+  // Row selection functions for bulk return
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === filteredSales.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredSales.map((sale: any) => sale.id)));
+    }
+  };
+
+  const getSelectedSales = () => {
+    return filteredSales.filter((sale: any) => selectedItems.has(sale.id));
+  };
+
+  const handleBulkReturn = async () => {
+    setIsBulkReturning(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const selectedSales = getSelectedSales();
+      
+      // Process each sale for return
+      for (const sale of selectedSales) {
+        // 1. Update the sale status to "RETURNED"
+        const updateSaleResponse = await fetch(`/api/sales/${sale.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...sale,
+            status: 'RETURNED',
+          }),
+        });
+
+        if (!updateSaleResponse.ok) {
+          throw new Error(`Failed to update sale ${sale.id}`);
+        }
+
+        // 2. Find and update the existing store inventory item
+        // First, get the store inventory to find the correct item
+        const storeInventoryResponse = await fetch(`/api/stores/inventory?storeId=${sale.storeId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!storeInventoryResponse.ok) {
+          throw new Error(`Failed to fetch store inventory for sale ${sale.id}`);
+        }
+
+        const storeInventory = await storeInventoryResponse.json();
+        const existingInventoryItem = storeInventory.find((item: any) => 
+          item.inventoryItemId === sale.inventoryItemId
+        );
+
+        if (existingInventoryItem) {
+          // Update the existing store inventory item quantity back to 1 and status to RETURNED
+          const updateInventoryResponse = await fetch(`/api/stores/${sale.storeId}/inventory`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              id: existingInventoryItem.id,
+              quantity: 1,
+              status: 'RETURNED',
+            }),
+          });
+
+          if (!updateInventoryResponse.ok) {
+            throw new Error(`Failed to update store inventory for sale ${sale.id}`);
+          }
+        }
+      }
+
+      // Refresh data
+      mutate();
+      
+      // Clear selection
+      setSelectedItems(new Set());
+      
+    } catch (error) {
+      console.error('Error processing bulk return:', error);
+      alert('Failed to process bulk return. Please try again.');
+    } finally {
+      setIsBulkReturning(false);
+    }
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -169,10 +281,38 @@ export default function StoreSalesPage() {
     return (Array.isArray(data) ? data : []).map((si: any) => ({ ...si.inventoryItem, quantity: si.quantity }));
   }, [getAuthToken]);
 
-  // Filter sales based on selected store
-  const filteredSales = storeFilter === 'all' 
-    ? sales 
-    : sales.filter((sale: any) => sale.store?.id === storeFilter);
+  // Filter sales based on selected store, search term, and status
+  const filteredSales = (sales || []).filter((sale: any) => {
+    // Store filter
+    if (storeFilter !== 'all' && sale.store?.id !== storeFilter) {
+      return false;
+    }
+    
+    // Status filter
+    if (statusFilter !== 'ALL' && sale.status !== statusFilter) {
+      return false;
+    }
+    
+    // Search filter
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    const product = sale.inventoryItem?.product || {};
+    
+    return (
+      sale.orderNumber?.toLowerCase().includes(searchLower) ||
+      sale.store?.name?.toLowerCase().includes(searchLower) ||
+      sale.inventoryItem?.stocklabSku?.toLowerCase().includes(searchLower) ||
+      sale.inventoryItem?.storeSku?.toLowerCase().includes(searchLower) ||
+      sale.inventoryItem?.sku?.toLowerCase().includes(searchLower) ||
+      product.brand?.toLowerCase().includes(searchLower) ||
+      product.name?.toLowerCase().includes(searchLower) ||
+      product.sku?.toLowerCase().includes(searchLower) ||
+      sale.inventoryItem?.size?.toLowerCase().includes(searchLower) ||
+      sale.inventoryItem?.condition?.toLowerCase().includes(searchLower) ||
+      sale.notes?.toLowerCase().includes(searchLower)
+    );
+  });
 
 
 
@@ -180,6 +320,7 @@ export default function StoreSalesPage() {
     { key: "orderNumber", label: "Order #" },
     { key: "store", label: "Store" },
     { key: "stocklabSku", label: "SL SKU" },
+    { key: "storeSku", label: "Store SKU" },
     { key: "brand", label: "Brand" },
     { key: "productName", label: "Product" },
     { key: "size", label: "Size" },
@@ -192,6 +333,7 @@ export default function StoreSalesPage() {
     { key: "profit", label: "Profit" },
     { key: "profitMargin", label: "Profit Margin" },
     { key: "saleDate", label: "Sale Date" },
+    { key: "status", label: "Status" },
     { key: "notes", label: "Notes" },
   ];
 
@@ -214,6 +356,7 @@ export default function StoreSalesPage() {
       condition: sale.inventoryItem?.condition || "-",
       sku: sale.inventoryItem?.sku || "-",
       stocklabSku: sale.inventoryItem?.stocklabSku || "-",
+      storeSku: sale.inventoryItem?.storeSku || "-",
       quantity: sale.quantity,
       cost: formatCurrency(cost),
       payout: formatCurrency(payout),
@@ -221,6 +364,7 @@ export default function StoreSalesPage() {
       profit: formatCurrency(profit),
       profitMargin,
       saleDate: new Date(sale.saleDate).toLocaleDateString(),
+      status: sale.status || "COMPLETED",
       notes: sale.notes || "-",
     };
   });
@@ -248,27 +392,48 @@ export default function StoreSalesPage() {
         {/* Store Filter */}
         <Card>
           <div className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-1/4">
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Filter by Store
-                </label>
-                <select
-                  value={storeFilter}
-                  onChange={(e) => setStoreFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="all">All Stores</option>
-                  {stores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1"></div>
-              <div className="text-sm text-muted-foreground">
-                Showing {rows.length} of {sales.length} sales
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label htmlFor="search-input" className="block text-sm font-medium mb-1">Search Sales:</label>
+                  <input
+                    id="search-input"
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by order #, store, SL SKU, store SKU, brand, name, size, condition, or notes..."
+                    className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="status-filter" className="block text-sm font-medium mb-1">Status:</label>
+                  <select
+                    id="status-filter"
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="ALL">All Status</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="RETURNED">Returned</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="store-select" className="block text-sm font-medium mb-1">Select Store:</label>
+                  <select
+                    id="store-select"
+                    value={storeFilter}
+                    onChange={(e) => setStoreFilter(e.target.value)}
+                    className="px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="all">All Stores</option>
+                    {stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -280,9 +445,39 @@ export default function StoreSalesPage() {
               <div>Loading...</div>
             ) : (
               <div className="overflow-x-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {storeFilter === 'all' 
+                        ? 'Sales For All Stores' 
+                        : `Sales For ${stores.find(s => s.id === storeFilter)?.name}`
+                      }
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Showing {rows.length} of {sales.length} sales
+                    </p>
+                  </div>
+                  {selectedItems.size > 0 && (
+                    <Button 
+                      onClick={handleBulkReturn}
+                      disabled={isBulkReturning}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isBulkReturning ? 'Returning...' : `Return to Inventory (${selectedItems.size} selected)`}
+                    </Button>
+                  )}
+                </div>
                 <Table className="w-full min-w-max">
                   <TableHeader>
                     <TableRow>
+                      <TableHead>
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.size === filteredSales.length && filteredSales.length > 0}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </TableHead>
                       {columns.map((col) => {
                         // Add specific width classes for brand and product columns
                         let widthClass = '';
@@ -305,6 +500,14 @@ export default function StoreSalesPage() {
                         const sale = filteredSales[idx];
                         return (
                           <TableRow key={row.id}>
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={selectedItems.has(sale.id)}
+                                onChange={() => toggleItemSelection(sale.id)}
+                                className="rounded border-gray-300 text-primary focus:ring-primary"
+                              />
+                            </TableCell>
                             {columns.map((col) => {
                               if (editingRowId === row.id && ['cost', 'payout', 'quantity', 'notes', 'discount'].includes(col.key)) {
                                 if (col.key === 'notes') {
@@ -339,6 +542,22 @@ export default function StoreSalesPage() {
                               } else if (col.key === 'productName') {
                                 widthClass = 'w-80';
                               }
+                              
+                              // Special rendering for status column
+                              if (col.key === 'status') {
+                                return (
+                                  <TableCell key={col.key} className={widthClass}>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      row[col.key] === 'COMPLETED' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : 'bg-orange-100 text-orange-800'
+                                    }`}>
+                                      {row[col.key] === 'COMPLETED' ? 'COMPLETED' : 'RETURNED'}
+                                    </span>
+                                  </TableCell>
+                                );
+                              }
+                              
                               return <TableCell key={col.key} className={widthClass}>{row[col.key]}</TableCell>;
                             })}
                             <TableCell>
@@ -407,8 +626,13 @@ export default function StoreSalesPage() {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={columns.length} className="text-center py-8">
-                          {storeFilter === 'all' ? 'No sales found' : 'No sales found for selected store'}
+                        <TableCell colSpan={columns.length + 1} className="text-center py-8">
+                          {searchTerm 
+                            ? `No sales found matching "${searchTerm}".` 
+                            : storeFilter === 'all' 
+                              ? 'No sales found' 
+                              : 'No sales found for selected store'
+                          }
                         </TableCell>
                       </TableRow>
                     )}

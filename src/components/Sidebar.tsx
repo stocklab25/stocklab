@@ -38,9 +38,15 @@ const navigation: (NavItem | NavGroup)[] = [
   { name: 'Products', href: '/products', icon: 'products' },
   { name: 'Transactions', href: '/transactions', icon: 'transactions' },
   { name: 'Inventory', href: '/inventory', icon: 'inventory' },
-  { name: 'Store Inventory', href: '/store-inventory', icon: 'store-inventory' },
-  { name: 'Stores', href: '/stores', icon: 'store-inventory' },
-  { name: 'Store Sales', href: '/store-sales', icon: 'store-sales' },
+  {
+    name: 'Store',
+    icon: 'store-inventory',
+    items: [
+      { name: 'Store Inventory', href: '/store-inventory', icon: 'store-inventory' },
+      { name: 'Stores', href: '/stores', icon: 'store-inventory' },
+      { name: 'Store Sales', href: '/store-sales', icon: 'store-sales' },
+    ]
+  },
   {
     name: 'Accounting',
     icon: 'accounting',

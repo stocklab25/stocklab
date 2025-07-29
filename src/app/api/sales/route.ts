@@ -48,9 +48,31 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Fetch store inventory data for each sale
+    const salesWithStoreInventory = await Promise.all(
+      sales.map(async (sale) => {
+        const storeInventory = await prisma.storeInventory.findUnique({
+          where: {
+            storeId_inventoryItemId: {
+              storeId: sale.storeId,
+              inventoryItemId: sale.inventoryItemId,
+            },
+          },
+        });
+        
+        return {
+          ...sale,
+          inventoryItem: {
+            ...sale.inventoryItem,
+            storeSku: storeInventory?.storeSku || null,
+          },
+        };
+      })
+    );
 
 
-    return NextResponse.json(sales);
+
+    return NextResponse.json(salesWithStoreInventory);
   } catch (error) {
     
     return NextResponse.json(
@@ -152,7 +174,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Update store inventory quantity (not warehouse inventory)
+    // Update store inventory quantity and status to SOLD
     await prisma.storeInventory.update({
       where: {
         storeId_inventoryItemId: {
@@ -164,6 +186,7 @@ export async function POST(request: NextRequest) {
         quantity: {
           decrement: quantity,
         },
+        status: 'SOLD' as const,
       },
     });
 

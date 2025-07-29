@@ -364,6 +364,7 @@ export default function AddInventoryModal({ isOpen, onClose, onSuccess }: AddInv
               type="button"
               onClick={handleClose}
               className="flex-1 px-4 py-2 border border-input rounded-lg text-foreground hover:bg-accent transition-colors"
+              disabled={loading}
             >
               Cancel
             </button>
