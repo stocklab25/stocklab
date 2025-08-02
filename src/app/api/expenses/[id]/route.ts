@@ -60,9 +60,9 @@ export async function PUT(
     const body = await request.json();
     const { transactionDate, description, amount, category, cardId } = body;
 
-    if (!transactionDate || !description || !amount || !category || !cardId) {
+    if (!transactionDate || !description || !amount || !category) {
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { error: 'Transaction date, description, amount, and category are required' },
         { status: 400 }
       );
     }
@@ -89,7 +89,7 @@ export async function PUT(
         description,
         amount: parseFloat(amount),
         category,
-        cardId,
+        cardId: cardId || undefined,
         updatedAt: new Date()
       },
       include: {

@@ -15,6 +15,7 @@ interface AccountingEntry {
   description: string;
   accountType: 'RECEIVABLE' | 'PAYABLE';
   amount: string;
+  status: 'PENDING' | 'PAID' | 'RECEIVED';
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +30,7 @@ export default function AccountingPage() {
     description: '',
     accountType: '',
     amount: '',
+    status: 'PENDING',
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +45,14 @@ export default function AccountingPage() {
     description: string;
     accountType: string;
     amount: string;
+    status: string;
   }>({
     transactionDate: '',
     name: '',
     description: '',
     accountType: '',
     amount: '',
+    status: '',
   });
   const [isRowSaving, setIsRowSaving] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -96,7 +100,7 @@ export default function AccountingPage() {
   const handleOpenModal = () => setShowModal(true);
   const handleCloseModal = () => {
     setShowModal(false);
-    setForm({ transactionDate: '', name: '', description: '', accountType: '', amount: '' });
+    setForm({ transactionDate: '', name: '', description: '', accountType: '', amount: '', status: 'PENDING' });
     setSubmitError(null);
   };
 
@@ -125,6 +129,7 @@ export default function AccountingPage() {
           description: form.description,
           accountType: form.accountType,
           amount: form.amount,
+          status: form.status,
         }),
       });
       const data = await res.json();
@@ -150,6 +155,7 @@ export default function AccountingPage() {
       description: entry.description || '',
       accountType: entry.accountType || '',
       amount: entry.amount?.toString() || '',
+      status: entry.status || 'PENDING',
     });
   };
 
@@ -165,6 +171,7 @@ export default function AccountingPage() {
       description: '',
       accountType: '',
       amount: '',
+      status: '',
     });
   };
 
@@ -188,6 +195,7 @@ export default function AccountingPage() {
           description: editValues.description,
           accountType: editValues.accountType,
           amount: parseFloat(editValues.amount),
+          status: editValues.status,
         }),
       });
 
@@ -202,6 +210,7 @@ export default function AccountingPage() {
                 description: editValues.description,
                 accountType: editValues.accountType as 'RECEIVABLE' | 'PAYABLE',
                 amount: editValues.amount,
+                status: editValues.status as 'PENDING' | 'PAID' | 'RECEIVED',
               }
             : item
         ));
@@ -212,6 +221,7 @@ export default function AccountingPage() {
           description: '',
           accountType: '',
           amount: '',
+          status: '',
         });
       } else {
         const data = await res.json();
@@ -221,6 +231,44 @@ export default function AccountingPage() {
       console.error('Error updating accounting entry:', error);
     } finally {
       setIsRowSaving(false);
+    }
+  };
+
+  const handleStatusUpdate = async (entry: AccountingEntry, newStatus: 'PAID' | 'RECEIVED') => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const res = await fetch(`/api/accounting/${entry.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          transactionDate: entry.transactionDate,
+          name: entry.name,
+          description: entry.description,
+          accountType: entry.accountType,
+          amount: entry.amount,
+          status: newStatus,
+        }),
+      });
+
+      if (res.ok) {
+        setAccounting(prev => prev.map(item => 
+          item.id === entry.id 
+            ? { ...item, status: newStatus }
+            : item
+        ));
+      } else {
+        const data = await res.json();
+        console.error('Failed to update accounting entry status:', data.error);
+      }
+    } catch (error) {
+      console.error('Error updating accounting entry status:', error);
     }
   };
 
@@ -268,11 +316,19 @@ export default function AccountingPage() {
 
   // Calculate totals
   const totalReceivables = accounting
-    .filter(entry => entry.accountType === 'RECEIVABLE')
+    .filter(entry => entry.accountType === 'RECEIVABLE' && entry.status === 'PENDING')
     .reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
 
   const totalPayables = accounting
-    .filter(entry => entry.accountType === 'PAYABLE')
+    .filter(entry => entry.accountType === 'PAYABLE' && entry.status === 'PENDING')
+    .reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+
+  const totalReceived = accounting
+    .filter(entry => entry.accountType === 'RECEIVABLE' && entry.status === 'RECEIVED')
+    .reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+
+  const totalPaid = accounting
+    .filter(entry => entry.accountType === 'PAYABLE' && entry.status === 'PAID')
     .reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
 
   return (
@@ -294,10 +350,10 @@ export default function AccountingPage() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <UICard>
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-green-600 mb-2">Total Receivables</h3>
+                <h3 className="text-lg font-semibold text-green-600 mb-2">Pending Receivables</h3>
                 <p className="text-2xl font-bold text-green-600">
                   {totalReceivables.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                 </p>
@@ -305,9 +361,25 @@ export default function AccountingPage() {
             </UICard>
             <UICard>
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-red-600 mb-2">Total Payables</h3>
+                <h3 className="text-lg font-semibold text-red-600 mb-2">Pending Payables</h3>
                 <p className="text-2xl font-bold text-red-600">
                   {totalPayables.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                </p>
+              </div>
+            </UICard>
+            <UICard>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-blue-600 mb-2">Total Received</h3>
+                <p className="text-2xl font-bold text-blue-600">
+                  {totalReceived.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                </p>
+              </div>
+            </UICard>
+            <UICard>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-purple-600 mb-2">Total Paid</h3>
+                <p className="text-2xl font-bold text-purple-600">
+                  {totalPaid.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                 </p>
               </div>
             </UICard>
@@ -331,6 +403,7 @@ export default function AccountingPage() {
                       <TableHead>Description</TableHead>
                       <TableHead>Account Type</TableHead>
                       <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -417,6 +490,30 @@ export default function AccountingPage() {
                                 style: 'currency', 
                                 currency: 'USD' 
                               })}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingRowId === entry.id ? (
+                            <select
+                              name="status"
+                              value={editValues.status}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            >
+                              <option value="PENDING">Pending</option>
+                              <option value="PAID">Paid</option>
+                              <option value="RECEIVED">Received</option>
+                            </select>
+                          ) : (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              entry.status === 'PAID' 
+                                ? 'bg-green-100 text-green-800' 
+                                : entry.status === 'RECEIVED'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {entry.status}
                             </span>
                           )}
                         </TableCell>
@@ -535,6 +632,19 @@ export default function AccountingPage() {
                     placeholder="0.00"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <select
+                    name="status"
+                    value={form.status}
+                    onChange={handleFormChange}
+                    className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="PAID">Paid</option>
+                    <option value="RECEIVED">Received</option>
+                  </select>
+                </div>
                 {submitError && <div className="text-red-500 text-sm">{submitError}</div>}
                 <div className="flex space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={handleCloseModal} disabled={submitting}>
@@ -576,6 +686,41 @@ export default function AccountingPage() {
                 >
                   Edit
                 </button>
+                {(() => {
+                  const entry = accounting.find((item) => item.id === openDropdown);
+                  if (!entry) return null;
+                  
+                  if (entry.accountType === 'PAYABLE' && entry.status === 'PENDING') {
+                    return (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (entry) handleStatusUpdate(entry, 'PAID');
+                          setOpenDropdown(null);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                        disabled={isRowSaving}
+                      >
+                        Mark as Paid
+                      </button>
+                    );
+                  } else if (entry.accountType === 'RECEIVABLE' && entry.status === 'PENDING') {
+                    return (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (entry) handleStatusUpdate(entry, 'RECEIVED');
+                          setOpenDropdown(null);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                        disabled={isRowSaving}
+                      >
+                        Mark as Received
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

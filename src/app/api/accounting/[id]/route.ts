@@ -55,7 +55,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { transactionDate, name, description, accountType, amount } = body;
+    const { transactionDate, name, description, accountType, amount, status } = body;
 
     if (!transactionDate || !name || !description || !accountType || !amount) {
       return NextResponse.json(
@@ -87,6 +87,7 @@ export async function PUT(
         description,
         accountType,
         amount: parseFloat(amount),
+        status: status || 'PENDING',
         updatedAt: new Date()
       }
     });

@@ -36,7 +36,7 @@ export default function StoreSalesPage() {
   );
   const { formatCurrency } = useCurrency();
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{ cost: string; payout: string; quantity: string; notes: string; discount: string }>({ cost: '', payout: '', quantity: '', notes: '', discount: '' });
+  const [editValues, setEditValues] = useState<{ cost: string; payout: string; quantity: string; notes: string; discount: string; payoutMethod: string }>({ cost: '', payout: '', quantity: '', notes: '', discount: '', payoutMethod: '' });
   const [isRowSaving, setIsRowSaving] = useState(false);
   const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -54,6 +54,7 @@ export default function StoreSalesPage() {
       quantity: (sale.quantity || '').toString(),
       notes: sale.notes || '',
       discount: (sale.discount || '').toString(),
+      payoutMethod: sale.payoutMethod || '',
     });
   };
 
@@ -63,7 +64,7 @@ export default function StoreSalesPage() {
 
   const handleEditCancel = () => {
     setEditingRowId(null);
-    setEditValues({ cost: '', payout: '', quantity: '', notes: '', discount: '' });
+    setEditValues({ cost: '', payout: '', quantity: '', notes: '', discount: '', payoutMethod: '' });
   };
 
   const handleEditSave = async (row: any) => {
@@ -82,12 +83,13 @@ export default function StoreSalesPage() {
         quantity: parseInt(editValues.quantity, 10),
         notes: editValues.notes,
         discount: parseFloat(editValues.discount),
+        payoutMethod: editValues.payoutMethod,
       }),
     });
     if (response.ok) {
       mutate();
       setEditingRowId(null);
-      setEditValues({ cost: '', payout: '', quantity: '', notes: '', discount: '' });
+      setEditValues({ cost: '', payout: '', quantity: '', notes: '', discount: '', payoutMethod: '' });
     }
     setIsRowSaving(false);
   };
@@ -183,13 +185,14 @@ export default function StoreSalesPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            ...sale,
             status: 'RETURNED',
           }),
         });
 
         if (!updateSaleResponse.ok) {
-          throw new Error(`Failed to update sale ${sale.id}`);
+          const errorData = await updateSaleResponse.json();
+          console.error('Sale update error:', errorData);
+          throw new Error(`Failed to update sale ${sale.id}: ${errorData.error || 'Unknown error'}`);
         }
 
         // 2. Find and update the existing store inventory item
@@ -300,7 +303,6 @@ export default function StoreSalesPage() {
     const product = sale.inventoryItem?.product || {};
     
     return (
-      sale.orderNumber?.toLowerCase().includes(searchLower) ||
       sale.store?.name?.toLowerCase().includes(searchLower) ||
       sale.inventoryItem?.stocklabSku?.toLowerCase().includes(searchLower) ||
       sale.inventoryItem?.storeSku?.toLowerCase().includes(searchLower) ||
@@ -317,7 +319,6 @@ export default function StoreSalesPage() {
 
 
   const columns = [
-    { key: "orderNumber", label: "Order #" },
     { key: "store", label: "Store" },
     { key: "stocklabSku", label: "SL SKU" },
     { key: "storeSku", label: "Store SKU" },
@@ -330,6 +331,7 @@ export default function StoreSalesPage() {
     { key: "cost", label: "Cost" },
     { key: "payout", label: "Payout" },
     { key: "discount", label: "Discount" },
+    { key: "payoutMethod", label: "Payout Method" },
     { key: "profit", label: "Profit" },
     { key: "profitMargin", label: "Profit Margin" },
     { key: "saleDate", label: "Sale Date" },
@@ -347,7 +349,6 @@ export default function StoreSalesPage() {
 
     return {
       id: sale.id,
-      orderNumber: sale.orderNumber,
       store: sale.store?.name || "-",
       brand: product.brand || "-",
       productName: product.name || "-",
@@ -361,6 +362,7 @@ export default function StoreSalesPage() {
       cost: formatCurrency(cost),
       payout: formatCurrency(payout),
       discount: discount > 0 ? formatCurrency(discount) : "-",
+      payoutMethod: sale.payoutMethod || "-",
       profit: formatCurrency(profit),
       profitMargin,
       saleDate: new Date(sale.saleDate).toLocaleDateString(),
@@ -401,7 +403,7 @@ export default function StoreSalesPage() {
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search by order #, store, SL SKU, store SKU, brand, name, size, condition, or notes..."
+                    placeholder="Search by store, SL SKU, store SKU, brand, name, size, condition, or notes..."
                     className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
@@ -509,7 +511,7 @@ export default function StoreSalesPage() {
                               />
                             </TableCell>
                             {columns.map((col) => {
-                              if (editingRowId === row.id && ['cost', 'payout', 'quantity', 'notes', 'discount'].includes(col.key)) {
+                              if (editingRowId === row.id && ['cost', 'payout', 'quantity', 'notes', 'discount', 'payoutMethod'].includes(col.key)) {
                                 if (col.key === 'notes') {
                                   return (
                                     <TableCell key={col.key}>
@@ -528,7 +530,7 @@ export default function StoreSalesPage() {
                                     <input
                                       type={col.key === 'quantity' ? 'number' : 'text'}
                                       name={col.key}
-                                      value={editValues[col.key as 'cost' | 'payout' | 'quantity' | 'discount']}
+                                      value={editValues[col.key as 'cost' | 'payout' | 'quantity' | 'discount' | 'payoutMethod']}
                                       onChange={handleEditChange}
                                       className="w-20 px-2 py-1 border rounded"
                                     />

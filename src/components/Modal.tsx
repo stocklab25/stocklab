@@ -29,7 +29,7 @@ export default function Modal({ open, onClose, children, width = 'lg' }: ModalPr
       backdropFilter: 'blur(8px)',
       WebkitBackdropFilter: 'blur(8px)'
     }}>
-      <div className={`bg-background rounded-lg shadow-2xl border border-white/10 p-6 relative min-w-[320px] ${widthClasses[width]} w-full max-h-[90vh] overflow-y-auto backdrop-blur-sm animate-in zoom-in-95 duration-200`}>
+              <div className={`bg-background rounded-lg shadow-2xl border border-white/10 p-6 relative min-w-[320px] w-[1000px] max-h-[90vh] overflow-y-auto backdrop-blur-sm animate-in zoom-in-95 duration-200`}>
         <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl font-bold z-10">&times;</button>
         {children}
       </div>

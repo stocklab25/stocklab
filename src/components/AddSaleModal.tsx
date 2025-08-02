@@ -44,6 +44,8 @@ interface SaleItem {
   discount: number;
   quantity: number;
   notes: string;
+  payoutMethod: string;
+  saleDate: string;
   selectedStore: Store | null;
   selectedItem: InventoryItem | null;
   skuDisplay: string;
@@ -70,6 +72,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
     discount: 0,
     quantity: 1,
     notes: '',
+    payoutMethod: '',
+    saleDate: new Date().toISOString().split('T')[0], // Default to today
     selectedStore: null,
     selectedItem: null,
     skuDisplay: '',
@@ -256,6 +260,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
       discount: currentItem.discount || 0,
       quantity: 1, // Always 1 since each inventory item represents one physical item
       notes: currentItem.notes || '',
+      payoutMethod: currentItem.payoutMethod || '',
+      saleDate: currentItem.saleDate || new Date().toISOString().split('T')[0],
       selectedStore: currentItem.selectedStore!,
       selectedItem: currentItem.selectedItem!,
       skuDisplay: currentItem.skuDisplay || '',
@@ -272,6 +278,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
       discount: 0,
       quantity: 1,
       notes: '',
+      payoutMethod: '',
+      saleDate: new Date().toISOString().split('T')[0],
       selectedStore: null,
       selectedItem: null,
       skuDisplay: '',
@@ -304,6 +312,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
         discount: 0,
         quantity: 1,
         notes: '',
+        payoutMethod: '',
+        saleDate: new Date().toISOString().split('T')[0],
         selectedStore: null,
         selectedItem: null,
         skuDisplay: '',
@@ -316,7 +326,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
   };
 
   return (
-    <Modal open={isOpen} onClose={onClose} width="4xl">
+    <Modal open={isOpen} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-6">
         <h2 className="text-xl font-semibold">
           {preSelectedItems && preSelectedItems.length > 0 ? 'Bulk Add Sale' : 'Add Sale'}
@@ -338,6 +348,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                     <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 border-b">Cost</th>
                     <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 border-b">Payout</th>
                     <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 border-b">Discount</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 border-b">Payout Method</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 border-b">Sale Date</th>
                     <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 border-b">Notes</th>
                     <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 border-b">Actions</th>
                   </tr>
@@ -370,7 +382,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                           type="number"
                           min="0"
                           step="0.01"
-                          value={item.payout}
+                          value={item.payout || 0}
                           onChange={(e) => {
                             const newPayout = parseFloat(e.target.value) || 0;
                             setSaleItems(prev => 
@@ -389,7 +401,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                           type="number"
                           min="0"
                           step="0.01"
-                          value={item.discount}
+                          value={item.discount || 0}
                           onChange={(e) => {
                             const newDiscount = parseFloat(e.target.value) || 0;
                             setSaleItems(prev => 
@@ -406,7 +418,40 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                       <td className="py-2 px-3 text-sm">
                         <input
                           type="text"
-                          value={item.notes}
+                          value={item.payoutMethod || ''}
+                          onChange={(e) => {
+                            setSaleItems(prev => 
+                              prev.map(saleItem => 
+                                saleItem.id === item.id 
+                                  ? { ...saleItem, payoutMethod: e.target.value }
+                                  : saleItem
+                              )
+                            );
+                          }}
+                          placeholder="Payout Method"
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                      </td>
+                      <td className="py-2 px-3 text-sm">
+                        <input
+                          type="date"
+                          value={item.saleDate || new Date().toISOString().split('T')[0]}
+                          onChange={(e) => {
+                            setSaleItems(prev => 
+                              prev.map(saleItem => 
+                                saleItem.id === item.id 
+                                  ? { ...saleItem, saleDate: e.target.value }
+                                  : saleItem
+                              )
+                            );
+                          }}
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                      </td>
+                      <td className="py-2 px-3 text-sm">
+                        <input
+                          type="text"
+                          value={item.notes || ''}
                           onChange={(e) => {
                             setSaleItems(prev => 
                               prev.map(saleItem => 
@@ -588,6 +633,25 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSubmit, 
                   value={currentItem.notes || ''} 
                   onChange={e => setCurrentItem(prev => ({ ...prev, notes: e.target.value }))} 
                   placeholder="Optional note" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Payout Method</label>
+                <Input 
+                  type="text" 
+                  value={currentItem.payoutMethod || ''} 
+                  onChange={e => setCurrentItem(prev => ({ ...prev, payoutMethod: e.target.value }))} 
+                  placeholder="e.g., Cash, Card, PayPal, etc." 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Sale Date</label>
+                <Input 
+                  type="date" 
+                  value={currentItem.saleDate || ''} 
+                  onChange={e => setCurrentItem(prev => ({ ...prev, saleDate: e.target.value }))} 
                 />
               </div>
 

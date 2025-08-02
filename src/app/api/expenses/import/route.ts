@@ -79,11 +79,15 @@ export async function POST(request: NextRequest) {
           cardId: expenseData.cardId || expenseData['Card ID'] || expenseData['CardId'],
         };
 
-        // Validate required fields
-        if (!normalizedData.transactionDate || !normalizedData.description || !normalizedData.amount || !normalizedData.category) {
-          results.errors.push(`Row ${i + 1}: Missing required fields`);
-          results.skipped++;
-          continue;
+        // Validate required fields - but don't skip, just log warnings
+        const missingFields = [];
+        if (!normalizedData.transactionDate) missingFields.push('transactionDate');
+        if (!normalizedData.description) missingFields.push('description');
+        if (!normalizedData.amount) missingFields.push('amount');
+        if (!normalizedData.category) missingFields.push('category');
+        
+        if (missingFields.length > 0) {
+          results.errors.push(`Row ${i + 1}: Missing fields: ${missingFields.join(', ')} - proceeding anyway`);
         }
 
         // Find card by name if not provided by ID
@@ -102,9 +106,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!card) {
-          results.errors.push(`Row ${i + 1}: Card not found`);
-          results.skipped++;
-          continue;
+          results.errors.push(`Row ${i + 1}: Card not found - proceeding without card`);
         }
 
 
@@ -114,11 +116,11 @@ export async function POST(request: NextRequest) {
         // Create the expense
         await prisma.expense.create({
           data: {
-            transactionDate: new Date(normalizedData.transactionDate),
-            description: normalizedData.description,
-            amount: parseFloat(normalizedData.amount),
-            category: normalizedData.category,
-            cardId: card.id,
+            transactionDate: normalizedData.transactionDate ? new Date(normalizedData.transactionDate) : new Date(),
+            description: normalizedData.description || 'No description provided',
+            amount: normalizedData.amount ? parseFloat(normalizedData.amount) : 0,
+            category: normalizedData.category || 'Uncategorized',
+            cardId: card?.id || undefined,
           },
         });
 

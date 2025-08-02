@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
       quantity,
       saleDate,
       notes,
+      payoutMethod,
     } = body;
 
     // Validate required fields
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest) {
         quantity,
         saleDate: saleDate ? new Date(saleDate) : new Date(),
         notes,
+        payoutMethod,
       },
       include: {
         store: true,

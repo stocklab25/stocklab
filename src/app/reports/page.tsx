@@ -69,6 +69,7 @@ export default function Reports() {
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [selectedInventoryStore, setSelectedInventoryStore] = useState<string>('all');
   const [selectedValueStore, setSelectedValueStore] = useState<string>('all');
+  const [selectedSaleStatus, setSelectedSaleStatus] = useState<string>('all');
   const [inventoryStartDate, setInventoryStartDate] = useState<string>('');
   const [inventoryEndDate, setInventoryEndDate] = useState<string>('');
   const [valueStartDate, setValueStartDate] = useState<string>('');
@@ -160,7 +161,7 @@ export default function Reports() {
     fetchStoreInventory();
   }, []); // Removed getAuthToken from dependency array
 
-  // Filter sales data based on date range and store selection
+  // Filter sales data based on date range, store selection, and status
   const filteredSalesData = useMemo(() => {
     if (!salesData.length) return [];
 
@@ -182,9 +183,14 @@ export default function Reports() {
         return false;
       }
 
+      // Filter by status
+      if (selectedSaleStatus !== 'all' && sale.status !== selectedSaleStatus) {
+        return false;
+      }
+
       return true;
     });
-  }, [salesData, startDate, endDate, selectedStore]);
+  }, [salesData, startDate, endDate, selectedStore, selectedSaleStatus]);
 
   // Filter inventory data based on store selection and date range
   const filteredInventoryData = useMemo(() => {
@@ -372,19 +378,31 @@ export default function Reports() {
     let totalSales = 0;
     let totalProfit = 0;
     let totalItems = 0;
+    let completedSales = 0;
+    let returnedSales = 0;
+    
     salesArr.forEach(sale => {
       const payout = Math.max(0, Number(sale.payout) || 0);
       const discount = Math.max(0, Number(sale.discount) || 0);
       const cost = Math.max(0, Number(sale.cost) || 0);
       const quantity = Math.max(0, Number(sale.quantity) || 1);
-      totalSales += payout - discount;
-      totalProfit += (payout - discount) - (cost * quantity);
-      totalItems += quantity;
+      
+      // Only count completed sales in totals
+      if (sale.status === 'COMPLETED') {
+        totalSales += payout - discount;
+        totalProfit += (payout - discount) - (cost * quantity);
+        totalItems += quantity;
+        completedSales++;
+      } else if (sale.status === 'RETURNED') {
+        returnedSales++;
+      }
     });
     return {
       totalSales: Math.max(0, totalSales),
       totalProfit,
       totalItems,
+      completedSales,
+      returnedSales,
     };
   };
   const monthlySummary = getSalesSummary(monthlySales);
@@ -597,7 +615,7 @@ export default function Reports() {
           <Card>
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Sales by Store - Filters</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -632,12 +650,25 @@ export default function Reports() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Status</label>
+                  <select
+                    value={selectedSaleStatus}
+                    onChange={(e) => setSelectedSaleStatus(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="RETURNED">Returned</option>
+                  </select>
+                </div>
                 <div className="flex items-end">
                   <button
                     onClick={() => {
                       setStartDate('');
                       setEndDate('');
                       setSelectedStore('all');
+                      setSelectedSaleStatus('all');
                     }}
                     className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                   >
@@ -651,6 +682,7 @@ export default function Reports() {
                     Showing {filteredSalesData.length} sales
                     {startDate && endDate && ` from ${startDate} to ${endDate}`}
                     {selectedStore !== 'all' && ` for ${storesData.find(s => s.id === selectedStore)?.name}`}
+                    {selectedSaleStatus !== 'all' && ` with status ${selectedSaleStatus}`}
                   </p>
                 </div>
               )}
@@ -794,7 +826,7 @@ export default function Reports() {
           <Card>
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Monthly Report</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
                   <p className="text-2xl font-bold text-foreground">${monthlySummary.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -807,6 +839,14 @@ export default function Reports() {
                   <p className="text-sm font-medium text-muted-foreground">Items Sold</p>
                   <p className="text-2xl font-bold text-foreground">{monthlySummary.totalItems}</p>
                 </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Completed Sales</p>
+                  <p className="text-2xl font-bold text-green-600">{monthlySummary.completedSales}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Returned Sales</p>
+                  <p className="text-2xl font-bold text-orange-600">{monthlySummary.returnedSales}</p>
+                </div>
               </div>
             </div>
           </Card>
@@ -816,7 +856,7 @@ export default function Reports() {
           <Card>
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Annual Report</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
                   <p className="text-2xl font-bold text-foreground">${annualSummary.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -828,6 +868,14 @@ export default function Reports() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Items Sold</p>
                   <p className="text-2xl font-bold text-foreground">{annualSummary.totalItems}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Completed Sales</p>
+                  <p className="text-2xl font-bold text-green-600">{annualSummary.completedSales}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Returned Sales</p>
+                  <p className="text-2xl font-bold text-orange-600">{annualSummary.returnedSales}</p>
                 </div>
               </div>
             </div>

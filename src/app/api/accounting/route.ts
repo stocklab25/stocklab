@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { transactionDate, name, description, accountType, amount } = body;
+    const { transactionDate, name, description, accountType, amount, status } = body;
 
     if (!transactionDate || !name || !description || !accountType || !amount) {
       return NextResponse.json(
@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
         name,
         description,
         accountType,
-        amount: parseFloat(amount)
+        amount: parseFloat(amount),
+        status: status || 'PENDING'
       }
     });
 

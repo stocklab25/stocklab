@@ -72,31 +72,64 @@ export async function PUT(
       status,
       totalAmount,
       notes,
+      items,
     } = body;
 
-    const purchaseOrder = await prisma.purchaseOrder.update({
-      where: { id },
-      data: {
-        vendorName,
-        orderNumber,
-        orderDate: orderDate ? new Date(orderDate) : undefined,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
-        status,
-        totalAmount: totalAmount ? parseFloat(totalAmount) : undefined,
-        notes,
-      },
-      include: {
-        purchaseOrderItems: {
-          include: {
-            product: true,
+    // Use a transaction to update both purchase order and items
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      // Update the purchase order
+      const updatedPurchaseOrder = await tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          vendorName,
+          orderNumber,
+          orderDate: orderDate ? new Date(orderDate) : undefined,
+          deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
+          status,
+          totalAmount: totalAmount ? parseFloat(totalAmount) : undefined,
+          notes,
+        },
+      });
+
+      // Handle items if provided
+      if (items && Array.isArray(items)) {
+        // Delete existing items
+        await tx.purchaseOrderItem.deleteMany({
+          where: { purchaseOrderId: id },
+        });
+
+        // Create new items
+        for (const item of items) {
+          await tx.purchaseOrderItem.create({
+            data: {
+              purchaseOrderId: id,
+              productId: item.productId,
+              size: item.size,
+              condition: item.condition,
+              quantityOrdered: item.quantityOrdered,
+              unitCost: item.unitCost,
+              totalCost: item.totalCost,
+            },
+          });
+        }
+      }
+
+      // Return the updated purchase order with items
+      return await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: {
+          purchaseOrderItems: {
+            include: {
+              product: true,
+            },
+          },
+          inventoryItems: {
+            include: {
+              product: true,
+            },
           },
         },
-        inventoryItems: {
-          include: {
-            product: true,
-          },
-        },
-      },
+      });
     });
 
     return NextResponse.json(purchaseOrder);
@@ -138,13 +171,9 @@ export async function DELETE(
       );
     }
 
-    if (purchaseOrder.inventoryItems.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete purchase order with inventory items' },
-        { status: 400 }
-      );
-    }
-
+    // Always allow soft deletion, even if inventory items exist
+    // The inventory items will remain in the system but the purchase order will be marked as deleted
+    
     // Soft delete the purchase order and its items
     await prisma.purchaseOrderItem.deleteMany({
       where: { purchaseOrderId: id },

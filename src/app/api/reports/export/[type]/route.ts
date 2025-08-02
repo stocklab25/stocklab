@@ -412,6 +412,7 @@ function convertToCSV(data: any[], type: string): string {
         'Payout',
         'Discount',
         'Profit',
+        'Status',
         'Notes'
       ];
       
@@ -429,6 +430,7 @@ function convertToCSV(data: any[], type: string): string {
           escapeCSV(sale.payout || 0),
           escapeCSV(sale.discount || 0),
           escapeCSV(profit),
+          escapeCSV(sale.status || 'COMPLETED'),
           escapeCSV(sale.notes || '')
         ].join(','));
       }
@@ -483,6 +485,7 @@ function convertToCSV(data: any[], type: string): string {
         'Payout',
         'Discount',
         'Profit',
+        'Status',
         'Notes'
       ];
       
@@ -500,6 +503,7 @@ function convertToCSV(data: any[], type: string): string {
           escapeCSV(sale.payout || 0),
           escapeCSV(sale.discount || 0),
           escapeCSV(profit),
+          escapeCSV(sale.status || 'COMPLETED'),
           escapeCSV(sale.notes || '')
         ].join(','));
       }

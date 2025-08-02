@@ -132,6 +132,7 @@ model Sale {
   cost            Decimal       @db.Decimal(10, 2)
   payout          Decimal       @db.Decimal(10, 2)
   discount        Decimal?      @db.Decimal(10, 2)
+  payoutMethod    String?
   saleDate        DateTime      @default(now())
   notes           String?
   status          SaleStatus    @default(COMPLETED)
@@ -181,22 +182,23 @@ model Expense {
   description     String
   amount          Decimal         @db.Decimal(10, 2)
   category        String
-  cardId          String
+  cardId          String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   deletedAt       DateTime?
-  card            Card            @relation(fields: [cardId], references: [id])
+  card            Card?           @relation(fields: [cardId], references: [id])
 }
 
 model Accounting {
-  id              String      @id @default(cuid())
+  id              String           @id @default(cuid())
   transactionDate DateTime
   name            String
   description     String
   accountType     AccountType
-  amount          Decimal     @db.Decimal(10, 2)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  amount          Decimal          @db.Decimal(10, 2)
+  status          AccountingStatus @default(PENDING)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
 }
 
@@ -302,6 +304,12 @@ enum ItemCondition {
 enum AccountType {
   RECEIVABLE
   PAYABLE
+}
+
+enum AccountingStatus {
+  PENDING
+  PAID
+  RECEIVED
 }
 
 

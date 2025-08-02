@@ -48,7 +48,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { cost, payout, discount, notes, status } = body;
+    const { cost, payout, discount, notes, status, payoutMethod } = body;
 
     // Check if sale exists
     const existingSale = await prisma.sale.findFirst({
@@ -73,6 +73,7 @@ export async function PUT(
         payout: payout ? parseFloat(payout) : undefined,
         discount: discount !== undefined ? (discount ? parseFloat(discount) : null) : undefined,
         notes,
+        payoutMethod,
         ...(status !== undefined && { status }),
         updatedAt: new Date(),
       },
@@ -88,8 +89,9 @@ export async function PUT(
 
     return NextResponse.json(updatedSale);
   } catch (error) {
+    console.error('Sale update error:', error);
     return NextResponse.json(
-      { error: 'Failed to update sale' },
+      { error: `Failed to update sale: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }

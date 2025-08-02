@@ -9,11 +9,11 @@ import { useDeleteProduct } from '@/hooks/useDeleteProduct';
 import { useRestoreProduct } from '@/hooks/useRestoreProduct';
 import { useEditProduct } from '@/hooks/useEditProduct';
 import AddProductModal from '@/components/AddProductModal';
-import EditProductModal from '@/components/EditProductModal';
 import PromptModal from '@/components/PromptModal';
 import { PageLoader } from '@/components/Loader';
 import Button from '@/components/Button';
-import Modal from '@/components/Modal';
+import Input from '@/components/Input';
+import useCheckSku from '@/hooks/useCheckSku';
 
 interface Product {
   id: string;
@@ -22,6 +22,14 @@ interface Product {
   sku?: string;
   itemType: string;
   deletedAt?: string;
+}
+
+interface EditingProduct {
+  id: string;
+  brand: string;
+  name: string;
+  sku: string;
+  itemType: string;
 }
 
 export default function Products() {
@@ -40,11 +48,10 @@ export default function Products() {
       // Handle error silently
     }
   });
-  const { editProduct, loading: isEditing } = useEditProduct({
+  const { editProduct, loading: isSaving } = useEditProduct({
     onSuccess: () => {
       mutate();
-      setIsEditModalOpen(false);
-      setProductToEdit(null);
+      setEditingProduct(null);
     },
     onError: (error) => {
       // Handle error silently
@@ -53,8 +60,6 @@ export default function Products() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -62,6 +67,11 @@ export default function Products() {
   const [showForcePrompt, setShowForcePrompt] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+  
+  // Inline editing state
+  const [editingProduct, setEditingProduct] = useState<EditingProduct | null>(null);
+  const [skuError, setSkuError] = useState('');
+  const { checkSkuExists, isChecking } = useCheckSku();
 
   // Filter products based on archived status
   const filteredProducts = products.filter((product: Product) => {
@@ -124,15 +134,67 @@ export default function Products() {
     }
   };
 
-  const handleEditProduct = (product: Product) => {
-    setProductToEdit(product);
-    setIsEditModalOpen(true);
+  const handleStartEdit = (product: Product) => {
+    setEditingProduct({
+      id: product.id,
+      brand: product.brand,
+      name: product.name,
+      sku: product.sku || '',
+      itemType: product.itemType,
+    });
+    setSkuError('');
     setOpenDropdown(null);
   };
 
-  const handleEditSubmit = async (productId: string, productData: { brand: string; name: string; sku?: string; itemType: string }) => {
+  const handleCancelEdit = () => {
+    setEditingProduct(null);
+    setSkuError('');
+  };
+
+  const handleEditChange = (field: keyof EditingProduct, value: string) => {
+    if (!editingProduct) return;
+    
+    setEditingProduct({ ...editingProduct, [field]: value });
+    
+    // Check SKU uniqueness for manual input
+    if (field === 'sku') {
+      setSkuError('');
+      if (value && value.length >= 3) {
+        const originalProduct = products.find((p: Product) => p.id === editingProduct.id);
+        if (value !== originalProduct?.sku) {
+          checkSkuExists(value).then(exists => {
+            if (exists) {
+              setSkuError('This SKU already exists. Please choose a different one.');
+            }
+          });
+        }
+      }
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingProduct) return;
+
+    // Final validation before submit
+    if (editingProduct.sku) {
+      const originalProduct = products.find((p: Product) => p.id === editingProduct.id);
+      if (editingProduct.sku !== originalProduct?.sku) {
+        const exists = await checkSkuExists(editingProduct.sku);
+        if (exists) {
+          setSkuError('This SKU already exists. Please choose a different one.');
+          return;
+        }
+      }
+    }
+
     try {
-      await editProduct(productId, { ...productData, id: productId });
+      await editProduct(editingProduct.id, {
+        id: editingProduct.id,
+        brand: editingProduct.brand,
+        name: editingProduct.name,
+        sku: editingProduct.sku || undefined,
+        itemType: editingProduct.itemType,
+      } as Product);
     } catch (error) {
       // Handle error silently
     }
@@ -275,45 +337,114 @@ export default function Products() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product: Product) => (
-                    <tr key={product.id} className="border-b border-muted hover:bg-accent">
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-foreground">{product.brand}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-medium text-foreground">{product.name}</p>
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className="text-sm text-muted-foreground font-mono">{product.sku}</span>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          product.itemType === 'SHOE' ? 'bg-blue-100 text-blue-800' :
-                          product.itemType === 'APPAREL' ? 'bg-green-100 text-green-800' :
-                          'bg-purple-100 text-purple-800'
-                        }`}>
-                          {product.itemType}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="relative">
-                          <button
-                            onClick={(e) => toggleDropdown(product.id, e)}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
-                            disabled={isDeleting || isRestoring}
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredProducts.map((product: Product) => {
+                    const isEditing = editingProduct?.id === product.id;
+                    
+                    return (
+                      <tr key={product.id} className="border-b border-muted hover:bg-accent">
+                        <td className="py-3 px-4">
+                          {isEditing ? (
+                            <Input
+                              type="text"
+                              value={editingProduct.brand}
+                              onChange={(e) => handleEditChange('brand', e.target.value)}
+                              className="w-full"
+                              placeholder="Brand"
+                            />
+                          ) : (
+                            <span className="font-medium text-foreground">{product.brand}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {isEditing ? (
+                            <Input
+                              type="text"
+                              value={editingProduct.name}
+                              onChange={(e) => handleEditChange('name', e.target.value)}
+                              className="w-full"
+                              placeholder="Product name"
+                            />
+                          ) : (
+                            <div>
+                              <p className="font-medium text-foreground">{product.name}</p>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {isEditing ? (
+                            <div>
+                              <Input
+                                type="text"
+                                value={editingProduct.sku}
+                                onChange={(e) => handleEditChange('sku', e.target.value)}
+                                className="w-full font-mono"
+                                placeholder="SKU"
+                              />
+                              {skuError && (
+                                <p className="text-xs text-red-600 mt-1">{skuError}</p>
+                              )}
+                              {isChecking && (
+                                <p className="text-xs text-blue-600 mt-1">Checking...</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground font-mono">{product.sku}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {isEditing ? (
+                            <Input
+                              type="text"
+                              value={editingProduct.itemType}
+                              onChange={(e) => handleEditChange('itemType', e.target.value)}
+                              className="w-full"
+                              placeholder="Item type"
+                            />
+                          ) : (
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              product.itemType === 'SHOE' ? 'bg-blue-100 text-blue-800' :
+                              product.itemType === 'APPAREL' ? 'bg-green-100 text-green-800' :
+                              'bg-purple-100 text-purple-800'
+                            }`}>
+                              {product.itemType}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {isEditing ? (
+                            <div className="flex items-center justify-end space-x-2">
+                              <button
+                                onClick={handleSaveEdit}
+                                disabled={isSaving || !!skuError}
+                                className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                              >
+                                {isSaving ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                disabled={isEditing}
+                                className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <button
+                                onClick={(e) => toggleDropdown(product.id, e)}
+                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                                disabled={isDeleting || isRestoring}
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -335,18 +466,6 @@ export default function Products() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddProduct}
         isLoading={isAdding}
-      />
-
-      {/* Edit Product Modal */}
-      <EditProductModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setProductToEdit(null);
-        }}
-        onSubmit={handleEditSubmit}
-        isLoading={isEditing}
-        product={productToEdit}
       />
       
       {/* Delete Prompt Modal */}
@@ -460,9 +579,9 @@ export default function Products() {
                  // Active product actions
                  <>
                    <button
-                     onClick={() => handleEditProduct(productToDelete!)}
+                     onClick={() => handleStartEdit(productToDelete!)}
                      className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                     disabled={isEditing}
+                     disabled={isSaving}
                    >
                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

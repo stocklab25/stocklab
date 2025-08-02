@@ -36,13 +36,13 @@ export default function ExpensesPage() {
     description: string;
     amount: string;
     category: string;
-    cardId: string;
+    cardId: string | null;
   }>({
     transactionDate: '',
     description: '',
     amount: '',
     category: '',
-    cardId: '',
+    cardId: null,
   });
   const [isRowSaving, setIsRowSaving] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -178,7 +178,8 @@ export default function ExpensesPage() {
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setEditValues({ ...editValues, [e.target.name]: e.target.value });
+    const value = e.target.name === 'cardId' && e.target.value === '' ? null : e.target.value;
+    setEditValues({ ...editValues, [e.target.name]: value });
   };
 
   const handleEditCancel = () => {
@@ -188,7 +189,7 @@ export default function ExpensesPage() {
       description: '',
       amount: '',
       category: '',
-      cardId: '',
+      cardId: null,
     });
   };
 
@@ -211,7 +212,7 @@ export default function ExpensesPage() {
           description: editValues.description,
           amount: parseFloat(editValues.amount),
           category: editValues.category,
-          cardId: editValues.cardId,
+          cardId: editValues.cardId || undefined,
         }),
       });
 
@@ -408,7 +409,7 @@ export default function ExpensesPage() {
                           {editingRowId === expense.id ? (
                             <select
                               name="cardId"
-                              value={editValues.cardId}
+                              value={editValues.cardId || ''}
                               onChange={handleEditChange}
                               className="w-full px-2 py-1 border rounded text-sm"
                             >

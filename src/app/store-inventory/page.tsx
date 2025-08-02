@@ -831,6 +831,8 @@ export default function StoreInventoryPage() {
             discount: 0,
             quantity: 1,
             notes: '',
+            payoutMethod: '',
+            saleDate: '',
             selectedStore: item.store || null,
             selectedItem: {
               id: item.inventoryItem.id,

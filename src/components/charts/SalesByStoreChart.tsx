@@ -31,6 +31,7 @@ interface Sale {
   payout: number;
   discount?: number;
   saleDate: string;
+  status: string;
   store?: {
     id: string;
     name: string;
@@ -48,19 +49,26 @@ interface SalesByStoreChartProps {
 }
 
 export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
-  // Process data for store sales performance
-  const storeSalesData = sales.reduce((acc: { [key: string]: { revenue: number; profit: number; quantity: number; count: number } }, sale) => {
+  // Process data for store sales performance (only completed sales)
+  const storeSalesData = sales.reduce((acc: { [key: string]: { revenue: number; profit: number; quantity: number; count: number; completed: number; returned: number } }, sale) => {
     const storeName = sale.store?.name || 'Unknown Store';
     const revenue = (sale.payout || 0) - (sale.discount || 0);
     const profit = revenue - ((sale.cost || 0) * (sale.quantity || 1));
     
     if (!acc[storeName]) {
-      acc[storeName] = { revenue: 0, profit: 0, quantity: 0, count: 0 };
+      acc[storeName] = { revenue: 0, profit: 0, quantity: 0, count: 0, completed: 0, returned: 0 };
     }
     
-    acc[storeName].revenue += revenue;
-    acc[storeName].profit += profit;
-    acc[storeName].quantity += sale.quantity || 1;
+    // Only count completed sales in revenue/profit calculations
+    if (sale.status === 'COMPLETED') {
+      acc[storeName].revenue += revenue;
+      acc[storeName].profit += profit;
+      acc[storeName].quantity += sale.quantity || 1;
+      acc[storeName].completed += 1;
+    } else if (sale.status === 'RETURNED') {
+      acc[storeName].returned += 1;
+    }
+    
     acc[storeName].count += 1;
     
     return acc;
@@ -71,7 +79,7 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
   const storeProfits = Object.values(storeSalesData).map(store => store.profit);
   const storeQuantities = Object.values(storeSalesData).map(store => store.quantity);
 
-  // Process data for brand sales distribution
+  // Process data for brand sales distribution (only completed sales)
   const brandSalesData = sales.reduce((acc: { [key: string]: { revenue: number; profit: number; quantity: number } }, sale) => {
     const brand = sale.inventoryItem?.product?.brand || 'Unknown Brand';
     const revenue = (sale.payout || 0) - (sale.discount || 0);
@@ -81,9 +89,12 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
       acc[brand] = { revenue: 0, profit: 0, quantity: 0 };
     }
     
-    acc[brand].revenue += revenue;
-    acc[brand].profit += profit;
-    acc[brand].quantity += sale.quantity || 1;
+    // Only count completed sales
+    if (sale.status === 'COMPLETED') {
+      acc[brand].revenue += revenue;
+      acc[brand].profit += profit;
+      acc[brand].quantity += sale.quantity || 1;
+    }
     
     return acc;
   }, {});
@@ -92,7 +103,7 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
   const brandRevenues = Object.values(brandSalesData).map(brand => brand.revenue);
   const brandProfits = Object.values(brandSalesData).map(brand => brand.profit);
 
-  // Process data for product sales
+  // Process data for product sales (only completed sales)
   const productSalesData = sales.reduce((acc: { [key: string]: { revenue: number; profit: number; quantity: number; count: number } }, sale) => {
     const productName = sale.inventoryItem?.product?.name || 'Unknown Product';
     const revenue = (sale.payout || 0) - (sale.discount || 0);
@@ -102,10 +113,13 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
       acc[productName] = { revenue: 0, profit: 0, quantity: 0, count: 0 };
     }
     
-    acc[productName].revenue += revenue;
-    acc[productName].profit += profit;
-    acc[productName].quantity += sale.quantity || 1;
-    acc[productName].count += 1;
+    // Only count completed sales
+    if (sale.status === 'COMPLETED') {
+      acc[productName].revenue += revenue;
+      acc[productName].profit += profit;
+      acc[productName].quantity += sale.quantity || 1;
+      acc[productName].count += 1;
+    }
     
     return acc;
   }, {});
@@ -297,35 +311,48 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
   };
 
   const totalRevenue = sales.reduce((sum, sale) => {
-    return sum + ((sale.payout || 0) - (sale.discount || 0));
+    if (sale.status === 'COMPLETED') {
+      return sum + ((sale.payout || 0) - (sale.discount || 0));
+    }
+    return sum;
   }, 0);
 
   const totalProfit = sales.reduce((sum, sale) => {
-    const revenue = (sale.payout || 0) - (sale.discount || 0);
-    const cost = (sale.cost || 0) * (sale.quantity || 1);
-    return sum + (revenue - cost);
+    if (sale.status === 'COMPLETED') {
+      const revenue = (sale.payout || 0) - (sale.discount || 0);
+      const cost = (sale.cost || 0) * (sale.quantity || 1);
+      return sum + (revenue - cost);
+    }
+    return sum;
   }, 0);
 
+  const completedSales = sales.filter(sale => sale.status === 'COMPLETED').length;
+  const returnedSales = sales.filter(sale => sale.status === 'RETURNED').length;
   const totalSales = sales.length;
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-gradient-to-r from-green-500 to-blue-600 text-white p-6 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Total Revenue</h3>
           <p className="text-3xl font-bold">${totalRevenue.toLocaleString()}</p>
-          <p className="text-green-100">From {totalSales} sales</p>
+          <p className="text-green-100">From {completedSales} completed sales</p>
         </div>
         <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Total Profit</h3>
           <p className="text-3xl font-bold">${totalProfit.toLocaleString()}</p>
-          <p className="text-emerald-100">{((totalProfit / totalRevenue) * 100).toFixed(1)}% margin</p>
+          <p className="text-emerald-100">{totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0}% margin</p>
         </div>
         <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white p-6 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Active Stores</h3>
           <p className="text-3xl font-bold">{storeLabels.length}</p>
           <p className="text-purple-100">With sales activity</p>
+        </div>
+        <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-6 rounded-lg">
+          <h3 className="text-xl font-bold mb-2">Sales Status</h3>
+          <p className="text-3xl font-bold">{completedSales}</p>
+          <p className="text-orange-100">{completedSales} completed, {returnedSales} returned</p>
         </div>
       </div>
 
@@ -361,6 +388,69 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sales Status Breakdown */}
+      <div className="bg-white p-4 rounded-lg shadow">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Sales Status Breakdown</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-md font-medium text-foreground mb-3">Store Status Summary</h4>
+            <div className="space-y-3">
+              {Object.entries(storeSalesData).map(([storeName, data]) => (
+                <div key={storeName} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <span className="font-medium text-foreground">{storeName}</span>
+                    <div className="text-sm text-muted-foreground">
+                      ${data.revenue.toLocaleString()} revenue
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center space-x-4">
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-green-600">{data.completed}</div>
+                        <div className="text-xs text-muted-foreground">Completed</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-orange-600">{data.returned}</div>
+                        <div className="text-xs text-muted-foreground">Returned</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h4 className="text-md font-medium text-foreground mb-3">Overall Status</h4>
+            <div className="space-y-4">
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h5 className="font-medium text-green-800">Completed Sales</h5>
+                    <p className="text-sm text-green-600">Revenue generating transactions</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-green-600">{completedSales}</div>
+                    <div className="text-sm text-green-600">${totalRevenue.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-orange-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h5 className="font-medium text-orange-800">Returned Sales</h5>
+                    <p className="text-sm text-orange-600">Refunded transactions</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-orange-600">{returnedSales}</div>
+                    <div className="text-sm text-orange-600">No revenue</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

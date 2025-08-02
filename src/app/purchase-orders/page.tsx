@@ -7,8 +7,11 @@ import Button from '@/components/Button';
 import { AddIcon, EditIcon, DeleteIcon, MoreIcon, ChevronDownIcon, ChevronRightIcon } from '@/utils/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePurchaseOrders } from '@/hooks/usePurchaseOrders';
+import { useDeletePurchaseOrder } from '@/hooks/useDeletePurchaseOrder';
 import AddPurchaseOrderModal from '@/components/AddPurchaseOrderModal';
 import DeliverPurchaseOrderModal from '@/components/DeliverPurchaseOrderModal';
+import EditPurchaseOrderModal from '@/components/EditPurchaseOrderModal';
+import DeletePurchaseOrderModal from '@/components/DeletePurchaseOrderModal';
 import { useProducts } from '@/hooks';
 
 interface PurchaseOrder {
@@ -47,11 +50,23 @@ export default function PurchaseOrders() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeliverModal, setShowDeliverModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const { data: purchaseOrders, isLoading, isError, mutate } = usePurchaseOrders(statusFilter || undefined);
   const { data: products } = useProducts();
+  const { deletePurchaseOrder, loading: deleteLoading } = useDeletePurchaseOrder({
+    onSuccess: () => {
+      mutate();
+      setShowDeleteModal(false);
+      setSelectedPurchaseOrder(null);
+    },
+    onError: (error) => {
+      alert(error);
+    },
+  });
 
 
 
@@ -85,6 +100,24 @@ export default function PurchaseOrders() {
     setSelectedPurchaseOrder(order);
     setShowDeliverModal(true);
     setOpenDropdown(null);
+  };
+
+  const handleEditOrder = (order: PurchaseOrder) => {
+    setSelectedPurchaseOrder(order);
+    setShowEditModal(true);
+    setOpenDropdown(null);
+  };
+
+  const handleDeleteOrder = (order: PurchaseOrder) => {
+    setSelectedPurchaseOrder(order);
+    setShowDeleteModal(true);
+    setOpenDropdown(null);
+  };
+
+  const confirmDelete = async () => {
+    if (selectedPurchaseOrder) {
+      await deletePurchaseOrder(selectedPurchaseOrder.id);
+    }
   };
 
   const toggleDropdown = (orderId: string) => {
@@ -257,20 +290,16 @@ export default function PurchaseOrders() {
                                         Mark as Delivered
                                       </button>
                                     )}
+                                    {order.status !== 'DELIVERED' && (
+                                      <button
+                                        onClick={() => handleEditOrder(order)}
+                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                      >
+                                        Edit Order
+                                      </button>
+                                    )}
                                     <button
-                                      onClick={() => {
-                                        // TODO: Add edit functionality
-                                        setOpenDropdown(null);
-                                      }}
-                                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                      Edit Order
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        // TODO: Add delete functionality
-                                        setOpenDropdown(null);
-                                      }}
+                                      onClick={() => handleDeleteOrder(order)}
                                       className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                                     >
                                       Delete Order
@@ -372,6 +401,28 @@ export default function PurchaseOrders() {
             setSelectedPurchaseOrder(null);
           }}
           purchaseOrder={selectedPurchaseOrder}
+        />
+
+        {/* Edit Purchase Order Modal */}
+        <EditPurchaseOrderModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => {
+            mutate();
+            setShowEditModal(false);
+            setSelectedPurchaseOrder(null);
+          }}
+          purchaseOrder={selectedPurchaseOrder}
+          products={products || []}
+        />
+
+        {/* Delete Purchase Order Modal */}
+        <DeletePurchaseOrderModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={confirmDelete}
+          purchaseOrder={selectedPurchaseOrder}
+          isLoading={deleteLoading}
         />
       </div>
     </Layout>
