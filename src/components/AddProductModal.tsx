@@ -396,6 +396,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, isLoading =
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Examples: Shoe, Apparel, Accessories, Hat, Bag, etc. (Free text input)
+                  {/* Note: Item type is now a free text input instead of dropdown for better flexibility */}
                 </p>
               </div>
 
