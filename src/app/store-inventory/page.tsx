@@ -7,7 +7,7 @@ import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import TransferToStoreModal from '@/components/TransferToStoreModal';
 import AddSaleModal from '@/components/AddSaleModal';
-import { useInventory } from '@/hooks';
+import { useInventory, useReturnFromStore } from '@/hooks';
 
 interface Store {
   id: string;
@@ -88,6 +88,17 @@ export default function StoreInventoryPage() {
   const [isDeletingItem, setIsDeletingItem] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  
+  // Return functionality
+  const { returnFromStore, isReturning } = useReturnFromStore({
+    onSuccess: () => {
+      // Refresh the page data
+      window.location.reload();
+    },
+    onError: (error) => {
+      alert(`Failed to return items: ${error}`);
+    }
+  });
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -332,6 +343,11 @@ export default function StoreInventoryPage() {
 
   // Row selection functions
   const toggleItemSelection = (itemId: string) => {
+    const item = inventory.find(item => item.id === itemId);
+    if (!item || item.quantity === 0 || item.status !== 'IN_STOCK') {
+      return; // Don't allow selection of items that are not in stock
+    }
+
     setSelectedItems(prev => {
       const newSet = new Set(prev);
       if (newSet.has(itemId)) {
@@ -344,7 +360,7 @@ export default function StoreInventoryPage() {
   };
 
   const toggleSelectAll = () => {
-    const availableItems = filteredInventory.filter(item => item.quantity > 0);
+    const availableItems = filteredInventory.filter(item => item.quantity > 0 && item.status === 'IN_STOCK');
     const selectedAvailableItems = availableItems.filter(item => selectedItems.has(item.id));
     
     if (selectedAvailableItems.length === availableItems.length && availableItems.length > 0) {
@@ -356,6 +372,43 @@ export default function StoreInventoryPage() {
 
   const getSelectedInventoryItems = () => {
     return inventory.filter(item => selectedItems.has(item.id));
+  };
+
+  const handleBulkReturn = async () => {
+    const selectedInventoryItems = getSelectedInventoryItems();
+    
+    // Only allow returning items that are in stock
+    const inStockItems = selectedInventoryItems.filter(item => 
+      item.status === 'IN_STOCK' && item.quantity > 0
+    );
+
+    if (inStockItems.length === 0) {
+      alert('No in-stock items selected for return.');
+      return;
+    }
+
+    if (inStockItems.length !== selectedInventoryItems.length) {
+      alert('Some selected items are not in stock and cannot be returned.');
+      return;
+    }
+
+    // Get the store ID from the first item (all items should be from the same store when not viewing all stores)
+    const storeId = selectedStoreId === 'ALL' ? inStockItems[0].storeId : selectedStoreId;
+    
+    if (selectedStoreId === 'ALL' && inStockItems.some(item => item.storeId !== storeId)) {
+      alert('Cannot return items from multiple stores at once. Please select items from a single store.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to return ${inStockItems.length} items to the warehouse?`)) {
+      return;
+    }
+
+    try {
+      await returnFromStore(storeId, inStockItems.map(item => item.id));
+    } catch (error) {
+      console.error('Error returning items:', error);
+    }
   };
 
   // Filter inventory based on search term and status
@@ -529,12 +582,21 @@ export default function StoreInventoryPage() {
                   }
                 </h2>
                 {selectedItems.size > 0 && (
-                  <button
-                    onClick={() => setShowAddSaleModal(true)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Add Sale ({selectedItems.size} selected)
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowAddSaleModal(true)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Add Sale ({selectedItems.size} selected)
+                    </button>
+                    <button
+                      onClick={handleBulkReturn}
+                      disabled={isReturning}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isReturning ? 'Returning...' : `Return to Warehouse (${selectedItems.size} selected)`}
+                    </button>
+                  </div>
                 )}
               </div>
               {loading ? (
@@ -548,7 +610,7 @@ export default function StoreInventoryPage() {
                           <input
                             type="checkbox"
                             checked={(() => {
-                              const availableItems = filteredInventory.filter(item => item.quantity > 0);
+                              const availableItems = filteredInventory.filter(item => item.quantity > 0 && item.status === 'IN_STOCK');
                               const selectedAvailableItems = availableItems.filter(item => selectedItems.has(item.id));
                               return selectedAvailableItems.length === availableItems.length && availableItems.length > 0;
                             })()}
@@ -592,7 +654,7 @@ export default function StoreInventoryPage() {
                                 type="checkbox"
                                 checked={selectedItems.has(item.id)}
                                 onChange={() => toggleItemSelection(item.id)}
-                                disabled={item.quantity === 0}
+                                disabled={item.quantity === 0 || item.status !== 'IN_STOCK'}
                                 className="rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                               />
                             </td>

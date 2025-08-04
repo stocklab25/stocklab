@@ -42,9 +42,9 @@ export default function StoreSalesPage() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ show: boolean; row: any | null }>({ show: false, row: null });
   
-  // Row selection states for bulk return
+  // Row selection states for bulk refund
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [isBulkReturning, setIsBulkReturning] = useState(false);
+  const [isBulkRefunding, setIsBulkRefunding] = useState(false);
 
   const handleEditClick = (row: any, sale: any) => {
     setEditingRowId(row.id);
@@ -140,7 +140,7 @@ export default function StoreSalesPage() {
     setOpenDropdown(openDropdown === rowId ? null : rowId);
   };
 
-  // Row selection functions for bulk return
+  // Row selection functions for bulk refund
   const toggleItemSelection = (itemId: string) => {
     setSelectedItems(prev => {
       const newSet = new Set(prev);
@@ -165,8 +165,8 @@ export default function StoreSalesPage() {
     return filteredSales.filter((sale: any) => selectedItems.has(sale.id));
   };
 
-  const handleBulkReturn = async () => {
-    setIsBulkReturning(true);
+  const handleBulkRefund = async () => {
+    setIsBulkRefunding(true);
     try {
       const token = await getAuthToken();
       if (!token) {
@@ -175,9 +175,9 @@ export default function StoreSalesPage() {
 
       const selectedSales = getSelectedSales();
       
-      // Process each sale for return
+      // Process each sale for refund
       for (const sale of selectedSales) {
-        // 1. Update the sale status to "RETURNED"
+        // 1. Update the sale status to "REFUNDED"
         const updateSaleResponse = await fetch(`/api/sales/${sale.id}`, {
           method: 'PUT',
           headers: {
@@ -185,7 +185,7 @@ export default function StoreSalesPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            status: 'RETURNED',
+            status: 'REFUNDED',
           }),
         });
 
@@ -213,7 +213,7 @@ export default function StoreSalesPage() {
         );
 
         if (existingInventoryItem) {
-          // Update the existing store inventory item quantity back to 1 and status to RETURNED
+          // Update the existing store inventory item quantity back to 1 and status to IN_STOCK
           const updateInventoryResponse = await fetch(`/api/stores/${sale.storeId}/inventory`, {
             method: 'PUT',
             headers: {
@@ -223,7 +223,7 @@ export default function StoreSalesPage() {
             body: JSON.stringify({
               id: existingInventoryItem.id,
               quantity: 1,
-              status: 'RETURNED',
+              status: 'IN_STOCK',
             }),
           });
 
@@ -240,10 +240,10 @@ export default function StoreSalesPage() {
       setSelectedItems(new Set());
       
     } catch (error) {
-      console.error('Error processing bulk return:', error);
-      alert('Failed to process bulk return. Please try again.');
+      console.error('Error processing bulk refund:', error);
+      alert('Failed to process bulk refund. Please try again.');
     } finally {
-      setIsBulkReturning(false);
+      setIsBulkRefunding(false);
     }
   };
 
@@ -417,7 +417,7 @@ export default function StoreSalesPage() {
                   >
                     <option value="ALL">All Status</option>
                     <option value="COMPLETED">Completed</option>
-                    <option value="RETURNED">Returned</option>
+                    <option value="REFUNDED">Refunded</option>
                   </select>
                 </div>
                 <div>
@@ -461,11 +461,11 @@ export default function StoreSalesPage() {
                   </div>
                   {selectedItems.size > 0 && (
                     <Button 
-                      onClick={handleBulkReturn}
-                      disabled={isBulkReturning}
+                      onClick={handleBulkRefund}
+                      disabled={isBulkRefunding}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
-                      {isBulkReturning ? 'Returning...' : `Return to Inventory (${selectedItems.size} selected)`}
+                      {isBulkRefunding ? 'Refunding...' : `Refund to Inventory (${selectedItems.size} selected)`}
                     </Button>
                   )}
                 </div>
@@ -554,7 +554,7 @@ export default function StoreSalesPage() {
                                         ? 'bg-green-100 text-green-800' 
                                         : 'bg-orange-100 text-orange-800'
                                     }`}>
-                                      {row[col.key] === 'COMPLETED' ? 'COMPLETED' : 'RETURNED'}
+                                      {row[col.key] === 'COMPLETED' ? 'COMPLETED' : 'REFUNDED'}
                                     </span>
                                   </TableCell>
                                 );

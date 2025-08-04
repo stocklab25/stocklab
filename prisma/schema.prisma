@@ -329,7 +329,7 @@ enum InventoryNote {
 
 enum SaleStatus {
   COMPLETED
-  RETURNED
+  REFUNDED
 }
 
 enum StoreInventoryStatus {

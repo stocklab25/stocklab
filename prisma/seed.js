@@ -102,6 +102,7 @@ async function main() {
           quantity: productData.quantity,
           cost: productData.cost,
           payout: productData.payout,
+          itemType: 'shoes',
         }
       });
       createdProducts.push(product);
