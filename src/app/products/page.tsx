@@ -8,7 +8,10 @@ import { useProducts, useAddProduct } from '@/hooks';
 import { useDeleteProduct } from '@/hooks/useDeleteProduct';
 import { useRestoreProduct } from '@/hooks/useRestoreProduct';
 import { useEditProduct } from '@/hooks/useEditProduct';
+import { useImportProducts } from '@/hooks/useImportProducts';
 import AddProductModal from '@/components/AddProductModal';
+import ImportModal from '@/components/ImportModal';
+import { getProductsImportConfig } from '@/utils/import-configs';
 import PromptModal from '@/components/PromptModal';
 import { PageLoader } from '@/components/Loader';
 import Button from '@/components/Button';
@@ -60,6 +63,7 @@ export default function Products() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -271,10 +275,22 @@ export default function Products() {
               {showArchived ? 'View Active' : 'View Archived'}
             </button>
             {!showArchived && (
-              <Button onClick={() => setIsModalOpen(true)}>
-                <span className="mr-2">+</span>
-                Add Product
-              </Button>
+              <>
+                <Button 
+                  onClick={() => setIsImportModalOpen(true)}
+                  variant="outline"
+                  className="flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                  </svg>
+                  <span>Import</span>
+                </Button>
+                <Button onClick={() => setIsModalOpen(true)}>
+                  <span className="mr-2">+</span>
+                  Add Product
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -466,6 +482,17 @@ export default function Products() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddProduct}
         isLoading={isAdding}
+      />
+
+      {/* Import Products Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          mutate();
+          setIsImportModalOpen(false);
+        }}
+        config={getProductsImportConfig()}
       />
       
       {/* Delete Prompt Modal */}

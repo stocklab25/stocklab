@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 
 import AddInventoryModal from '@/components/AddInventoryModal';
 import BulkTransferModal from '@/components/BulkTransferModal';
+import ImportModal from '@/components/ImportModal';
+import { getInventoryImportConfig } from '@/utils/import-configs';
 import { useInventory } from '@/hooks';
 import { useSettings } from '@/contexts/SettingsContext';
 import PromptModal from '@/components/PromptModal';
@@ -53,6 +55,7 @@ export default function Inventory() {
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
 
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [isTransferring, setIsTransferring] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -450,6 +453,12 @@ export default function Inventory() {
           </div>
           <div className="flex space-x-3">
             <button 
+              onClick={() => setIsImportModalOpen(true)}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors"
+            >
+              Import
+            </button>
+            <button 
               onClick={() => setShowBulkTransferModal(true)}
               disabled={selectedItems.size === 0}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -701,11 +710,11 @@ export default function Inventory() {
         )}
 
         {/* Add Inventory Modal */}
-        {/* <AddInventoryModal
+        <AddInventoryModal
           isOpen={showAddInventoryModal}
           onClose={() => setShowAddInventoryModal(false)}
           onSuccess={handleAddInventorySuccess}
-        /> */}
+        />
 
 
 
@@ -718,6 +727,17 @@ export default function Inventory() {
           isLoading={isTransferring}
           selectedItems={getSelectedInventoryItems()}
           stores={stores}
+        />
+
+        {/* Import Inventory Modal */}
+        <ImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => {
+            mutate();
+            setIsImportModalOpen(false);
+          }}
+          config={getInventoryImportConfig()}
         />
 
         {/* Delete Confirmation Modal */}

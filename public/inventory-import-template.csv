@@ -1,0 +1,9 @@
+productSku,size,condition,quantity,cost,notes
+123456,10,NEW,5,150.00,New arrival
+789012,M,GOOD,3,120.00,Minor wear
+345678,L,LIKE_NEW,2,140.00,Excellent condition
+901234,9,FAIR,1,80.00,Some wear
+567890,XL,NEW,4,160.00,Latest collection
+234567,8,POOR,2,50.00,Heavy wear
+678901,S,GOOD,6,110.00,Good condition
+456789,11,LIKE_NEW,3,145.00,Almost new

@@ -9,6 +9,8 @@ import { useUpdateInventoryQuantity } from './useUpdateInventoryQuantity';
 import { useImportTransactions } from './useImportTransactions';
 import { useImportSales } from './useImportSales';
 import { useImportExpenses } from './useImportExpenses';
+import { useImportProducts } from './useImportProducts';
+import { useImportInventory } from './useImportInventory';
 import { useUsers } from './useUsers';
 import { usePurchaseOrders, usePurchaseOrder } from './usePurchaseOrders';
 import useExpenses from './useExpenses';
@@ -28,6 +30,8 @@ export {
   useImportTransactions,
   useImportSales,
   useImportExpenses,
+  useImportProducts,
+  useImportInventory,
   useUsers,
   usePurchaseOrders,
   usePurchaseOrder,
