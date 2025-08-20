@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate cost if provided
-        let cost = null;
+        let cost = 0; // Default to 0 since cost is required in schema
         if (normalizedData.cost) {
           cost = parseFloat(normalizedData.cost);
           if (isNaN(cost) || cost < 0) {
@@ -148,8 +148,8 @@ export async function POST(request: NextRequest) {
             where: { id: existingItem.id },
             data: {
               quantity: existingItem.quantity + quantity,
-              cost: cost || existingItem.cost,
-              notes: normalizedData.notes || existingItem.notes,
+              cost: normalizedData.cost ? cost : existingItem.cost,
+              note: normalizedData.notes || existingItem.note,
             },
           });
         } else {
@@ -157,11 +157,13 @@ export async function POST(request: NextRequest) {
           await prisma.inventoryItem.create({
             data: {
               productId: product.id,
+              sku: `${product.sku}-${normalizedData.size}-${normalizedData.condition.toUpperCase()}`, // Generate unique SKU
               size: normalizedData.size,
               condition: normalizedData.condition.toUpperCase(),
               quantity: quantity,
               cost: cost,
-              notes: normalizedData.notes || undefined,
+              status: 'InStock', // Default status
+              note: normalizedData.notes || undefined,
             },
           });
         }

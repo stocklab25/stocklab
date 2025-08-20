@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       item.product.brand,
       item.product.name,
       item.product.sku || '',
-      item.product.stocklabSku || '',
+      item.stocklabSku || '',
       item.sku,
       item.size,
       item.condition,

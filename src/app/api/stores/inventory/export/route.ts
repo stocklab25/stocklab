@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       item.inventoryItem.product.brand,
       item.inventoryItem.product.name,
       item.inventoryItem.product.sku || '',
-      item.inventoryItem.product.stocklabSku || '',
+      item.inventoryItem.stocklabSku || '',
       item.storeSku || '',
       item.inventoryItem.sku,
       item.inventoryItem.size,

@@ -118,10 +118,7 @@ export async function DELETE(
 
     // Check if card exists
     const card = await prisma.card.findUnique({
-      where: { id },
-      include: {
-        expenses: true
-      }
+      where: { id }
     });
 
     if (!card) {
@@ -131,15 +128,7 @@ export async function DELETE(
       );
     }
 
-    // Check if card has associated expenses
-    if (card.expenses.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete card with associated expenses. Please delete or reassign expenses first.' },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete the card
+    // Soft delete the card (regardless of associated expenses)
     await prisma.card.update({
       where: { id },
       data: { deletedAt: new Date() }
@@ -147,7 +136,7 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Card deleted successfully'
+      message: 'Card soft deleted successfully'
     });
   } catch (error) {
     console.error('Error deleting card:', error);
