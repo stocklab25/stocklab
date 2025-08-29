@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { PageLoader } from '@/components/Loader';
-import { useInventory, useProducts, useTransactions } from '@/hooks';
+import { useInventory, useProducts, useTransactions, useAllStoreInventory } from '@/hooks';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import InventorySummaryChart from '@/components/charts/InventorySummaryChart';
@@ -56,6 +56,7 @@ export default function Reports() {
   const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
   const { data: products, isLoading: productsLoading, isError: productsError } = useProducts();
   const { data: transactions, isLoading: transactionsLoading, isError: transactionsError } = useTransactions();
+  const { data: allStoreInventory, isLoading: storeInventoryLoading, isError: storeInventoryError } = useAllStoreInventory();
   const { settings } = useSettings();
   const [selectedReport, setSelectedReport] = useState<string>('summary');
   const [salesData, setSalesData] = useState<any[]>([]);
@@ -135,31 +136,12 @@ export default function Reports() {
     fetchStores();
   }, []); // Removed getAuthToken from dependency array
 
-  // Fetch store inventory data for value calculation
+  // Use the store inventory data from the hook
   useEffect(() => {
-    const fetchStoreInventory = async () => {
-      try {
-        const token = await getAuthToken();
-        if (!token) {
-          
-          return;
-        }
-
-        const response = await fetch('/api/stores/inventory', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStoreInventoryData(Array.isArray(data) ? data : []);
-        }
-      } catch (error) {
-        
-      }
-    };
-    fetchStoreInventory();
-  }, []); // Removed getAuthToken from dependency array
+    if (allStoreInventory) {
+      setStoreInventoryData(allStoreInventory);
+    }
+  }, [allStoreInventory]);
 
   // Filter sales data based on date range, store selection, and status
   const filteredSalesData = useMemo(() => {
@@ -192,13 +174,51 @@ export default function Reports() {
     });
   }, [salesData, startDate, endDate, selectedStore, selectedSaleStatus]);
 
-  // Filter inventory data based on store selection and date range
+  // Filter inventory data for inventory summary based on store selection and date range
   const filteredInventoryData = useMemo(() => {
-    // If "all" is selected, use warehouse inventory
+    // If "all" is selected, combine warehouse and store inventory
     if (selectedInventoryStore === 'all') {
-      if (!inventory || !Array.isArray(inventory)) return [];
-
-      let filtered = inventory;
+      const warehouseItems = inventory || [];
+      const storeItems = storeInventoryData || [];
+      
+      // Create a map to track items and their quantities across all locations
+      const itemMap = new Map();
+      
+      // Add warehouse inventory
+      warehouseItems.forEach((item: any) => {
+        const key = item.id;
+        itemMap.set(key, {
+          ...item,
+          totalQuantity: item.quantity || 0,
+          locations: ['warehouse']
+        });
+      });
+      
+      // Add store inventory and aggregate quantities
+      storeItems.forEach((storeItem: any) => {
+        const key = storeItem.inventoryItemId;
+        const existingItem = itemMap.get(key);
+        
+        if (existingItem) {
+          // Item exists in warehouse, add store quantity
+          existingItem.totalQuantity += storeItem.quantity || 0;
+          existingItem.locations.push(storeItem.store?.name || 'Unknown Store');
+        } else {
+          // Item only exists in store
+          itemMap.set(key, {
+            ...storeItem.inventoryItem,
+            quantity: storeItem.quantity || 0,
+            totalQuantity: storeItem.quantity || 0,
+            storeSku: storeItem.storeSku,
+            transferCost: storeItem.transferCost,
+            createdAt: storeItem.createdAt,
+            updatedAt: storeItem.updatedAt,
+            locations: [storeItem.store?.name || 'Unknown Store']
+          });
+        }
+      });
+      
+      let filtered = Array.from(itemMap.values());
 
       // Filter by date range (using createdAt date)
       if (inventoryStartDate && inventoryEndDate) {
@@ -246,11 +266,56 @@ export default function Reports() {
 
   // Filter inventory data for value report based on store selection and date range
   const filteredValueInventoryData = useMemo(() => {
-    // If "all" is selected, use warehouse inventory
+    // If "all" is selected, combine warehouse and store inventory
     if (selectedValueStore === 'all') {
-      if (!inventory || !Array.isArray(inventory)) return [];
-
-      let filtered = inventory;
+      const warehouseItems = inventory || [];
+      const storeItems = storeInventoryData || [];
+      
+      // Create a map to track items and their values across all locations
+      const itemMap = new Map();
+      
+      // Add warehouse inventory
+      warehouseItems.forEach((item: any) => {
+        const key = item.id;
+        const cost = Math.max(0, parseFloat(item.cost || 0));
+        const quantity = Math.max(0, item.quantity || 0);
+        itemMap.set(key, {
+          ...item,
+          totalQuantity: quantity,
+          totalValue: cost * quantity,
+          locations: ['warehouse']
+        });
+      });
+      
+      // Add store inventory and aggregate values
+      storeItems.forEach((storeItem: any) => {
+        const key = storeItem.inventoryItemId;
+        const cost = Math.max(0, parseFloat(storeItem.inventoryItem?.cost || 0));
+        const quantity = Math.max(0, storeItem.quantity || 0);
+        const existingItem = itemMap.get(key);
+        
+        if (existingItem) {
+          // Item exists in warehouse, add store quantity and value
+          existingItem.totalQuantity += quantity;
+          existingItem.totalValue += cost * quantity;
+          existingItem.locations.push(storeItem.store?.name || 'Unknown Store');
+        } else {
+          // Item only exists in store
+          itemMap.set(key, {
+            ...storeItem.inventoryItem,
+            quantity: quantity,
+            totalQuantity: quantity,
+            totalValue: cost * quantity,
+            storeSku: storeItem.storeSku,
+            transferCost: storeItem.transferCost,
+            createdAt: storeItem.createdAt,
+            updatedAt: storeItem.updatedAt,
+            locations: [storeItem.store?.name || 'Unknown Store']
+          });
+        }
+      });
+      
+      let filtered = Array.from(itemMap.values());
 
       // Filter by date range (using createdAt date)
       if (valueStartDate && valueEndDate) {
@@ -313,11 +378,35 @@ export default function Reports() {
           const itemValue = cost * quantity;
           return sum + itemValue;
         }, 0);
-        const totalItems = inventory.length;
+        
+        // For "all" stores view, we need to calculate total value from filtered data
+        let finalTotalValue = totalValue;
+        let finalTotalItems = inventory.length;
+        
+        if (selectedInventoryStore === 'all' && filteredInventoryData.length > 0) {
+          finalTotalValue = filteredInventoryData.reduce((sum: number, item: any) => {
+            const cost = Math.max(0, parseFloat(item.cost || 0));
+            const quantity = Math.max(0, item.totalQuantity || item.quantity || 1);
+            const itemValue = cost * quantity;
+            return sum + itemValue;
+          }, 0);
+          finalTotalItems = filteredInventoryData.length;
+        }
+        
+        // Calculate low stock items from filtered data
+        const lowStockItems = filteredInventoryData.length > 0 ? 
+          filteredInventoryData.filter((item: any) => 
+            (item.totalQuantity || item.quantity || 0) <= settings.lowStockThreshold
+          ).length : 
+          inventory.filter((item: InventoryItem) => 
+            item.quantity <= settings.lowStockThreshold
+          ).length;
         
         // Count items by brand
         const brandCounts: { [key: string]: number } = {};
-        inventory.forEach((item: InventoryItem) => {
+        const itemsToCount = filteredInventoryData.length > 0 ? filteredInventoryData : inventory;
+        
+        itemsToCount.forEach((item: any) => {
           // Try to get brand from product relation first, then fallback to products array
           let brand = '';
           if (item.product?.brand) {
@@ -344,14 +433,11 @@ export default function Reports() {
           .map(([type, count]) => ({ type, count }))
           .sort((a, b) => b.count - a.count);
 
-        // Calculate low stock items
-        const lowStockItems = inventory.filter((item: InventoryItem) => 
-          item.quantity <= settings.lowStockThreshold
-        ).length;
+
 
         setReportData({
-          totalValue,
-          totalItems,
+          totalValue: finalTotalValue,
+          totalItems: finalTotalItems,
           lowStockItems,
           topBrands,
           recentActivity,
@@ -360,7 +446,7 @@ export default function Reports() {
         
       }
     }
-  }, [inventory?.length, products?.length, transactions?.length, settings.lowStockThreshold]);
+  }, [inventory?.length, products?.length, transactions?.length, settings.lowStockThreshold, filteredInventoryData, selectedInventoryStore]);
 
   // Add monthly and annual sales/profit calculations
   const now = new Date();
@@ -379,7 +465,8 @@ export default function Reports() {
     let totalProfit = 0;
     let totalItems = 0;
     let completedSales = 0;
-    let returnedSales = 0;
+    let refundedSales = 0;
+    let refundedAmount = 0;
     
     salesArr.forEach(sale => {
       const payout = Math.max(0, Number(sale.payout) || 0);
@@ -387,22 +474,27 @@ export default function Reports() {
       const cost = Math.max(0, Number(sale.cost) || 0);
       const quantity = Math.max(0, Number(sale.quantity) || 1);
       
-      // Only count completed sales in totals
       if (sale.status === 'COMPLETED') {
         totalSales += payout - discount;
         totalProfit += (payout - discount) - (cost * quantity);
         totalItems += quantity;
         completedSales++;
-      } else if (sale.status === 'RETURNED') {
-        returnedSales++;
+      } else if (sale.status === 'REFUNDED') {
+        refundedSales++;
+        refundedAmount += payout - discount; // Track refunded amount
       }
     });
+    
+    // Calculate net profit (completed sales minus refunded amounts)
+    const netProfit = totalProfit - refundedAmount;
+    
     return {
       totalSales: Math.max(0, totalSales),
-      totalProfit,
+      totalProfit: netProfit,
       totalItems,
       completedSales,
-      returnedSales,
+      refundedSales,
+      refundedAmount,
     };
   };
   const monthlySummary = getSalesSummary(monthlySales);
@@ -437,10 +529,10 @@ export default function Reports() {
   }, [storeInventoryData]);
 
   // Check if any data is loading
-  const isLoading = inventoryLoading || productsLoading || transactionsLoading;
+  const isLoading = inventoryLoading || productsLoading || transactionsLoading || storeInventoryLoading;
   
   // Check if any data has errors
-  const hasError = inventoryError || productsError || transactionsError;
+  const hasError = inventoryError || productsError || transactionsError || storeInventoryError;
 
   if (isLoading) {
     return (
@@ -659,7 +751,7 @@ export default function Reports() {
                   >
                     <option value="all">All Status</option>
                     <option value="COMPLETED">Completed</option>
-                    <option value="RETURNED">Returned</option>
+                    <option value="REFUNDED">Refunded</option>
                   </select>
                 </div>
                 <div className="flex items-end">
@@ -844,8 +936,8 @@ export default function Reports() {
                   <p className="text-2xl font-bold text-green-600">{monthlySummary.completedSales}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Returned Sales</p>
-                  <p className="text-2xl font-bold text-orange-600">{monthlySummary.returnedSales}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Refunded Sales</p>
+                  <p className="text-2xl font-bold text-orange-600">{monthlySummary.refundedSales}</p>
                 </div>
               </div>
             </div>
@@ -874,8 +966,8 @@ export default function Reports() {
                   <p className="text-2xl font-bold text-green-600">{annualSummary.completedSales}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Returned Sales</p>
-                  <p className="text-2xl font-bold text-orange-600">{annualSummary.returnedSales}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Refunded Sales</p>
+                  <p className="text-2xl font-bold text-orange-600">{annualSummary.refundedSales}</p>
                 </div>
               </div>
             </div>

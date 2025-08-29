@@ -328,10 +328,12 @@ export default function Transactions() {
             <p className="text-muted-foreground mt-2">Track all stock movements</p>
           </div>
           <div className="flex space-x-2">
+            {/* Import button commented out
             <Button onClick={() => setIsImportModalOpen(true)}>
               <span className="mr-2"></span>
               Import Transactions
             </Button>
+            */}
             <Button onClick={() => setIsModalOpen(true)}>
               <span className="mr-2">+</span>
               New Transaction

@@ -11,6 +11,7 @@ import Modal from '@/components/Modal';
 import Input from '@/components/Input';
 import Select from '@/components/Select';
 import Badge from '@/components/Badge';
+import DeleteStoreModal from '@/components/DeleteStoreModal';
 
 interface Store {
   id: string;
@@ -31,10 +32,8 @@ export default function StoresPage() {
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showAdminConfirmationModal, setShowAdminConfirmationModal] = useState(false);
+  const [showDeleteStoreModal, setShowDeleteStoreModal] = useState(false);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
-  const [confirmationCode, setConfirmationCode] = useState('');
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -96,17 +95,15 @@ export default function StoresPage() {
 
   const handleOpenDeleteModal = (store: Store) => {
     setSelectedStore(store);
-    setShowDeleteModal(true);
+    setShowDeleteStoreModal(true);
   };
 
   const handleCloseModals = () => {
     setShowAddModal(false);
     setShowEditModal(false);
-    setShowDeleteModal(false);
-    setShowAdminConfirmationModal(false);
+    setShowDeleteStoreModal(false);
     setSelectedStore(null);
     setSubmitError(null);
-    setConfirmationCode('');
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -180,16 +177,6 @@ export default function StoresPage() {
   const handleDeleteStore = async () => {
     if (!selectedStore) return;
     
-    // Show confirmation modal
-    setShowAdminConfirmationModal(true);
-  };
-
-  const handleConfirmDeleteWithCode = async () => {
-    if (!selectedStore || !confirmationCode.trim()) {
-      setSubmitError('Please enter the confirmation code');
-      return;
-    }
-    
     setSubmitting(true);
     try {
       const token = await getAuthToken();
@@ -203,19 +190,21 @@ export default function StoresPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ confirmationCode })
+        body: JSON.stringify({ confirmationCode: 'DELETE STORE' })
       });
       
       const data = await res.json();
       if (res.ok) {
         handleCloseModals();
-        setConfirmationCode('');
         fetchStores();
+        return true;
       } else {
         setSubmitError(data.error || 'Failed to delete store');
+        return false;
       }
     } catch (e) {
       setSubmitError('Failed to delete store');
+      return false;
     } finally {
       setSubmitting(false);
     }
@@ -481,68 +470,19 @@ export default function StoresPage() {
         </Modal>
 
         {/* Delete Store Modal */}
-        <Modal
-          open={showDeleteModal}
+        <DeleteStoreModal
+          isOpen={showDeleteStoreModal}
           onClose={handleCloseModals}
-        >
-          <div>
-            <h2 className="text-xl font-bold mb-4">Delete Store</h2>
-          <div className="space-y-4">
-            <p className="text-muted-foreground">
-              Are you sure you want to delete <strong>{selectedStore?.name}</strong>? 
-              This action cannot be undone.
-            </p>
-            {submitError && <div className="text-red-500 text-sm">{submitError}</div>}
-            <div className="flex space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleCloseModals} disabled={submitting}>
-                Cancel
-              </Button>
-              <Button type="button" variant="destructive" onClick={handleDeleteStore} disabled={submitting}>
-                {submitting ? 'Deleting...' : 'Delete Store'}
-              </Button>
-            </div>
-          </div>
-          </div>
-        </Modal>
-
-        {/* Confirmation Modal */}
-        <Modal
-          open={showAdminConfirmationModal}
-          onClose={handleCloseModals}
-        >
-          <div>
-            <h2 className="text-xl font-bold mb-4">Confirmation Required</h2>
-            <div className="space-y-4">
-              <p className="text-muted-foreground">
-                To delete <strong>{selectedStore?.name}</strong>, please enter the confirmation code to proceed.
-              </p>
-              <div>
-                <label className="block text-sm font-medium mb-1">Delete Code *</label>
-                <Input
-                  type="text"
-                  value={confirmationCode}
-                  onChange={(e) => setConfirmationCode(e.target.value)}
-                  placeholder="Enter delete code"
-                  required
-                />
-              </div>
-              {submitError && <div className="text-red-500 text-sm">{submitError}</div>}
-              <div className="flex space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={handleCloseModals} disabled={submitting}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="destructive" 
-                  onClick={handleConfirmDeleteWithCode} 
-                  disabled={submitting || !confirmationCode.trim()}
-                >
-                  {submitting ? 'Deleting...' : 'Confirm Delete'}
-              </Button>
-            </div>
-          </div>
-          </div>
-        </Modal>
+          onSuccess={() => {
+            // Success is handled in the modal
+          }}
+          storeName={selectedStore?.name || ''}
+          onDelete={async () => {
+            await handleDeleteStore();
+          }}
+          loading={submitting}
+          error={submitError}
+        />
       </PageContainer>
     </Layout>
   );

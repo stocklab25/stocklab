@@ -190,7 +190,6 @@ export default function PurchaseOrders() {
                 <option value="DRAFT">Draft</option>
                 <option value="SUBMITTED">Submitted</option>
                 <option value="DELIVERED">Delivered</option>
-                <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
           </div>

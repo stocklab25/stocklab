@@ -50,13 +50,13 @@ interface SalesByStoreChartProps {
 
 export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
   // Process data for store sales performance (only completed sales)
-  const storeSalesData = sales.reduce((acc: { [key: string]: { revenue: number; profit: number; quantity: number; count: number; completed: number; returned: number } }, sale) => {
+  const storeSalesData = sales.reduce((acc: { [key: string]: { revenue: number; profit: number; quantity: number; count: number; completed: number; refunded: number; refundedAmount: number } }, sale) => {
     const storeName = sale.store?.name || 'Unknown Store';
     const revenue = (sale.payout || 0) - (sale.discount || 0);
     const profit = revenue - ((sale.cost || 0) * (sale.quantity || 1));
     
     if (!acc[storeName]) {
-      acc[storeName] = { revenue: 0, profit: 0, quantity: 0, count: 0, completed: 0, returned: 0 };
+      acc[storeName] = { revenue: 0, profit: 0, quantity: 0, count: 0, completed: 0, refunded: 0, refundedAmount: 0 };
     }
     
     // Only count completed sales in revenue/profit calculations
@@ -65,8 +65,9 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
       acc[storeName].profit += profit;
       acc[storeName].quantity += sale.quantity || 1;
       acc[storeName].completed += 1;
-    } else if (sale.status === 'RETURNED') {
-      acc[storeName].returned += 1;
+    } else if (sale.status === 'REFUNDED') {
+      acc[storeName].refunded += 1;
+      acc[storeName].refundedAmount += revenue; // Track refunded amount
     }
     
     acc[storeName].count += 1;
@@ -326,23 +327,35 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
     return sum;
   }, 0);
 
+  // Calculate total refunded amount
+  const totalRefundedAmount = sales.reduce((sum, sale) => {
+    if (sale.status === 'REFUNDED') {
+      const refundAmount = (sale.payout || 0) - (sale.discount || 0);
+      return sum + refundAmount;
+    }
+    return sum;
+  }, 0);
+
+  // Net profit after refunds
+  const netProfit = totalProfit - totalRefundedAmount;
+
   const completedSales = sales.filter(sale => sale.status === 'COMPLETED').length;
-  const returnedSales = sales.filter(sale => sale.status === 'RETURNED').length;
+  const refundedSales = sales.filter(sale => sale.status === 'REFUNDED').length;
   const totalSales = sales.length;
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-gradient-to-r from-green-500 to-blue-600 text-white p-6 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Total Revenue</h3>
           <p className="text-3xl font-bold">${totalRevenue.toLocaleString()}</p>
           <p className="text-green-100">From {completedSales} completed sales</p>
         </div>
         <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6 rounded-lg">
-          <h3 className="text-xl font-bold mb-2">Total Profit</h3>
-          <p className="text-3xl font-bold">${totalProfit.toLocaleString()}</p>
-          <p className="text-emerald-100">{totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0}% margin</p>
+          <h3 className="text-xl font-bold mb-2">Net Profit</h3>
+          <p className="text-3xl font-bold">${netProfit.toLocaleString()}</p>
+          <p className="text-emerald-100">{totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}% margin</p>
         </div>
         <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white p-6 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Active Stores</h3>
@@ -352,7 +365,12 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
         <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-6 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Sales Status</h3>
           <p className="text-3xl font-bold">{completedSales}</p>
-          <p className="text-orange-100">{completedSales} completed, {returnedSales} returned</p>
+          <p className="text-orange-100">{completedSales} completed, {refundedSales} refunded</p>
+        </div>
+        <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white p-6 rounded-lg">
+          <h3 className="text-xl font-bold mb-2">Refunded Amount</h3>
+          <p className="text-3xl font-bold">${totalRefundedAmount.toLocaleString()}</p>
+          <p className="text-red-100">Total refunds issued</p>
         </div>
       </div>
 
@@ -416,8 +434,9 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
                         <div className="text-xs text-muted-foreground">Completed</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-sm font-medium text-orange-600">{data.returned}</div>
-                        <div className="text-xs text-muted-foreground">Returned</div>
+                        <div className="text-sm font-medium text-orange-600">{data.refunded}</div>
+                        <div className="text-xs text-muted-foreground">Refunded</div>
+                        <div className="text-xs text-muted-foreground">${data.refundedAmount?.toLocaleString() || 0}</div>
                       </div>
                     </div>
                   </div>
@@ -443,12 +462,12 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
               <div className="bg-orange-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h5 className="font-medium text-orange-800">Returned Sales</h5>
+                    <h5 className="font-medium text-orange-800">Refunded Sales</h5>
                     <p className="text-sm text-orange-600">Refunded transactions</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-orange-600">{returnedSales}</div>
-                    <div className="text-sm text-orange-600">No revenue</div>
+                    <div className="text-2xl font-bold text-orange-600">{refundedSales}</div>
+                    <div className="text-sm text-orange-600">${totalRefundedAmount.toLocaleString()}</div>
                   </div>
                 </div>
               </div>

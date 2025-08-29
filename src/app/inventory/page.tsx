@@ -452,12 +452,14 @@ export default function Inventory() {
             <p className="text-muted-foreground mt-2">Manage your inventory items</p>
           </div>
           <div className="flex space-x-3">
+            {/* Import button commented out
             <button 
               onClick={() => setIsImportModalOpen(true)}
               className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors"
             >
               Import
             </button>
+            */}
             <button 
               onClick={() => setShowBulkTransferModal(true)}
               disabled={selectedItems.size === 0}

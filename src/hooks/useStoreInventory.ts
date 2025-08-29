@@ -42,4 +42,19 @@ export function useStoreInventory(storeId: string | null) {
     isError: error,
     mutate
   };
+}
+
+// Hook to fetch all store inventory data
+export function useAllStoreInventory() {
+  const { data, error, isLoading, mutate } = useSWR<StoreInventoryItem[]>(
+    '/api/stores/inventory',
+    fetcher
+  );
+
+  return {
+    data: Array.isArray(data) ? data : [],
+    isLoading,
+    isError: error,
+    mutate
+  };
 } 

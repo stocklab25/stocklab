@@ -623,10 +623,10 @@ export default function StoreInventoryPage() {
                         )}
                         <th className="text-left py-3 px-4 font-medium text-foreground">SL SKU</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Store SKU</th>
-                        <th className="text-left py-3 px-4 font-medium text-foreground w-80">Product</th>
+                        <th className="text-left py-3 px-4 font-medium text-foreground max-w-80">Product</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">SKU</th>
 
-                        <th className="text-center py-3 px-4 font-medium text-foreground">Status</th>
+                        <th className="text-center py-3 px-4 font-medium text-foreground w-24">Status</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Condition</th>
                         <th className="text-left py-3 px-4 font-medium text-foreground">Warehouse Cost</th>
@@ -669,7 +669,7 @@ export default function StoreInventoryPage() {
                             <td className="py-2 px-4 text-sm">
                               <span className="font-mono text-sm text-green-600">{item.storeSku || 'N/A'}</span>
                             </td>
-                            <td className="py-2 px-4 text-sm w-80">
+                            <td className="py-2 px-4 text-sm max-w-80">
                               <div>
                                 <p className="font-medium text-foreground">{item.inventoryItem.product.brand}</p>
                                 <p className="font-medium text-foreground">{item.inventoryItem.product.name}</p>

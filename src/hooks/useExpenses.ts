@@ -7,7 +7,6 @@ interface Expense {
   transactionDate: string;
   description: string;
   amount: number;
-  type: string;
   category: string;
   cardId?: string;
   card?: {

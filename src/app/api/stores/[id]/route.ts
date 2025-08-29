@@ -106,7 +106,7 @@ export async function DELETE(
     }
 
     // Verify confirmation code (simple check for now - can be enhanced)
-    const expectedCode = 'StockLab25!';
+    const expectedCode = 'DELETE STORE';
     if (confirmationCode !== expectedCode) {
       return NextResponse.json(
         { error: 'Invalid confirmation code' },

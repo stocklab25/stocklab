@@ -381,26 +381,14 @@ export default function ExpensesPage() {
                         </TableCell>
                         <TableCell>
                           {editingRowId === expense.id ? (
-                            <select
+                            <input
+                              type="text"
                               name="category"
                               value={editValues.category}
                               onChange={handleEditChange}
+                              placeholder="Enter category"
                               className="w-full px-2 py-1 border rounded text-sm"
-                            >
-                              <option value="">Select category</option>
-                              <option value="Fees">Fees</option>
-                              <option value="Business Meals">Business Meals</option>
-                              <option value="Gifts">Gifts</option>
-                              <option value="Inventory">Inventory</option>
-                              <option value="Business Services">Business Services</option>
-                              <option value="Travel">Travel</option>
-                              <option value="Parking">Parking</option>
-                              <option value="Marketing">Marketing</option>
-                              <option value="Utilities">Utilities</option>
-                              <option value="Supplies">Supplies</option>
-                              <option value="Equipment">Equipment</option>
-                              <option value="Payment">Payment</option>
-                            </select>
+                            />
                           ) : (
                             expense.category
                           )}
@@ -510,29 +498,17 @@ export default function ExpensesPage() {
                     step="0.01"
                   />
                 </div>
-                <div>
+                                <div>
                   <label className="block text-sm font-medium mb-1">Category</label>
-                  <select
+                  <input
+                    type="text"
                     name="category"
                     value={form.category}
                     onChange={handleFormChange}
+                    placeholder="Enter category (e.g., Travel, Supplies, Marketing)"
                     required
                     className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Select category</option>
-                    <option value="Fees">Fees</option>
-                    <option value="Business Meals">Business Meals</option>
-                    <option value="Gifts">Gifts</option>
-                    <option value="Inventory">Inventory</option>
-                    <option value="Business Services">Business Services</option>
-                    <option value="Travel">Travel</option>
-                    <option value="Parking">Parking</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Utilities">Utilities</option>
-                    <option value="Supplies">Supplies</option>
-                    <option value="Equipment">Equipment</option>
-                    <option value="Payment">Payment</option>
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Card</label>

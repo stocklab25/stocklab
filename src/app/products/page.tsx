@@ -276,6 +276,7 @@ export default function Products() {
             </button>
             {!showArchived && (
               <>
+                {/* Import button commented out
                 <Button 
                   onClick={() => setIsImportModalOpen(true)}
                   variant="outline"
@@ -286,6 +287,7 @@ export default function Products() {
                   </svg>
                   <span>Import</span>
                 </Button>
+                */}
                 <Button onClick={() => setIsModalOpen(true)}>
                   <span className="mr-2">+</span>
                   Add Product

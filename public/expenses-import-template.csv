@@ -1,4 +1,6 @@
-Date,Description,Amount,Type,Category,Card Name,Notes
-2024-01-15,Parking fee at mall,15.00,Credit,Parking,Chase Business Card,Monthly parking
-2024-01-16,Gas for delivery van,45.50,Credit,Travel,Amex Gold,Fuel expense
-2024-01-17,Office supplies,23.99,Debit,Supplies,Chase Business Card,Printer paper and ink 
+Date,Description,Amount,Category,Card Name,Notes
+2024-01-15,Parking fee at mall,15.00,Parking,Chase Business Card,Monthly parking
+2024-01-16,Gas for delivery van,45.50,Travel,Amex Gold,Fuel expense
+2024-01-17,Office supplies,23.99,Supplies,Chase Business Card,Printer paper and ink
+2024-01-18,Client lunch meeting,67.50,Business Meals,Amex Gold,Networking expense
+2024-01-19,Marketing materials,125.00,Marketing,Chase Business Card,Business cards and brochures 

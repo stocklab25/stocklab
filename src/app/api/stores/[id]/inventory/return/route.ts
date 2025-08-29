@@ -87,14 +87,13 @@ export async function POST(
           }
         });
 
-        // Mark store inventory item as returned and soft delete it
+        // Mark store inventory item as returned but keep it visible
         const updatedStoreInventoryItem = await tx.storeInventory.update({
           where: {
             id: storeInventoryId
           },
           data: {
-            status: 'RETURNED',
-            deletedAt: new Date()
+            status: 'RETURNED'
           }
         });
 
