@@ -673,7 +673,6 @@ export default function StoreInventoryPage() {
                               <div>
                                 <p className="font-medium text-foreground">{item.inventoryItem.product.brand}</p>
                                 <p className="font-medium text-foreground">{item.inventoryItem.product.name}</p>
-                                <p className="font-medium text-foreground">{item.inventoryItem.product.sku}</p>
                               </div>
                             </td>
                             <td className="py-2 px-4 text-sm">

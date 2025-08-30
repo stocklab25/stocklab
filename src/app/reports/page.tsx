@@ -61,7 +61,7 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState<string>('summary');
   const [salesData, setSalesData] = useState<any[]>([]);
   const [storesData, setStoresData] = useState<Store[]>([]);
-  const [storeInventoryData, setStoreInventoryData] = useState<any[]>([]);
+  // Removed storeInventoryData state as we'll use allStoreInventory directly
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
   // Date range and store selection state
@@ -136,12 +136,8 @@ export default function Reports() {
     fetchStores();
   }, []); // Removed getAuthToken from dependency array
 
-  // Use the store inventory data from the hook
-  useEffect(() => {
-    if (allStoreInventory) {
-      setStoreInventoryData(allStoreInventory);
-    }
-  }, [allStoreInventory]);
+  // Remove the unnecessary useEffect and use allStoreInventory directly
+  // This prevents infinite re-renders caused by SWR creating new array references
 
   // Filter sales data based on date range, store selection, and status
   const filteredSalesData = useMemo(() => {
@@ -179,7 +175,7 @@ export default function Reports() {
     // If "all" is selected, combine warehouse and store inventory
     if (selectedInventoryStore === 'all') {
       const warehouseItems = inventory || [];
-      const storeItems = storeInventoryData || [];
+      const storeItems = allStoreInventory || [];
       
       // Create a map to track items and their quantities across all locations
       const itemMap = new Map();
@@ -235,10 +231,10 @@ export default function Reports() {
       return filtered;
     }
 
-    // If specific store is selected, use store inventory data
-    if (!storeInventoryData || !Array.isArray(storeInventoryData)) return [];
-
-    let filtered = storeInventoryData
+        // If specific store is selected, use store inventory data
+    if (!allStoreInventory || !Array.isArray(allStoreInventory)) return [];
+    
+    let filtered = allStoreInventory
       .filter(item => item.storeId === selectedInventoryStore)
       .map(item => ({
         ...item.inventoryItem,
@@ -262,14 +258,14 @@ export default function Reports() {
     }
 
     return filtered;
-  }, [inventory, storeInventoryData, selectedInventoryStore, inventoryStartDate, inventoryEndDate]);
+  }, [inventory, allStoreInventory, selectedInventoryStore, inventoryStartDate, inventoryEndDate]);
 
   // Filter inventory data for value report based on store selection and date range
   const filteredValueInventoryData = useMemo(() => {
     // If "all" is selected, combine warehouse and store inventory
     if (selectedValueStore === 'all') {
       const warehouseItems = inventory || [];
-      const storeItems = storeInventoryData || [];
+      const storeItems = allStoreInventory || [];
       
       // Create a map to track items and their values across all locations
       const itemMap = new Map();
@@ -332,10 +328,10 @@ export default function Reports() {
       return filtered;
     }
 
-    // If specific store is selected, use store inventory data
-    if (!storeInventoryData || !Array.isArray(storeInventoryData)) return [];
-
-    let filtered = storeInventoryData
+        // If specific store is selected, use store inventory data
+    if (!allStoreInventory || !Array.isArray(allStoreInventory)) return [];
+    
+    let filtered = allStoreInventory
       .filter(item => item.storeId === selectedValueStore)
       .map(item => ({
         ...item.inventoryItem,
@@ -359,7 +355,7 @@ export default function Reports() {
     }
 
     return filtered;
-  }, [inventory, storeInventoryData, selectedValueStore, valueStartDate, valueEndDate]);
+  }, [inventory, allStoreInventory, selectedValueStore, valueStartDate, valueEndDate]);
 
   // Calculate report data when data is available
   useEffect(() => {
@@ -446,7 +442,7 @@ export default function Reports() {
         
       }
     }
-  }, [inventory?.length, products?.length, transactions?.length, settings.lowStockThreshold, filteredInventoryData, selectedInventoryStore]);
+  }, [inventory?.length, products?.length, transactions?.length, settings.lowStockThreshold, selectedInventoryStore]);
 
   // Add monthly and annual sales/profit calculations
   const now = new Date();
@@ -502,15 +498,15 @@ export default function Reports() {
 
   // Calculate total value per store for investment monitoring
   const storeValueData = useMemo(() => {
-    if (!storeInventoryData.length) return [];
+    if (!allStoreInventory.length) return [];
 
     const storeValues: { [key: string]: { name: string; totalValue: number; itemCount: number } } = {};
     
-    storeInventoryData.forEach((item) => {
+    allStoreInventory.forEach((item) => {
       const storeId = item.storeId;
       const storeName = item.store?.name || 'Unknown Store';
       const quantity = Math.max(0, item.quantity || 0); // Ensure quantity is not negative
-      const cost = Math.max(0, parseFloat(item.inventoryItem?.cost || 0)); // Ensure cost is not negative
+      const cost = Math.max(0, Number(item.inventoryItem?.cost || 0)); // Ensure cost is not negative
       const itemValue = cost * quantity;
 
       if (!storeValues[storeId]) {
@@ -526,7 +522,7 @@ export default function Reports() {
     });
 
     return Object.values(storeValues).sort((a, b) => b.totalValue - a.totalValue);
-  }, [storeInventoryData]);
+  }, [allStoreInventory]);
 
   // Check if any data is loading
   const isLoading = inventoryLoading || productsLoading || transactionsLoading || storeInventoryLoading;

@@ -546,7 +546,6 @@ export default function Inventory() {
                         <div>
                           <p className="font-medium text-foreground">{item.product?.brand}</p>
                           <p className="font-medium text-foreground">{item.product?.name}</p>
-                          <p className="font-medium text-foreground">{item.product?.sku}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
