@@ -65,23 +65,21 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get current store inventory counts
+    // Get current store inventory counts (each row = 1 item, only IN_STOCK items)
     const storeInventoryCounts = await prisma.storeInventory.groupBy({
       by: ['storeId'],
       where: {
         deletedAt: null,
-        quantity: {
-          gt: 0
-        }
+        status: 'IN_STOCK'
       },
-      _sum: {
-        quantity: true
+      _count: {
+        id: true
       }
     });
 
     // Create a map of store inventory counts
     const inventoryCountMap = storeInventoryCounts.reduce((acc: any, item) => {
-      acc[item.storeId] = item._sum.quantity || 0;
+      acc[item.storeId] = item._count.id || 0;
       return acc;
     }, {});
 
