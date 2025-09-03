@@ -4,7 +4,7 @@ import { useMemo, useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useProducts, useInventory, useTransactions, useSales, useExpenses } from '@/hooks';
+import { useDashboardData } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 
 
@@ -19,14 +19,23 @@ interface DashboardStats {
   selectedMonthGrossProfit: number;
   selectedMonthRevenue: number;
   selectedMonthSoldItems: number;
+  selectedYearRefundedAmount: number;
+  selectedMonthRefundedAmount: number;
+  selectedYearCompletedSales: number;
+  selectedMonthCompletedSales: number;
+  selectedYearRefundedSales: number;
+  selectedMonthRefundedSales: number;
 }
 
 export default function Dashboard() {
-  const { data: products, isLoading: productsLoading } = useProducts();
-  const { data: inventory, isLoading: inventoryLoading } = useInventory();
-  const { data: transactions, isLoading: transactionsLoading } = useTransactions();
-  const { data: salesData, isLoading: salesLoading } = useSales();
-  const { data: expensesData, isLoading: expensesLoading } = useExpenses();
+  const { 
+    products, 
+    inventory, 
+    transactions, 
+    salesData, 
+    expensesData, 
+    isLoading 
+  } = useDashboardData();
 
   // State for year and month selection
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -34,14 +43,15 @@ export default function Dashboard() {
 
   // Get available years and months from sales data
   const availableYears = useMemo(() => {
-    // Always include 2025
-    const defaultYears = [2025];
+    // Always include current year
+    const currentYear = new Date().getFullYear();
+    const defaultYears = [currentYear];
     
     // Also include any years from sales data
     const years = new Set<number>(defaultYears);
     salesData.forEach((sale: any) => {
-      if (sale.createdAt) {
-        years.add(new Date(sale.createdAt).getFullYear());
+      if (sale.saleDate) {
+        years.add(new Date(sale.saleDate).getFullYear());
       }
     });
     return Array.from(years).sort((a, b) => b - a);
@@ -65,28 +75,47 @@ export default function Dashboard() {
     let soldItems = 0;
     let selectedMonthRevenue = 0;
     let selectedMonthSoldItems = 0;
+    let selectedYearRefundedAmount = 0;
+    let selectedMonthRefundedAmount = 0;
+    let selectedYearCompletedSales = 0;
+    let selectedMonthCompletedSales = 0;
+    let selectedYearRefundedSales = 0;
+    let selectedMonthRefundedSales = 0;
     
     // Calculate revenue and gross profit from sales for selected period
     salesData.forEach((sale: any) => {
-      const saleDate = sale.createdAt ? new Date(sale.createdAt) : null;
-      const revenue = (sale.payout || 0) - (sale.discount || 0);
-      const cost = (sale.cost || 0) * (sale.quantity || 1);
-      const grossProfit = revenue - cost;
+      const saleDate = sale.saleDate ? new Date(sale.saleDate) : null;
+      const revenue = Number(sale.payout || 0) - Number(sale.discount || 0);
+      const cost = Number(sale.cost || 0) * Number(sale.quantity || 1);
+      const grossProfit = revenue - cost; // Payout - Cost = Profit
       
       if (saleDate) {
         // Selected year calculations
         if (saleDate.getFullYear() === selectedYear) {
-          totalRevenue += revenue;
-          selectedYearGrossProfit += grossProfit;
-          selectedYearNetProfit += grossProfit;
-          soldItems += sale.quantity || 1;
-          
-          // Selected month calculations
-          if (saleDate.getMonth() === selectedMonth) {
-            selectedMonthGrossProfit += grossProfit;
-            selectedMonthNetProfit += grossProfit;
-            selectedMonthRevenue += revenue;
-            selectedMonthSoldItems += sale.quantity || 1;
+          if (sale.status === 'COMPLETED') {
+            totalRevenue += revenue;
+            selectedYearGrossProfit += grossProfit;
+            selectedYearNetProfit += grossProfit;
+            soldItems += sale.quantity || 1;
+            selectedYearCompletedSales += 1;
+            
+            // Selected month calculations
+            if (saleDate.getMonth() === selectedMonth) {
+              selectedMonthGrossProfit += grossProfit;
+              selectedMonthNetProfit += grossProfit;
+              selectedMonthRevenue += revenue;
+              selectedMonthSoldItems += sale.quantity || 1;
+              selectedMonthCompletedSales += 1;
+            }
+          } else if (sale.status === 'REFUNDED') {
+            selectedYearRefundedAmount += revenue;
+            selectedYearRefundedSales += 1;
+            
+            // Selected month calculations
+            if (saleDate.getMonth() === selectedMonth) {
+              selectedMonthRefundedAmount += revenue;
+              selectedMonthRefundedSales += 1;
+            }
           }
         }
       }
@@ -116,9 +145,11 @@ export default function Dashboard() {
       return sum;
     }, 0);
 
-    // Calculate net profit (gross profit - expenses)
+    // Calculate net profit (gross profit - expenses - refunded amounts)
     selectedYearNetProfit -= selectedYearExpenses;
+    selectedYearNetProfit -= selectedYearRefundedAmount;
     selectedMonthNetProfit -= selectedMonthExpenses;
+    selectedMonthNetProfit -= selectedMonthRefundedAmount;
 
     return {
       totalRevenue,
@@ -131,10 +162,14 @@ export default function Dashboard() {
       selectedMonthGrossProfit,
       selectedMonthRevenue,
       selectedMonthSoldItems,
+      selectedYearRefundedAmount,
+      selectedMonthRefundedAmount,
+      selectedYearCompletedSales,
+      selectedMonthCompletedSales,
+      selectedYearRefundedSales,
+      selectedMonthRefundedSales,
     };
   }, [products, inventory, transactions, salesData, expensesData, selectedYear, selectedMonth]);
-
-  const isLoading = productsLoading || inventoryLoading || transactionsLoading || salesLoading || expensesLoading;
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -254,6 +289,36 @@ export default function Dashboard() {
             <div className="flex flex-col items-center p-8">
               <p className="text-lg font-medium text-muted-foreground">{monthNames[selectedMonth]} {selectedYear} Net Profit</p>
               <p className="text-3xl font-bold text-foreground">${stats.selectedMonthNetProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+          </Card>
+          
+          {/* Row 5: Sales Status */}
+          <Card>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">{selectedYear} Completed Sales</p>
+              <p className="text-3xl font-bold text-green-600">{stats.selectedYearCompletedSales}</p>
+              <p className="text-sm text-muted-foreground mt-1">{stats.selectedYearRefundedSales} refunded</p>
+            </div>
+          </Card>
+          <Card>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">{monthNames[selectedMonth]} {selectedYear} Completed Sales</p>
+              <p className="text-3xl font-bold text-green-600">{stats.selectedMonthCompletedSales}</p>
+              <p className="text-sm text-muted-foreground mt-1">{stats.selectedMonthRefundedSales} refunded</p>
+            </div>
+          </Card>
+          
+          {/* Row 6: Refunded Amounts */}
+          <Card>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">{selectedYear} Refunded Amount</p>
+              <p className="text-3xl font-bold text-red-600">${stats.selectedYearRefundedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+          </Card>
+          <Card>
+            <div className="flex flex-col items-center p-8">
+              <p className="text-lg font-medium text-muted-foreground">{monthNames[selectedMonth]} {selectedYear} Refunded Amount</p>
+              <p className="text-3xl font-bold text-red-600">${stats.selectedMonthRefundedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </Card>
         </div>

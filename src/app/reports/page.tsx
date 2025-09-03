@@ -4,12 +4,13 @@ import { useEffect, useState, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import { Card } from '@/components/Card';
 import { PageLoader } from '@/components/Loader';
-import { useInventory, useProducts, useTransactions, useAllStoreInventory } from '@/hooks';
+import { useReportsData } from '@/hooks';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import InventorySummaryChart from '@/components/charts/InventorySummaryChart';
 import ValueReportChart from '@/components/charts/ValueReportChart';
 import SalesByStoreChart from '@/components/charts/SalesByStoreChart';
+import SalesByStoreReport from '@/components/reports/SalesByStoreReport';
 import TrendsAnalysisChart from '@/components/charts/TrendsAnalysisChart';
 import ExportReportsModal from '@/components/ExportReportsModal';
 
@@ -53,15 +54,17 @@ interface Store {
 
 export default function Reports() {
   const { getAuthToken } = useAuth();
-  const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
-  const { data: products, isLoading: productsLoading, isError: productsError } = useProducts();
-  const { data: transactions, isLoading: transactionsLoading, isError: transactionsError } = useTransactions();
-  const { data: allStoreInventory, isLoading: storeInventoryLoading, isError: storeInventoryError } = useAllStoreInventory();
+  const { 
+    inventory, 
+    products, 
+    transactions, 
+    allStoreInventory, 
+    salesData: reportsSalesData, 
+    storesData: reportsStoresData, 
+    isLoading 
+  } = useReportsData();
   const { settings } = useSettings();
   const [selectedReport, setSelectedReport] = useState<string>('summary');
-  const [salesData, setSalesData] = useState<any[]>([]);
-  const [storesData, setStoresData] = useState<Store[]>([]);
-  // Removed storeInventoryData state as we'll use allStoreInventory directly
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
   // Date range and store selection state
@@ -84,57 +87,9 @@ export default function Reports() {
     recentActivity: [],
   });
 
-  // Fetch sales data
-  useEffect(() => {
-    const fetchSales = async () => {
-      try {
-        const token = await getAuthToken();
-        if (!token) {
-          
-          return;
-        }
-
-        const response = await fetch('/api/sales', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setSalesData(Array.isArray(data) ? data : data?.data || []);
-        }
-      } catch (error) {
-        
-      }
-    };
-    fetchSales();
-  }, []); // Removed getAuthToken from dependency array
-
-  // Fetch stores data
-  useEffect(() => {
-    const fetchStores = async () => {
-      try {
-        const token = await getAuthToken();
-        if (!token) {
-          
-          return;
-        }
-
-        const response = await fetch('/api/stores?status=ACTIVE', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStoresData(Array.isArray(data) ? data : []);
-        }
-      } catch (error) {
-        
-      }
-    };
-    fetchStores();
-  }, []); // Removed getAuthToken from dependency array
+  // Use data directly from the hook - no need for local state
+  const salesData = Array.isArray(reportsSalesData) ? reportsSalesData : [];
+  const storesData = Array.isArray(reportsStoresData) ? reportsStoresData : [];
 
   // Remove the unnecessary useEffect and use allStoreInventory directly
   // This prevents infinite re-renders caused by SWR creating new array references
@@ -525,10 +480,7 @@ export default function Reports() {
   }, [allStoreInventory]);
 
   // Check if any data is loading
-  const isLoading = inventoryLoading || productsLoading || transactionsLoading || storeInventoryLoading;
-  
-  // Check if any data has errors
-  const hasError = inventoryError || productsError || transactionsError || storeInventoryError;
+  // Loading and error states are now handled by the useReportsData hook
 
   if (isLoading) {
     return (
@@ -538,25 +490,7 @@ export default function Reports() {
     );
   }
 
-  if (hasError) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center space-y-4">
-                          <div className="text-6xl">!</div>
-            <div className="text-lg text-red-600">Error loading reports</div>
-            <p className="text-muted-foreground">Failed to fetch data. Please check your connection and try again.</p>
-            <button 
-              onClick={() => window.location.href = '/reports'}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  // Error handling is now managed by the useReportsData hook
 
   return (
     <Layout>
@@ -635,7 +569,7 @@ export default function Reports() {
               >
                 <div>
                   <p className="font-medium text-foreground">Sales by Store</p>
-                  <p className="text-sm text-muted-foreground">Store performance</p>
+                  <p className="text-sm text-muted-foreground">Revenue based on sold items</p>
                 </div>
               </button>
 
@@ -698,85 +632,7 @@ export default function Reports() {
           </div>
         </Card>
 
-        {/* Sales by Store Filters */}
-        {selectedReport === 'sales' && (
-          <Card>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Sales by Store - Filters</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Start Date"
-                    />
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="End Date"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Store</label>
-                  <select
-                    value={selectedStore}
-                    onChange={(e) => setSelectedStore(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="all">All Stores</option>
-                    {storesData.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {store.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-                  <select
-                    value={selectedSaleStatus}
-                    onChange={(e) => setSelectedSaleStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="REFUNDED">Refunded</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={() => {
-                      setStartDate('');
-                      setEndDate('');
-                      setSelectedStore('all');
-                      setSelectedSaleStatus('all');
-                    }}
-                    className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                  >
-                    Clear Filters
-                  </button>
-                </div>
-              </div>
-              {filteredSalesData.length > 0 && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-800">
-                    Showing {filteredSalesData.length} sales
-                    {startDate && endDate && ` from ${startDate} to ${endDate}`}
-                    {selectedStore !== 'all' && ` for ${storesData.find(s => s.id === selectedStore)?.name}`}
-                    {selectedSaleStatus !== 'all' && ` with status ${selectedSaleStatus}`}
-                  </p>
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
+
 
         {/* Inventory Summary Filters */}
         {selectedReport === 'summary' && (
@@ -1019,28 +875,8 @@ export default function Reports() {
           </Card>
         )}
 
-        {selectedReport === 'sales' && filteredSalesData.length > 0 && (
-          <Card>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">
-                Sales by Store
-                {selectedStore !== 'all' && ` - ${storesData.find(s => s.id === selectedStore)?.name}`}
-                {selectedStore === 'all' && ' - Store Performance'}
-              </h3>
-              <SalesByStoreChart sales={filteredSalesData} />
-            </div>
-          </Card>
-        )}
-
-        {selectedReport === 'sales' && filteredSalesData.length === 0 && (
-          <Card>
-            <div className="p-6">
-              <div className="text-center py-8">
-                <p className="text-lg text-muted-foreground">No sales data found for the selected filters</p>
-                <p className="text-sm text-muted-foreground mt-2">Try adjusting your date range or store selection</p>
-              </div>
-            </div>
-          </Card>
+        {selectedReport === 'sales' && (
+          <SalesByStoreReport />
         )}
 
         {selectedReport === 'trends' && salesData.length > 0 && transactions && (

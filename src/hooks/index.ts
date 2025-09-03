@@ -18,6 +18,9 @@ import useCards from './useCards';
 import { useSales } from './useSales';
 import { useReturnFromStore } from './useReturnFromStore';
 import { useAllStoreInventory } from './useStoreInventory';
+import { useStores } from './useStores';
+import { useDashboardData } from './useDashboardData';
+import { useReportsData } from './useReportsData';
 
 export {
   useProducts,
@@ -41,4 +44,7 @@ export {
   useSales,
   useReturnFromStore,
   useAllStoreInventory,
+  useStores,
+  useDashboardData,
+  useReportsData,
 }; 

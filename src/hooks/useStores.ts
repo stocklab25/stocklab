@@ -1,57 +1,46 @@
 import useSWR from 'swr';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
 
 export interface Store {
   id: string;
   name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  storeSkuBase?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
 }
 
-const fetcher = async (url: string, getAuthToken: () => Promise<string | null>) => {
-  const token = await getAuthToken();
-  
-  if (!token) {
-    throw new Error('No authentication token available');
-  }
-  
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to fetch stores');
-  }
-  return response.json();
-};
-
-export function useStores() {
+export function useStores(status?: string) {
   const { getAuthToken } = useAuth();
-  const key = '/api/stores?status=ACTIVE';
-  const { data, error, isLoading, mutate } = useSWR<Store[], any>(
-    key,
-    (url: string) => fetcher(url, getAuthToken),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      revalidateOnMount: false, // Changed to false
-      revalidateIfStale: false,
-      dedupingInterval: 0, // Disable deduplication
-      refreshInterval: 0, // Disable automatic refresh
-      errorRetryCount: 0, // Disable error retries
-      shouldRetryOnError: false, // Disable retry on error
+  const url = status ? `/api/stores?status=${status}` : '/api/stores';
+  
+  const createFetcher = async (url: string) => {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('No authentication token available');
     }
-  );
 
-  // Manually trigger initial fetch if no data
-  useEffect(() => {
-    if (!data && !error) {
-      mutate();
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch data');
     }
-  }, [data, error, mutate]);
+
+    return response.json();
+  };
+  
+  const { data, error, isLoading, mutate } = useSWR<Store[]>(
+    url,
+    createFetcher
+  );
 
   return {
     data: Array.isArray(data) ? data : [],
@@ -59,4 +48,4 @@ export function useStores() {
     isError: error,
     mutate
   };
-} 
+}

@@ -167,7 +167,8 @@ export async function POST(
             quantity: {
               increment: quantity
             },
-            transferCost: weightedAverageCost
+            transferCost: weightedAverageCost,
+            status: 'IN_STOCK' // Always set to in stock when transferring
           }
         });
       } else {
@@ -177,7 +178,8 @@ export async function POST(
             storeId: id,
             inventoryItemId,
             quantity,
-            transferCost: parseFloat(transferCost)
+            transferCost: parseFloat(transferCost),
+            status: 'IN_STOCK' // Always set to in stock when transferring
           }
         });
       }

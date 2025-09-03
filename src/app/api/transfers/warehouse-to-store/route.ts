@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
           data: {
             quantity: 1, // Always 1 since we have 1 item per record
             transferCost: parseFloat(transferCost),
+            status: 'IN_STOCK', // Always set to in stock when transferring
             deletedAt: null // Ensure it's not soft deleted
           }
         });
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
             inventoryItemId,
             quantity: 1, // Always 1 since we have 1 item per record
             transferCost: parseFloat(transferCost),
+            status: 'IN_STOCK', // Always set to in stock when transferring
             storeSku: storeSku || null // Use provided SKU or null
           }
         });

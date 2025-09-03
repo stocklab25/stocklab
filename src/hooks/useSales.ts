@@ -13,6 +13,7 @@ interface Sale {
   discount?: number;
   saleDate: string;
   notes?: string;
+  status: 'COMPLETED' | 'REFUNDED';
   store: {
     id: string;
     name: string;
