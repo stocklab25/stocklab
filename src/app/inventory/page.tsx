@@ -37,6 +37,7 @@ interface InventoryItem {
   note?: string;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
   product: {
     id: string;
     brand: string;
@@ -71,6 +72,11 @@ export default function Inventory() {
 
 
   const filteredInventory = inventory.filter((item: InventoryItem) => {
+    // Filter out deleted items first
+    if (item.deletedAt) {
+      return false;
+    }
+    
     const matchesSearch = 
       item.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.product?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -502,7 +508,11 @@ export default function Inventory() {
                 Inventory Items ({filteredInventory.length})
               </h3>
               <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <span>Total Value: ${filteredInventory.reduce((sum: number, item: InventoryItem) => sum + Number(item.cost), 0).toLocaleString()}</span>
+                <span>Total Value: ${filteredInventory.reduce((sum: number, item: InventoryItem) => {
+                  const cost = Math.max(0, Number(item.cost || 0));
+                  const quantity = Math.max(0, Number(item.quantity || 1));
+                  return sum + (cost * quantity);
+                }, 0).toLocaleString()}</span>
               </div>
             </div>
 

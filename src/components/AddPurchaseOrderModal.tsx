@@ -366,6 +366,7 @@ export default function AddPurchaseOrderModal({
               disabled // Always auto-submitted
             >
               <option value="SUBMITTED">Submitted</option>
+              <option value="CANCELLED">Cancelled</option>
             </Select>
           </div>
         </div>

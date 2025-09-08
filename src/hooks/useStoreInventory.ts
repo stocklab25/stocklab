@@ -7,9 +7,11 @@ export interface StoreInventoryItem {
   inventoryItemId: string;
   quantity: number;
   storeSku?: string;
+  status: 'IN_STOCK' | 'SOLD' | 'RETURNED';
   transferCost: number;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
   inventoryItem: {
     id: string;
     sku: string;

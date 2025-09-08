@@ -61,6 +61,7 @@ export default function Reports() {
     allStoreInventory, 
     salesData: reportsSalesData, 
     storesData: reportsStoresData, 
+    expensesData,
     isLoading 
   } = useReportsData();
   const { settings } = useSettings();
@@ -78,6 +79,38 @@ export default function Reports() {
   const [inventoryEndDate, setInventoryEndDate] = useState<string>('');
   const [valueStartDate, setValueStartDate] = useState<string>('');
   const [valueEndDate, setValueEndDate] = useState<string>('');
+  
+  // Applied filter states (what's actually being used for calculations)
+  const [appliedStartDate, setAppliedStartDate] = useState<string>('');
+  const [appliedEndDate, setAppliedEndDate] = useState<string>('');
+  const [appliedStore, setAppliedStore] = useState<string>('all');
+  const [appliedInventoryStore, setAppliedInventoryStore] = useState<string>('all');
+  const [appliedValueStore, setAppliedValueStore] = useState<string>('all');
+  const [appliedSaleStatus, setAppliedSaleStatus] = useState<string>('all');
+  const [appliedInventoryStartDate, setAppliedInventoryStartDate] = useState<string>('');
+  const [appliedInventoryEndDate, setAppliedInventoryEndDate] = useState<string>('');
+  const [appliedValueStartDate, setAppliedValueStartDate] = useState<string>('');
+  const [appliedValueEndDate, setAppliedValueEndDate] = useState<string>('');
+  
+  // Apply filter functions
+  const handleApplySalesFilters = () => {
+    setAppliedStartDate(startDate);
+    setAppliedEndDate(endDate);
+    setAppliedStore(selectedStore);
+    setAppliedSaleStatus(selectedSaleStatus);
+  };
+  
+  const handleApplyInventoryFilters = () => {
+    setAppliedInventoryStartDate(inventoryStartDate);
+    setAppliedInventoryEndDate(inventoryEndDate);
+    setAppliedInventoryStore(selectedInventoryStore);
+  };
+  
+  const handleApplyValueFilters = () => {
+    setAppliedValueStartDate(valueStartDate);
+    setAppliedValueEndDate(valueEndDate);
+    setAppliedValueStore(selectedValueStore);
+  };
   
   const [reportData, setReportData] = useState<ReportData>({
     totalValue: 0,
@@ -100,10 +133,10 @@ export default function Reports() {
 
     return salesData.filter(sale => {
       // Filter by date range
-      if (startDate && endDate) {
+      if (appliedStartDate && appliedEndDate) {
         const saleDate = sale.saleDate ? new Date(sale.saleDate) : null;
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = new Date(appliedStartDate);
+        const end = new Date(appliedEndDate);
         end.setHours(23, 59, 59, 999); // Include the entire end date
         
         if (!saleDate || saleDate < start || saleDate > end) {
@@ -112,41 +145,45 @@ export default function Reports() {
       }
 
       // Filter by store
-      if (selectedStore !== 'all' && sale.storeId !== selectedStore) {
+      if (appliedStore !== 'all' && sale.storeId !== appliedStore) {
         return false;
       }
 
       // Filter by status
-      if (selectedSaleStatus !== 'all' && sale.status !== selectedSaleStatus) {
+      if (appliedSaleStatus !== 'all' && sale.status !== appliedSaleStatus) {
         return false;
       }
 
       return true;
     });
-  }, [salesData, startDate, endDate, selectedStore, selectedSaleStatus]);
+  }, [salesData, appliedStartDate, appliedEndDate, appliedStore, appliedSaleStatus]);
 
   // Filter inventory data for inventory summary based on store selection and date range
   const filteredInventoryData = useMemo(() => {
     // If "all" is selected, combine warehouse and store inventory
-    if (selectedInventoryStore === 'all') {
+    if (appliedInventoryStore === 'all') {
       const warehouseItems = inventory || [];
       const storeItems = allStoreInventory || [];
       
       // Create a map to track items and their quantities across all locations
       const itemMap = new Map();
       
-      // Add warehouse inventory
-      warehouseItems.forEach((item: any) => {
-        const key = item.id;
-        itemMap.set(key, {
-          ...item,
-          totalQuantity: item.quantity || 0,
-          locations: ['warehouse']
+      // Add warehouse inventory (filter out deleted items as extra safety)
+      warehouseItems
+        .filter((item: any) => !item.deletedAt)
+        .forEach((item: any) => {
+          const key = item.id;
+          itemMap.set(key, {
+            ...item,
+            totalQuantity: item.quantity || 0,
+            locations: ['warehouse']
+          });
         });
-      });
       
-      // Add store inventory and aggregate quantities
-      storeItems.forEach((storeItem: any) => {
+      // Add store inventory and aggregate quantities (filter out deleted items as extra safety)
+      storeItems
+        .filter((storeItem: any) => !storeItem.deletedAt)
+        .forEach((storeItem: any) => {
         const key = storeItem.inventoryItemId;
         const existingItem = itemMap.get(key);
         
@@ -190,7 +227,7 @@ export default function Reports() {
     if (!allStoreInventory || !Array.isArray(allStoreInventory)) return [];
     
     let filtered = allStoreInventory
-      .filter(item => item.storeId === selectedInventoryStore)
+      .filter(item => !item.deletedAt && item.storeId === appliedInventoryStore)
       .map(item => ({
         ...item.inventoryItem,
         quantity: item.quantity, // Use store quantity instead of warehouse quantity
@@ -213,20 +250,22 @@ export default function Reports() {
     }
 
     return filtered;
-  }, [inventory, allStoreInventory, selectedInventoryStore, inventoryStartDate, inventoryEndDate]);
+  }, [inventory, allStoreInventory, appliedInventoryStore, appliedInventoryStartDate, appliedInventoryEndDate]);
 
   // Filter inventory data for value report based on store selection and date range
   const filteredValueInventoryData = useMemo(() => {
     // If "all" is selected, combine warehouse and store inventory
-    if (selectedValueStore === 'all') {
+    if (appliedValueStore === 'all') {
       const warehouseItems = inventory || [];
       const storeItems = allStoreInventory || [];
       
       // Create a map to track items and their values across all locations
       const itemMap = new Map();
       
-      // Add warehouse inventory
-      warehouseItems.forEach((item: any) => {
+      // Add warehouse inventory (filter out deleted items as extra safety)
+      warehouseItems
+        .filter((item: any) => !item.deletedAt)
+        .forEach((item: any) => {
         const key = item.id;
         const cost = Math.max(0, parseFloat(item.cost || 0));
         const quantity = Math.max(0, item.quantity || 0);
@@ -269,9 +308,9 @@ export default function Reports() {
       let filtered = Array.from(itemMap.values());
 
       // Filter by date range (using createdAt date)
-      if (valueStartDate && valueEndDate) {
-        const start = new Date(valueStartDate);
-        const end = new Date(valueEndDate);
+      if (appliedValueStartDate && appliedValueEndDate) {
+        const start = new Date(appliedValueStartDate);
+        const end = new Date(appliedValueEndDate);
         end.setHours(23, 59, 59, 999); // Include the entire end date
         
         filtered = filtered.filter(item => {
@@ -287,7 +326,7 @@ export default function Reports() {
     if (!allStoreInventory || !Array.isArray(allStoreInventory)) return [];
     
     let filtered = allStoreInventory
-      .filter(item => item.storeId === selectedValueStore)
+      .filter(item => !item.deletedAt && item.storeId === appliedValueStore)
       .map(item => ({
         ...item.inventoryItem,
         quantity: item.quantity, // Use store quantity instead of warehouse quantity
@@ -310,7 +349,7 @@ export default function Reports() {
     }
 
     return filtered;
-  }, [inventory, allStoreInventory, selectedValueStore, valueStartDate, valueEndDate]);
+  }, [inventory, allStoreInventory, appliedValueStore, appliedValueStartDate, appliedValueEndDate]);
 
   // Calculate report data when data is available
   useEffect(() => {
@@ -330,11 +369,11 @@ export default function Reports() {
           return sum + itemValue;
         }, 0);
         
-        // For "all" stores view, we need to calculate total value from filtered data
-        let finalTotalValue = totalValue;
-        let finalTotalItems = inventory.length;
+        // Calculate total value and items from filtered inventory data
+        let finalTotalValue = 0;
+        let finalTotalItems = 0;
         
-        if (selectedInventoryStore === 'all' && filteredInventoryData.length > 0) {
+        if (filteredInventoryData.length > 0) {
           finalTotalValue = filteredInventoryData.reduce((sum: number, item: any) => {
             const cost = Math.max(0, parseFloat(item.cost || 0));
             const quantity = Math.max(0, item.totalQuantity || item.quantity || 1);
@@ -342,6 +381,10 @@ export default function Reports() {
             return sum + itemValue;
           }, 0);
           finalTotalItems = filteredInventoryData.length;
+        } else {
+          // Fallback to original inventory data if no filtered data
+          finalTotalValue = totalValue;
+          finalTotalItems = inventory.length;
         }
         
         // Calculate low stock items from filtered data
@@ -436,8 +479,23 @@ export default function Reports() {
       }
     });
     
-    // Calculate net profit (completed sales minus refunded amounts)
-    const netProfit = totalProfit - refundedAmount;
+    // Calculate expenses for the same period as sales
+    const salesStartDate = salesArr.length > 0 ? new Date(Math.min(...salesArr.map(s => new Date(s.saleDate).getTime()))) : null;
+    const salesEndDate = salesArr.length > 0 ? new Date(Math.max(...salesArr.map(s => new Date(s.saleDate).getTime()))) : null;
+    
+    const periodExpenses = expensesData ? expensesData.reduce((sum: number, expense: any) => {
+      const expenseDate = expense.transactionDate ? new Date(expense.transactionDate) : null;
+      if (expenseDate && salesStartDate && salesEndDate) {
+        if (expenseDate >= salesStartDate && expenseDate <= salesEndDate) {
+          return sum + (expense.amount || 0);
+        }
+      }
+      return sum;
+    }, 0) : 0;
+    
+    
+    // Calculate net profit (gross profit minus expenses)
+    const netProfit = totalProfit - periodExpenses;
     
     return {
       totalSales: Math.max(0, totalSales),
@@ -458,6 +516,11 @@ export default function Reports() {
     const storeValues: { [key: string]: { name: string; totalValue: number; itemCount: number } } = {};
     
     allStoreInventory.forEach((item) => {
+      // Only count items that are not deleted and have IN_STOCK or SOLD status
+      if (item.deletedAt || (item.status !== 'IN_STOCK' && item.status !== 'SOLD')) {
+        return;
+      }
+
       const storeId = item.storeId;
       const storeName = item.store?.name || 'Unknown Store';
       const quantity = Math.max(0, item.quantity || 0); // Ensure quantity is not negative
@@ -674,14 +737,20 @@ export default function Reports() {
                     ))}
                   </select>
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end space-x-2">
+                  <button
+                    onClick={handleApplyInventoryFilters}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Apply Filters
+                  </button>
                   <button
                     onClick={() => {
                       setSelectedInventoryStore('all');
                       setInventoryStartDate('');
                       setInventoryEndDate('');
                     }}
-                    className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                   >
                     Clear Filters
                   </button>
@@ -740,14 +809,20 @@ export default function Reports() {
                     ))}
                   </select>
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end space-x-2">
+                  <button
+                    onClick={handleApplyValueFilters}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Apply Filters
+                  </button>
                   <button
                     onClick={() => {
                       setSelectedValueStore('all');
                       setValueStartDate('');
                       setValueEndDate('');
                     }}
-                    className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                   >
                     Clear Filters
                   </button>

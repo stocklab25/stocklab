@@ -46,9 +46,10 @@ interface Sale {
 
 interface SalesByStoreChartProps {
   sales: Sale[];
+  expenses?: any[];
 }
 
-export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
+export default function SalesByStoreChart({ sales, expenses = [] }: SalesByStoreChartProps) {
   // Process data for store sales performance (only completed sales)
   const storeSalesData = sales.reduce((acc: { [key: string]: { revenue: number; profit: number; quantity: number; count: number; completed: number; refunded: number; refundedAmount: number } }, sale) => {
     const storeName = sale.store?.name || 'Unknown Store';
@@ -336,8 +337,22 @@ export default function SalesByStoreChart({ sales }: SalesByStoreChartProps) {
     return sum;
   }, 0);
 
-  // Net profit after refunds
-  const netProfit = totalProfit - totalRefundedAmount;
+  // Calculate expenses for the same period as sales
+  const salesStartDate = sales.length > 0 ? new Date(Math.min(...sales.map(s => new Date(s.saleDate).getTime()))) : null;
+  const salesEndDate = sales.length > 0 ? new Date(Math.max(...sales.map(s => new Date(s.saleDate).getTime()))) : null;
+  
+  const periodExpenses = expenses.reduce((sum: number, expense: any) => {
+    const expenseDate = expense.transactionDate ? new Date(expense.transactionDate) : null;
+    if (expenseDate && salesStartDate && salesEndDate) {
+      if (expenseDate >= salesStartDate && expenseDate <= salesEndDate) {
+        return sum + (expense.amount || 0);
+      }
+    }
+    return sum;
+  }, 0);
+
+  // Net profit (gross profit - expenses)
+  const netProfit = totalProfit - periodExpenses;
 
   const completedSales = sales.filter(sale => sale.status === 'COMPLETED').length;
   const refundedSales = sales.filter(sale => sale.status === 'REFUNDED').length;

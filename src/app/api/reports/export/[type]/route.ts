@@ -19,7 +19,6 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'csv';
 
-    console.log(`Exporting report type: ${type}`);
 
     let data: any = {};
 
@@ -33,7 +32,6 @@ export async function GET(
             },
             orderBy: { createdAt: 'desc' },
           });
-          console.log(`Inventory report: ${data.length} items found`);
         } catch (error) {
           console.error('Error fetching inventory data:', error);
           return NextResponse.json(
@@ -170,7 +168,6 @@ export async function GET(
           const cardCount = await prisma.card.count({
             where: { deletedAt: null }
           });
-          console.log(`Found ${cardCount} cards in database`);
           
         data = await prisma.expense.findMany({
           where: { deletedAt: null },
@@ -179,21 +176,7 @@ export async function GET(
           },
           orderBy: { transactionDate: 'desc' },
           });
-          console.log(`Expenses report: ${data.length} expenses found`);
           
-          if (data.length > 0) {
-            console.log('Sample expense data:', {
-              id: data[0].id,
-              transactionDate: data[0].transactionDate,
-              description: data[0].description,
-              amount: data[0].amount,
-              category: data[0].category,
-              cardId: data[0].cardId,
-              card: data[0].card
-            });
-          } else {
-            console.log('No expenses found in database');
-          }
         } catch (error) {
           console.error('Error fetching expenses data:', error);
           return NextResponse.json(
@@ -238,10 +221,7 @@ export async function GET(
 
     if (format === 'csv') {
       // Convert to CSV format
-      console.log(`Converting ${type} to CSV with ${data.length} records`);
       const csvData = convertToCSV(data, type);
-      console.log(`CSV data length: ${csvData.length}`);
-      console.log(`CSV data preview: ${csvData.substring(0, 200)}...`);
       
       if (!csvData || csvData.length === 0) {
         return NextResponse.json(
@@ -273,10 +253,7 @@ export async function GET(
 }
 
 function convertToCSV(data: any[], type: string): string {
-  console.log(`convertToCSV called with type: ${type}, data length: ${data.length}`);
-  
   if (!data || data.length === 0) {
-    console.log(`No data for ${type}, returning empty CSV`);
     return '';
   }
 
@@ -536,7 +513,6 @@ function convertToCSV(data: any[], type: string): string {
       break;
 
     case 'expenses':
-      console.log('Processing expenses CSV with data:', data.length, 'records');
       headers = [
         'Transaction Date',
         'Description',
@@ -548,20 +524,10 @@ function convertToCSV(data: any[], type: string): string {
       
       if (data.length === 0) {
         // Return headers only if no data
-        console.log('No expenses data, returning headers only');
         return headers.join(',');
       }
       
       for (const expense of data) {
-        console.log('Processing expense:', {
-          id: expense.id,
-          transactionDate: expense.transactionDate,
-          description: expense.description,
-          amount: expense.amount,
-          category: expense.category,
-          cardName: expense.card?.name,
-          cardLast4: expense.card?.last4
-        });
         
         // Handle Decimal type properly
         const amount = typeof expense.amount === 'object' && expense.amount !== null 

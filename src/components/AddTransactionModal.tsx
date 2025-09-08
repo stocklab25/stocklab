@@ -272,7 +272,6 @@ export default function AddTransactionModal({
             notes: transaction.notes,
           });
         } catch (err: any) {
-          console.log('Transaction error:', err);
           if (err && err.code === 'MISSING_STORE_SKU_BASE') {
             setMissingSkuBasePrompt(true);
             setIsSubmittingAll(false);

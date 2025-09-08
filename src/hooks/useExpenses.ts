@@ -51,14 +51,14 @@ const useExpenses = () => {
   const { getAuthToken } = useAuth();
   const apiRoute = `/api/expenses`;
   const { data, error, mutate } = useSWR<ExpensesResponse>(apiRoute, (url) => fetcher(url, getAuthToken), {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-    revalidateOnMount: false,
-    revalidateIfStale: false,
-    dedupingInterval: 0,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    revalidateOnMount: true,
+    revalidateIfStale: true,
+    dedupingInterval: 2000,
     refreshInterval: 0,
-    errorRetryCount: 0,
-    shouldRetryOnError: false,
+    errorRetryCount: 3,
+    shouldRetryOnError: true,
   });
 
   // Manually trigger initial fetch if no data

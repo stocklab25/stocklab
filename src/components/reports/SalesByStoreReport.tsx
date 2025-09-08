@@ -80,6 +80,19 @@ export default function SalesByStoreReport() {
   const [endDate, setEndDate] = useState<string>('');
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  
+  // Applied filter states (what's actually being used for the API call)
+  const [appliedStartDate, setAppliedStartDate] = useState<string>('');
+  const [appliedEndDate, setAppliedEndDate] = useState<string>('');
+  const [appliedStore, setAppliedStore] = useState<string>('all');
+  const [appliedStatus, setAppliedStatus] = useState<string>('all');
+
+  const handleApplyFilters = () => {
+    setAppliedStartDate(startDate);
+    setAppliedEndDate(endDate);
+    setAppliedStore(selectedStore);
+    setAppliedStatus(selectedStatus);
+  };
 
   const fetchReportData = async () => {
     try {
@@ -93,10 +106,10 @@ export default function SalesByStoreReport() {
       }
 
       const params = new URLSearchParams();
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      if (selectedStore !== 'all') params.append('storeId', selectedStore);
-      if (selectedStatus !== 'all') params.append('status', selectedStatus);
+      if (appliedStartDate) params.append('startDate', appliedStartDate);
+      if (appliedEndDate) params.append('endDate', appliedEndDate);
+      if (appliedStore !== 'all') params.append('storeId', appliedStore);
+      if (appliedStatus !== 'all') params.append('status', appliedStatus);
 
       const response = await fetch(`/api/reports/sales-by-store?${params}`, {
         headers: {
@@ -119,7 +132,7 @@ export default function SalesByStoreReport() {
 
   useEffect(() => {
     fetchReportData();
-  }, [startDate, endDate, selectedStore, selectedStatus]);
+  }, [appliedStartDate, appliedEndDate, appliedStore, appliedStatus]);
 
   const handleExport = async () => {
     try {
@@ -198,6 +211,9 @@ export default function SalesByStoreReport() {
   const profitData = storeStats.map(store => store.netProfit);
   const itemsData = storeStats.map(store => store.totalItems);
   const inStockData = storeStats.map(store => store.inStockCount);
+  
+  // Calculate total gross profit (before expenses)
+  const totalGrossProfit = storeStats.reduce((sum, store) => sum + store.totalProfit, 0);
 
   const revenueChartData = {
     labels: storeLabels,
@@ -366,6 +382,14 @@ export default function SalesByStoreReport() {
               </select>
             </div>
           </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleApplyFilters}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Apply Filters
+            </button>
+          </div>
         </div>
       </Card>
 
@@ -383,6 +407,27 @@ export default function SalesByStoreReport() {
               <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
                 <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Gross Profit</p>
+                <p className="text-2xl font-bold text-foreground">
+                  ${totalGrossProfit.toLocaleString()}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Before expenses
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                <svg className="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div>
             </div>
@@ -452,26 +497,6 @@ export default function SalesByStoreReport() {
            </div>
          </Card>
 
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Stores</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {overallStats.activeStores}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {overallStats.totalRefundedSales} refunded sales
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
-                <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </Card>
       </div>
 
              {/* Charts */}

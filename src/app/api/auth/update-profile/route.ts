@@ -51,7 +51,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    console.log('Profile updated successfully:', updatedUser);
 
     return NextResponse.json({
       message: 'Profile updated successfully',

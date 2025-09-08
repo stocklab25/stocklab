@@ -121,7 +121,6 @@ export default function StoreSalesPage() {
       
       if (response.ok) {
         mutate();
-        console.log('Sale deleted successfully');
       } else {
         const errorData = await response.json();
         console.error('Delete failed:', errorData);
@@ -365,7 +364,7 @@ export default function StoreSalesPage() {
       payoutMethod: sale.payoutMethod || "-",
       profit: formatCurrency(profit),
       profitMargin,
-      saleDate: new Date(sale.saleDate).toLocaleDateString(),
+      saleDate: new Date(sale.saleDate).toISOString().split('T')[0],
       status: sale.status || "COMPLETED",
       notes: sale.notes || "-",
     };

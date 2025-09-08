@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const storeId = searchParams.get('storeId');
     const status = searchParams.get('status');
+    
 
     // Build where clause
     const whereClause: any = {
@@ -62,6 +63,34 @@ export async function GET(request: NextRequest) {
       },
       orderBy: {
         saleDate: 'desc',
+      },
+    });
+
+    // Fetch expenses for the same date range
+    const expenseWhereClause: any = {
+      deletedAt: null,
+    };
+
+    // Add date range filter for expenses
+    if (startDate && endDate) {
+      expenseWhereClause.transactionDate = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      };
+    } else if (startDate) {
+      expenseWhereClause.transactionDate = {
+        gte: new Date(startDate),
+      };
+    } else if (endDate) {
+      expenseWhereClause.transactionDate = {
+        lte: new Date(endDate),
+      };
+    }
+
+    const expenses = await prisma.expense.findMany({
+      where: expenseWhereClause,
+      orderBy: {
+        transactionDate: 'desc',
       },
     });
 
@@ -122,9 +151,15 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {});
 
-    // Calculate net profit (completed sales minus refunded amounts)
+    // Calculate total expenses for the period
+    const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+    
+
+    // Calculate net profit (gross profit minus total expenses)
     Object.values(storeStats).forEach((store: any) => {
-      store.netProfit = store.totalProfit - store.refundedAmount;
+      // For store-level net profit, we'll distribute expenses proportionally based on revenue
+      const storeExpenseShare = store.totalRevenue > 0 ? (store.totalRevenue / (Object.values(storeStats).reduce((total: number, s: any) => total + s.totalRevenue, 0))) * totalExpenses : 0;
+      store.netProfit = store.totalProfit - storeExpenseShare;
       store.profitMargin = store.totalRevenue > 0 ? (store.netProfit / store.totalRevenue) * 100 : 0;
     });
 
@@ -132,9 +167,10 @@ export async function GET(request: NextRequest) {
     const storeStatsArray = Object.values(storeStats).sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
 
     // Calculate overall totals
+    const totalGrossProfit = storeStatsArray.reduce((sum: number, store: any) => sum + store.totalProfit, 0);
     const overallStats = {
       totalRevenue: storeStatsArray.reduce((sum: number, store: any) => sum + store.totalRevenue, 0),
-      totalNetProfit: storeStatsArray.reduce((sum: number, store: any) => sum + store.netProfit, 0),
+      totalNetProfit: totalGrossProfit - totalExpenses, // Gross profit minus total expenses
       totalItems: storeStatsArray.reduce((sum: number, store: any) => sum + store.totalItems, 0),
       totalCompletedSales: storeStatsArray.reduce((sum: number, store: any) => sum + store.completedSales, 0),
       totalRefundedSales: storeStatsArray.reduce((sum: number, store: any) => sum + store.refundedSales, 0),
@@ -143,6 +179,7 @@ export async function GET(request: NextRequest) {
       activeStores: storeStatsArray.length,
       profitMargin: 0,
     };
+    
 
     // Calculate overall profit margin
     overallStats.profitMargin = overallStats.totalRevenue > 0 ? (overallStats.totalNetProfit / overallStats.totalRevenue) * 100 : 0;

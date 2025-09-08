@@ -28,14 +28,18 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
+  
   const { 
     products, 
     inventory, 
     transactions, 
     salesData, 
     expensesData, 
-    isLoading 
+    isLoading,
+    hasError,
+    errorStates
   } = useDashboardData();
+
 
   // State for year and month selection
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -64,6 +68,28 @@ export default function Dashboard() {
   }, []);
 
   const stats = useMemo<DashboardStats>(() => {
+    // Return default values if still loading
+    if (isLoading) {
+      return {
+        totalRevenue: 0,
+        totalInventory: 0,
+        totalValue: 0,
+        soldItems: 0,
+        selectedYearNetProfit: 0,
+        selectedMonthNetProfit: 0,
+        selectedYearGrossProfit: 0,
+        selectedMonthGrossProfit: 0,
+        selectedMonthRevenue: 0,
+        selectedMonthSoldItems: 0,
+        selectedYearRefundedAmount: 0,
+        selectedMonthRefundedAmount: 0,
+        selectedYearCompletedSales: 0,
+        selectedMonthCompletedSales: 0,
+        selectedYearRefundedSales: 0,
+        selectedMonthRefundedSales: 0,
+      };
+    }
+
     // Calculate stats based on selected year/month
     let totalRevenue = 0;
     let totalInventory = 0;
@@ -123,14 +149,20 @@ export default function Dashboard() {
 
     // Calculate inventory stats for selected period
     // For inventory, we'll show current inventory value (not filtered by date since inventory is current state)
-    totalValue = inventory.reduce((sum: number, item: any) => sum + Number(item.cost), 0);
-    totalInventory = inventory.length;
+    // Filter out deleted items as extra safety
+    const activeInventory = inventory.filter((item: any) => !item.deletedAt);
+    totalValue = activeInventory.reduce((sum: number, item: any) => {
+      const cost = Math.max(0, Number(item.cost || 0));
+      const quantity = Math.max(0, Number(item.quantity || 1));
+      return sum + (cost * quantity);
+    }, 0);
+    totalInventory = activeInventory.length;
 
 
 
     // Calculate expenses for selected year and month
     const selectedYearExpenses = expensesData.reduce((sum: number, expense: any) => {
-      const expenseDate = expense.date ? new Date(expense.date) : null;
+      const expenseDate = expense.transactionDate ? new Date(expense.transactionDate) : null;
       if (expenseDate && expenseDate.getFullYear() === selectedYear) {
         return sum + (expense.amount || 0);
       }
@@ -138,18 +170,17 @@ export default function Dashboard() {
     }, 0);
 
     const selectedMonthExpenses = expensesData.reduce((sum: number, expense: any) => {
-      const expenseDate = expense.date ? new Date(expense.date) : null;
+      const expenseDate = expense.transactionDate ? new Date(expense.transactionDate) : null;
       if (expenseDate && expenseDate.getFullYear() === selectedYear && expenseDate.getMonth() === selectedMonth) {
         return sum + (expense.amount || 0);
       }
       return sum;
     }, 0);
 
-    // Calculate net profit (gross profit - expenses - refunded amounts)
+    // Calculate net profit (gross profit - expenses)
     selectedYearNetProfit -= selectedYearExpenses;
-    selectedYearNetProfit -= selectedYearRefundedAmount;
     selectedMonthNetProfit -= selectedMonthExpenses;
-    selectedMonthNetProfit -= selectedMonthRefundedAmount;
+    
 
     return {
       totalRevenue,

@@ -48,11 +48,9 @@ export default function EditProfile() {
       const data = await response.json();
 
       if (response.ok) {
-        console.log('Profile update response:', data);
         setSuccess('Profile updated successfully!');
         // Refresh the auth context to get updated user data
         await refreshUser();
-        console.log('User refreshed, current user:', user);
         // Update form with the new name from the response
         setFormData({ name: data.user.name });
       } else {

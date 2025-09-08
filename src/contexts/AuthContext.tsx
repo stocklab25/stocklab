@@ -137,7 +137,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: session.user.user_metadata?.role || 'USER',
         };
         setUser(convertedUser);
-        console.log('User refreshed with new data:', convertedUser);
       }
     } catch (error) {
       console.error('Error refreshing user:', error);

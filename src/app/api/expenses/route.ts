@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
         card: true,
       },
     });
+    
+    
     return NextResponse.json({ data: expenses, success: true });
   } catch (error) {
     

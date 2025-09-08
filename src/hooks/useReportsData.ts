@@ -1,4 +1,4 @@
-import { useInventory, useProducts, useTransactions, useAllStoreInventory, useSales, useStores } from './index';
+import { useInventory, useProducts, useTransactions, useAllStoreInventory, useSales, useStores, useExpenses } from './index';
 
 export function useReportsData() {
   const { data: inventory, isLoading: inventoryLoading, isError: inventoryError } = useInventory();
@@ -7,9 +7,10 @@ export function useReportsData() {
   const { data: allStoreInventory, isLoading: storeInventoryLoading, isError: storeInventoryError } = useAllStoreInventory();
   const { data: salesData, isLoading: salesLoading, isError: salesError } = useSales();
   const { data: storesData, isLoading: storesLoading, isError: storesError } = useStores('ACTIVE');
+  const { data: expensesData, isLoading: expensesLoading, isError: expensesError } = useExpenses();
   
-  const isLoading = inventoryLoading || productsLoading || transactionsLoading || storeInventoryLoading || salesLoading || storesLoading;
-  const hasError = inventoryError || productsError || transactionsError || storeInventoryError || salesError || storesError;
+  const isLoading = inventoryLoading || productsLoading || transactionsLoading || storeInventoryLoading || salesLoading || storesLoading || expensesLoading;
+  const hasError = inventoryError || productsError || transactionsError || storeInventoryError || salesError || storesError || expensesError;
   
   return {
     inventory,
@@ -18,6 +19,7 @@ export function useReportsData() {
     allStoreInventory,
     salesData,
     storesData,
+    expensesData,
     isLoading,
     hasError,
     // Individual loading states for granular control if needed
@@ -28,6 +30,7 @@ export function useReportsData() {
       storeInventory: storeInventoryLoading,
       sales: salesLoading,
       stores: storesLoading,
+      expenses: expensesLoading,
     },
     // Individual error states for granular control if needed
     errorStates: {
@@ -37,6 +40,7 @@ export function useReportsData() {
       storeInventory: storeInventoryError,
       sales: salesError,
       stores: storesError,
+      expenses: expensesError,
     }
   };
 }
