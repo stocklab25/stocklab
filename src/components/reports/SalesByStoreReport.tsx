@@ -10,17 +10,21 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
   ArcElement,
 } from 'chart.js';
-import { Bar, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
@@ -267,6 +271,137 @@ export default function SalesByStoreReport() {
     ],
   };
 
+  // Process sales data for line graphs (trends over time)
+  const processSalesTrends = () => {
+    const dateMap = new Map();
+    const storeTrends = new Map();
+
+    // Initialize store trends
+    storeStats.forEach(store => {
+      storeTrends.set(store.storeId, {
+        name: store.storeName,
+        dailyRevenue: new Map(),
+        dailyItems: new Map(),
+        dailyProfit: new Map()
+      });
+    });
+
+    // Process all sales data
+    storeStats.forEach(store => {
+      store.sales.forEach(sale => {
+        const saleDate = new Date(sale.saleDate).toISOString().split('T')[0];
+        const storeTrend = storeTrends.get(store.storeId);
+        
+        if (!storeTrend.dailyRevenue.has(saleDate)) {
+          storeTrend.dailyRevenue.set(saleDate, 0);
+          storeTrend.dailyItems.set(saleDate, 0);
+          storeTrend.dailyProfit.set(saleDate, 0);
+        }
+
+        if (sale.status === 'COMPLETED') {
+          const revenue = (sale.payout || 0) - (sale.discount || 0);
+          const profit = revenue - ((sale.cost || 0) * (sale.quantity || 1));
+          
+          storeTrend.dailyRevenue.set(saleDate, storeTrend.dailyRevenue.get(saleDate) + revenue);
+          storeTrend.dailyItems.set(saleDate, storeTrend.dailyItems.get(saleDate) + (sale.quantity || 1));
+          storeTrend.dailyProfit.set(saleDate, storeTrend.dailyProfit.get(saleDate) + profit);
+        }
+      });
+    });
+
+    // Get all unique dates and sort them
+    const allDates = new Set();
+    storeTrends.forEach(store => {
+      store.dailyRevenue.forEach((_: any, date: any) => allDates.add(date));
+    });
+    const sortedDates = Array.from(allDates).sort();
+
+    // Create datasets for line charts
+    const revenueTrendDatasets = Array.from(storeTrends.values()).map((store, index) => {
+      const colors = [
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 99, 132, 1)',
+        'rgba(75, 192, 192, 1)',
+        'rgba(153, 102, 255, 1)',
+        'rgba(255, 205, 86, 1)',
+        'rgba(255, 159, 64, 1)'
+      ];
+      
+      return {
+        label: store.name,
+        data: sortedDates.map(date => store.dailyRevenue.get(date) || 0),
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    const itemsTrendDatasets = Array.from(storeTrends.values()).map((store, index) => {
+      const colors = [
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 99, 132, 1)',
+        'rgba(75, 192, 192, 1)',
+        'rgba(153, 102, 255, 1)',
+        'rgba(255, 205, 86, 1)',
+        'rgba(255, 159, 64, 1)'
+      ];
+      
+      return {
+        label: store.name,
+        data: sortedDates.map(date => store.dailyItems.get(date) || 0),
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    const profitTrendDatasets = Array.from(storeTrends.values()).map((store, index) => {
+      const colors = [
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 99, 132, 1)',
+        'rgba(75, 192, 192, 1)',
+        'rgba(153, 102, 255, 1)',
+        'rgba(255, 205, 86, 1)',
+        'rgba(255, 159, 64, 1)'
+      ];
+      
+      return {
+        label: store.name,
+        data: sortedDates.map(date => store.dailyProfit.get(date) || 0),
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    return {
+      labels: sortedDates,
+      revenueTrendDatasets,
+      itemsTrendDatasets,
+      profitTrendDatasets
+    };
+  };
+
+  const trendsData = processSalesTrends();
+
+  const revenueTrendChartData = {
+    labels: trendsData.labels,
+    datasets: trendsData.revenueTrendDatasets,
+  };
+
+  const itemsTrendChartData = {
+    labels: trendsData.labels,
+    datasets: trendsData.itemsTrendDatasets,
+  };
+
+  const profitTrendChartData = {
+    labels: trendsData.labels,
+    datasets: trendsData.profitTrendDatasets,
+  };
+
   const chartOptions = {
     responsive: true,
     plugins: {
@@ -297,6 +432,62 @@ export default function SalesByStoreReport() {
       y: {
         beginAtZero: true,
       },
+    },
+  };
+
+  const lineChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Date'
+        }
+      },
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Value'
+        }
+      },
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index' as const,
+    },
+  };
+
+  const lineChartOptionsItems = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Date'
+        }
+      },
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Items Sold'
+        }
+      },
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index' as const,
     },
   };
 
@@ -529,6 +720,30 @@ export default function SalesByStoreReport() {
            </div>
          </Card>
        </div>
+
+      {/* Line Charts - Sales Trends Over Time */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Revenue Trends Over Time</h3>
+            <Line data={revenueTrendChartData} options={lineChartOptions} />
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Items Sold Trends Over Time</h3>
+            <Line data={itemsTrendChartData} options={lineChartOptionsItems} />
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Profit Trends Over Time</h3>
+            <Line data={profitTrendChartData} options={lineChartOptions} />
+          </div>
+        </Card>
+      </div>
 
       {/* Store Performance Table */}
       <Card>

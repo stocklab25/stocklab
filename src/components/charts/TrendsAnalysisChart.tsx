@@ -43,12 +43,63 @@ interface Transaction {
   date: string;
 }
 
+interface StoreTrend {
+  storeId: string;
+  storeName: string;
+  totalRevenue: number;
+  totalItems: number;
+  totalSales: number;
+  monthlyData: Array<{
+    month: string;
+    revenue: number;
+    items: number;
+    sales: number;
+  }>;
+}
+
+interface BrandTrend {
+  brand: string;
+  totalRevenue: number;
+  totalItems: number;
+  totalSales: number;
+  monthlyData: Array<{
+    month: string;
+    revenue: number;
+    items: number;
+    sales: number;
+  }>;
+}
+
+interface ItemTypeTrend {
+  itemType: string;
+  totalRevenue: number;
+  totalItems: number;
+  totalSales: number;
+  monthlyData: Array<{
+    month: string;
+    revenue: number;
+    items: number;
+    sales: number;
+  }>;
+}
+
 interface TrendsAnalysisChartProps {
   sales: Sale[];
   transactions: Transaction[];
+  storeTrends?: StoreTrend[];
+  brandTrends?: BrandTrend[];
+  itemTypeTrends?: ItemTypeTrend[];
+  allMonths?: string[];
 }
 
-export default function TrendsAnalysisChart({ sales, transactions }: TrendsAnalysisChartProps) {
+export default function TrendsAnalysisChart({ 
+  sales, 
+  transactions, 
+  storeTrends = [], 
+  brandTrends = [], 
+  itemTypeTrends = [], 
+  allMonths = [] 
+}: TrendsAnalysisChartProps) {
   // Process sales data by month
   const salesByMonth = sales.reduce((acc: { [key: string]: { revenue: number; quantity: number; count: number } }, sale) => {
     const date = new Date(sale.saleDate);
@@ -85,16 +136,16 @@ export default function TrendsAnalysisChart({ sales, transactions }: TrendsAnaly
   }, {});
 
   // Get all unique months and sort them
-  const allMonths = [...new Set([...Object.keys(salesByMonth), ...Object.keys(transactionsByMonth)])].sort();
+  const originalAllMonths = [...new Set([...Object.keys(salesByMonth), ...Object.keys(transactionsByMonth)])].sort();
 
-  const monthLabels = allMonths.map(month => {
+  const monthLabels = originalAllMonths.map(month => {
     const [year, monthNum] = month.split('-');
     const date = new Date(parseInt(year), parseInt(monthNum) - 1);
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   });
 
-  const revenueData = allMonths.map(month => salesByMonth[month]?.revenue || 0);
-  const salesCountData = allMonths.map(month => salesByMonth[month]?.count || 0);
+  const revenueData = originalAllMonths.map(month => salesByMonth[month]?.revenue || 0);
+  const salesCountData = originalAllMonths.map(month => salesByMonth[month]?.count || 0);
 
   // Get all unique transaction types
   const allTransactionTypes = [...new Set(transactions.map(txn => txn.type))].sort();
@@ -123,7 +174,7 @@ export default function TrendsAnalysisChart({ sales, transactions }: TrendsAnaly
       'rgba(83, 102, 255, 1)',
     ];
 
-    const data = allMonths.map(month => transactionsByMonth[month]?.[type] || 0);
+    const data = originalAllMonths.map(month => transactionsByMonth[month]?.[type] || 0);
 
     return {
       label: type,
@@ -182,9 +233,10 @@ export default function TrendsAnalysisChart({ sales, transactions }: TrendsAnaly
       y: {
         beginAtZero: true,
         ticks: {
-          callback: function(value: any, index: number, values: any[]) {
-            if (index === 0) return '$' + value.toLocaleString();
-            return value.toLocaleString();
+          callback: function(value: string | number, index: number, ticks: any[]) {
+            const numValue = typeof value === 'string' ? parseFloat(value) : value;
+            if (index === 0) return '$' + numValue.toLocaleString();
+            return numValue.toLocaleString();
           },
         },
       },
@@ -213,7 +265,193 @@ export default function TrendsAnalysisChart({ sales, transactions }: TrendsAnaly
     return sum + ((sale.payout || 0) - (sale.discount || 0));
   }, 0);
 
-  const avgMonthlyRevenue = allMonths.length > 0 ? totalRevenue / allMonths.length : 0;
+  const avgMonthlyRevenue = originalAllMonths.length > 0 ? totalRevenue / originalAllMonths.length : 0;
+
+  // Process store trends data for charts
+  const processStoreTrendsData = () => {
+    if (!storeTrends.length || !allMonths.length) {
+      return { labels: [] as string[], revenueDatasets: [] as any[], itemsDatasets: [] as any[] };
+    }
+
+    const monthLabels = allMonths.map(month => {
+      const [year, monthNum] = month.split('-');
+      const date = new Date(parseInt(year), parseInt(monthNum) - 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    });
+
+    const colors = [
+      'rgba(54, 162, 235, 1)',
+      'rgba(255, 99, 132, 1)',
+      'rgba(75, 192, 192, 1)',
+      'rgba(153, 102, 255, 1)',
+      'rgba(255, 205, 86, 1)',
+      'rgba(255, 159, 64, 1)',
+      'rgba(199, 199, 199, 1)',
+      'rgba(83, 102, 255, 1)',
+    ];
+
+    const revenueDatasets = storeTrends.map((store, index) => {
+      const data = allMonths.map(month => {
+        const monthData = store.monthlyData.find(m => m.month === month);
+        return monthData ? monthData.revenue : 0;
+      });
+
+      return {
+        label: store.storeName,
+        data: data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    const itemsDatasets = storeTrends.map((store, index) => {
+      const data = allMonths.map(month => {
+        const monthData = store.monthlyData.find(m => m.month === month);
+        return monthData ? monthData.items : 0;
+      });
+
+      return {
+        label: store.storeName,
+        data: data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    return {
+      labels: monthLabels,
+      revenueDatasets,
+      itemsDatasets
+    };
+  };
+
+  // Process brand trends data for charts
+  const processBrandTrendsData = () => {
+    if (!brandTrends.length || !allMonths.length) return { labels: [] as string[], revenueDatasets: [] as any[], itemsDatasets: [] as any[] };
+
+    const monthLabels = allMonths.map(month => {
+      const [year, monthNum] = month.split('-');
+      const date = new Date(parseInt(year), parseInt(monthNum) - 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    });
+
+    const colors = [
+      'rgba(54, 162, 235, 1)',
+      'rgba(255, 99, 132, 1)',
+      'rgba(75, 192, 192, 1)',
+      'rgba(153, 102, 255, 1)',
+      'rgba(255, 205, 86, 1)',
+      'rgba(255, 159, 64, 1)',
+      'rgba(199, 199, 199, 1)',
+      'rgba(83, 102, 255, 1)',
+    ];
+
+    const revenueDatasets = brandTrends.map((brand, index) => {
+      const data = allMonths.map(month => {
+        const monthData = brand.monthlyData.find(m => m.month === month);
+        return monthData ? monthData.revenue : 0;
+      });
+
+      return {
+        label: brand.brand,
+        data: data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    const itemsDatasets = brandTrends.map((brand, index) => {
+      const data = allMonths.map(month => {
+        const monthData = brand.monthlyData.find(m => m.month === month);
+        return monthData ? monthData.items : 0;
+      });
+
+      return {
+        label: brand.brand,
+        data: data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    return {
+      labels: monthLabels,
+      revenueDatasets,
+      itemsDatasets
+    };
+  };
+
+  // Process item type trends data for charts
+  const processItemTypeTrendsData = () => {
+    if (!itemTypeTrends.length || !allMonths.length) return { labels: [] as string[], revenueDatasets: [] as any[], itemsDatasets: [] as any[] };
+
+    const monthLabels = allMonths.map(month => {
+      const [year, monthNum] = month.split('-');
+      const date = new Date(parseInt(year), parseInt(monthNum) - 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    });
+
+    const colors = [
+      'rgba(54, 162, 235, 1)',
+      'rgba(255, 99, 132, 1)',
+      'rgba(75, 192, 192, 1)',
+      'rgba(153, 102, 255, 1)',
+      'rgba(255, 205, 86, 1)',
+      'rgba(255, 159, 64, 1)',
+      'rgba(199, 199, 199, 1)',
+      'rgba(83, 102, 255, 1)',
+    ];
+
+    const revenueDatasets = itemTypeTrends.map((itemType, index) => {
+      const data = allMonths.map(month => {
+        const monthData = itemType.monthlyData.find(m => m.month === month);
+        return monthData ? monthData.revenue : 0;
+      });
+
+      return {
+        label: itemType.itemType,
+        data: data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    const itemsDatasets = itemTypeTrends.map((itemType, index) => {
+      const data = allMonths.map(month => {
+        const monthData = itemType.monthlyData.find(m => m.month === month);
+        return monthData ? monthData.items : 0;
+      });
+
+      return {
+        label: itemType.itemType,
+        data: data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+        tension: 0.4,
+        fill: false,
+      };
+    });
+
+    return {
+      labels: monthLabels,
+      revenueDatasets,
+      itemsDatasets
+    };
+  };
+
+  const storeTrendsData = processStoreTrendsData();
+  const brandTrendsData = processBrandTrendsData();
+  const itemTypeTrendsData = processItemTypeTrendsData();
 
   // Calculate transaction type statistics
   const transactionTypeStats = allTransactionTypes.map(type => {
@@ -244,7 +482,7 @@ export default function TrendsAnalysisChart({ sales, transactions }: TrendsAnaly
         </div>
         <div className="bg-gradient-to-r from-purple-500 to-violet-600 text-white p-6 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Analysis Period</h3>
-          <p className="text-3xl font-bold">{allMonths.length}</p>
+          <p className="text-3xl font-bold">{originalAllMonths.length}</p>
           <p className="text-purple-100">Months of data</p>
         </div>
       </div>
@@ -282,6 +520,177 @@ export default function TrendsAnalysisChart({ sales, transactions }: TrendsAnaly
       <div className="bg-white p-4 rounded-lg shadow">
         <Bar data={transactionChartData} options={barOptions} />
       </div>
+
+       {/* Store Sales Trends */}
+       {storeTrends.length > 0 ? (
+         <div className="space-y-6">
+           <h3 className="text-xl font-bold text-foreground">Store Sales Trends</h3>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h4 className="text-lg font-semibold mb-4">Revenue by Store Over Time</h4>
+              <Line 
+                data={{
+                  labels: storeTrendsData.labels,
+                  datasets: storeTrendsData.revenueDatasets
+                }} 
+                options={{
+                  ...lineOptions,
+                  plugins: {
+                    ...lineOptions.plugins,
+                    title: {
+                      display: false
+                    }
+                  }
+                }} 
+              />
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h4 className="text-lg font-semibold mb-4">Items Sold by Store Over Time</h4>
+              <Line 
+                data={{
+                  labels: storeTrendsData.labels,
+                  datasets: storeTrendsData.itemsDatasets
+                }} 
+                options={{
+                  ...lineOptions,
+                  plugins: {
+                    ...lineOptions.plugins,
+                    title: {
+                      display: false
+                    }
+                  },
+                  scales: {
+                    ...lineOptions.scales,
+                    y: {
+                      beginAtZero: true,
+                      title: {
+                        display: true,
+                        text: 'Items Sold'
+                      }
+                    }
+                  }
+                }} 
+              />
+             </div>
+           </div>
+         </div>
+       ) : null}
+
+       {/* Brand Sales Trends */}
+      {brandTrends.length > 0 && (
+        <div className="space-y-6">
+          <h3 className="text-xl font-bold text-foreground">Brand Sales Trends</h3>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h4 className="text-lg font-semibold mb-4">Revenue by Brand Over Time</h4>
+              <Line 
+                data={{
+                  labels: brandTrendsData.labels,
+                  datasets: brandTrendsData.revenueDatasets
+                }} 
+                options={{
+                  ...lineOptions,
+                  plugins: {
+                    ...lineOptions.plugins,
+                    title: {
+                      display: false
+                    }
+                  }
+                }} 
+              />
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h4 className="text-lg font-semibold mb-4">Items Sold by Brand Over Time</h4>
+              <Line 
+                data={{
+                  labels: brandTrendsData.labels,
+                  datasets: brandTrendsData.itemsDatasets
+                }} 
+                options={{
+                  ...lineOptions,
+                  plugins: {
+                    ...lineOptions.plugins,
+                    title: {
+                      display: false
+                    }
+                  },
+                  scales: {
+                    ...lineOptions.scales,
+                    y: {
+                      beginAtZero: true,
+                      title: {
+                        display: true,
+                        text: 'Items Sold'
+                      }
+                    }
+                  }
+                }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Item Type Sales Trends */}
+      {itemTypeTrends.length > 0 && (
+        <div className="space-y-6">
+          <h3 className="text-xl font-bold text-foreground">Item Type Sales Trends</h3>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h4 className="text-lg font-semibold mb-4">Revenue by Item Type Over Time</h4>
+              <Line 
+                data={{
+                  labels: itemTypeTrendsData.labels,
+                  datasets: itemTypeTrendsData.revenueDatasets
+                }} 
+                options={{
+                  ...lineOptions,
+                  plugins: {
+                    ...lineOptions.plugins,
+                    title: {
+                      display: false
+                    }
+                  }
+                }} 
+              />
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h4 className="text-lg font-semibold mb-4">Items Sold by Item Type Over Time</h4>
+              <Line 
+                data={{
+                  labels: itemTypeTrendsData.labels,
+                  datasets: itemTypeTrendsData.itemsDatasets
+                }} 
+                options={{
+                  ...lineOptions,
+                  plugins: {
+                    ...lineOptions.plugins,
+                    title: {
+                      display: false
+                    }
+                  },
+                  scales: {
+                    ...lineOptions.scales,
+                    y: {
+                      beginAtZero: true,
+                      title: {
+                        display: true,
+                        text: 'Items Sold'
+                      }
+                    }
+                  }
+                }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

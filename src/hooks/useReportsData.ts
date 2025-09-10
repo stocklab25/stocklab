@@ -9,6 +9,16 @@ export function useReportsData() {
   const { data: storesData, isLoading: storesLoading, isError: storesError } = useStores('ACTIVE');
   const { data: expensesData, isLoading: expensesLoading, isError: expensesError } = useExpenses();
   
+  // Debug logging for useReportsData
+  console.log('🔍 [useReportsData] DEBUG: Data received');
+  console.log('🔍 [useReportsData] Inventory:', inventory?.length || 0, 'items');
+  console.log('🔍 [useReportsData] Products:', products?.length || 0, 'items');
+  console.log('🔍 [useReportsData] Transactions:', transactions?.length || 0, 'items');
+  console.log('🔍 [useReportsData] All Store Inventory:', allStoreInventory?.length || 0, 'items');
+  console.log('🔍 [useReportsData] Sales Data:', salesData?.length || 0, 'items');
+  console.log('🔍 [useReportsData] Stores Data:', storesData?.length || 0, 'items');
+  console.log('🔍 [useReportsData] Expenses Data:', expensesData?.length || 0, 'items');
+  
   const isLoading = inventoryLoading || productsLoading || transactionsLoading || storeInventoryLoading || salesLoading || storesLoading || expensesLoading;
   const hasError = inventoryError || productsError || transactionsError || storeInventoryError || salesError || storesError || expensesError;
   

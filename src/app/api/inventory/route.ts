@@ -4,9 +4,13 @@ import prisma from '@/lib/db';
 import { generateStockLabSku } from '@/utils/sku-generator';
 
 export async function GET(req: NextRequest) {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🔍 [${requestId}] DEBUG: Inventory API called at ${new Date().toISOString()}`);
+  
   try {
     const { user, isValid } = await verifySupabaseAuth(req);
     if (!isValid || !user) {
+      console.log(`🔍 [${requestId}] DEBUG: Authentication failed`);
       return NextResponse.json(
         { error: 'Unauthorized - Authentication required' },
         { status: 401 }
@@ -17,15 +21,16 @@ export async function GET(req: NextRequest) {
     const purchaseOrderId = searchParams.get('purchaseOrderId');
 
     const where: any = {
-      deletedAt: null,
-      product: {
-        deletedAt: null
-      }
+      deletedAt: null
+      // Remove product deletedAt filter - we only want to filter inventory items, not products
     };
 
     if (purchaseOrderId) {
       where.purchaseOrderId = purchaseOrderId;
     }
+
+    console.log(`🔍 [${requestId}] DEBUG: Inventory API Query`);
+    console.log(`🔍 [${requestId}] Where clause:`, JSON.stringify(where, null, 2));
 
     let inventoryItems;
     try {
@@ -45,6 +50,7 @@ export async function GET(req: NextRequest) {
           purchaseOrderId: true,
           createdAt: true,
           updatedAt: true,
+          deletedAt: true,
           product: {
             select: {
               id: true,
@@ -68,6 +74,12 @@ export async function GET(req: NextRequest) {
           createdAt: 'desc'
         }
       });
+      
+      console.log(`🔍 [${requestId}] DEBUG: Query Results`);
+      console.log(`🔍 [${requestId}] Total items returned:`, inventoryItems.length);
+      console.log(`🔍 [${requestId}] Items with deletedAt null:`, inventoryItems.filter(item => item.deletedAt === null).length);
+      console.log(`🔍 [${requestId}] Items with deletedAt set:`, inventoryItems.filter(item => item.deletedAt !== null).length);
+      
     } catch (dbError) {
       const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
       if (errorMessage.includes('prepared statement') || errorMessage.includes('connection')) {
@@ -117,6 +129,8 @@ export async function GET(req: NextRequest) {
         throw dbError;
       }
     }
+    
+    console.log(`🔍 [${requestId}] DEBUG: Returning response with ${inventoryItems.length} items`);
     
     return NextResponse.json({
       data: inventoryItems,
