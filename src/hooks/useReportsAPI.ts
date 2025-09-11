@@ -45,7 +45,6 @@ export function useReportsAPI(filters: ReportFilters) {
     let isMounted = true;
     
     const fetchReportsData = async () => {
-      console.log('🔍 [useReportsAPI] Starting API call with filters:', filters);
       setIsLoading(true);
       setError(null);
 
@@ -66,9 +65,6 @@ export function useReportsAPI(filters: ReportFilters) {
         });
 
         const url = `/api/reports?${params.toString()}`;
-        console.log('🔍 [useReportsAPI] API URL:', url);
-        console.log('🔍 [useReportsAPI] Auth token length:', token.length);
-        console.log('🔍 [useReportsAPI] Auth token preview:', token.substring(0, 20) + '...');
 
         const response = await fetch(url, {
           headers: {
@@ -77,75 +73,19 @@ export function useReportsAPI(filters: ReportFilters) {
           },
         });
 
-        console.log('🔍 [useReportsAPI] Response status:', response.status);
-        console.log('🔍 [useReportsAPI] Response headers:', Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
           let errorData;
           try {
             errorData = await response.json();
           } catch (jsonError) {
-            console.error('🔍 [useReportsAPI] Failed to parse error response as JSON:', jsonError);
             errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
           }
-          console.error('🔍 [useReportsAPI] API Error Response:', errorData);
-          console.error('🔍 [useReportsAPI] Response status:', response.status);
-          console.error('🔍 [useReportsAPI] Response statusText:', response.statusText);
           throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
         }
 
         const result: ReportsAPIResponse = await response.json();
-        console.log('🔍 [useReportsAPI] ===== API RESPONSE RECEIVED =====');
-        console.log('🔍 [useReportsAPI] Success:', result.success);
-        console.log('🔍 [useReportsAPI] Processing time:', result.data?.processingTime, 'ms');
-        console.log('🔍 [useReportsAPI] Generated at:', result.data?.generatedAt);
-        console.log('🔍 [useReportsAPI] Summary data:', JSON.stringify(result.data?.summary, null, 2));
-        console.log('🔍 [useReportsAPI] Report data keys:', Object.keys(result.data?.reportData || {}));
-        console.log('🔍 [useReportsAPI] Available filters:', JSON.stringify(result.data?.filters?.available, null, 2));
-        console.log('🔍 [useReportsAPI] Applied filters:', JSON.stringify(result.data?.filters?.applied, null, 2));
         
-        // Log detailed report data based on type
-        if (result.data?.reportData) {
-          const reportData = result.data.reportData;
-          console.log('🔍 [useReportsAPI] ===== DETAILED REPORT DATA =====');
-          
-          if (reportData.inventory) {
-            console.log('🔍 [useReportsAPI] Inventory Summary:');
-            console.log('  - Total Value:', reportData.inventory.totalValue);
-            console.log('  - Total Items:', reportData.inventory.totalItems);
-            console.log('  - Low Stock Items:', reportData.inventory.lowStockItems);
-            console.log('  - Top Brands:', reportData.inventory.topBrands);
-            console.log('  - Recent Activity:', reportData.inventory.recentActivity);
-            console.log('  - Filtered Inventory Count:', reportData.inventory.filteredInventory?.length || 0);
-          }
-          
-          if (reportData.sales) {
-            console.log('🔍 [useReportsAPI] Sales Summary:');
-            console.log('  - Total Sales:', reportData.sales.totalSales);
-            console.log('  - Total Profit:', reportData.sales.totalProfit);
-            console.log('  - Total Items:', reportData.sales.totalItems);
-            console.log('  - Completed Sales:', reportData.sales.completedSales);
-            console.log('  - Refunded Sales:', reportData.sales.refundedSales);
-            console.log('  - Refunded Amount:', reportData.sales.refundedAmount);
-          }
-          
-          if (reportData.value) {
-            console.log('🔍 [useReportsAPI] Value Report:');
-            console.log('  - Total Value:', reportData.value.totalValue);
-            console.log('  - Value by Store:', reportData.value.valueByStore?.length || 0, 'stores');
-            console.log('  - Value by Brand:', reportData.value.valueByBrand?.length || 0, 'brands');
-          }
-          
-          if (reportData.storeValue) {
-            console.log('🔍 [useReportsAPI] Store Value Report:');
-            console.log('  - Store Count:', reportData.storeValue.length);
-            reportData.storeValue.forEach((store: any, index: number) => {
-              console.log(`  - Store ${index + 1}: ${store.storeName} - $${store.totalValue.toFixed(2)} (${store.itemCount} items)`);
-            });
-          }
-        }
-        
-        console.log('🔍 [useReportsAPI] ===== END API RESPONSE LOG =====');
         
         if (isMounted) {
           setData(result);

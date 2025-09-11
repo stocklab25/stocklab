@@ -24,8 +24,8 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState<string>('summary');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
-  // Filter state
-  const [filters, setFilters] = useState<ReportFilters>({
+  // Applied filters (what's currently being used for the API call)
+  const [appliedFilters, setAppliedFilters] = useState<ReportFilters>({
     type: 'summary',
     store: 'all',
     startDate: '',
@@ -34,35 +34,53 @@ export default function Reports() {
     itemType: 'all'
   });
 
-  // Memoize filters to prevent unnecessary re-renders
+  // Pending filters (what user is currently selecting)
+  const [pendingFilters, setPendingFilters] = useState<ReportFilters>({
+    type: 'summary',
+    store: 'all',
+    startDate: '',
+    endDate: '',
+    status: 'all',
+    itemType: 'all'
+  });
+
+  // Memoize applied filters to prevent unnecessary re-renders
   const memoizedFilters = useMemo(() => ({
-    ...filters,
+    ...appliedFilters,
     type: selectedReport
-  }), [filters, selectedReport]);
+  }), [appliedFilters, selectedReport]);
 
   const { data, isLoading, error } = useReportsAPI(memoizedFilters);
 
   // Update filters when report type changes
   const handleReportChange = (reportType: string) => {
     setSelectedReport(reportType);
-    setFilters(prev => ({ ...prev, type: reportType }));
+    setPendingFilters(prev => ({ ...prev, type: reportType }));
+    setAppliedFilters(prev => ({ ...prev, type: reportType }));
   };
 
-  // Handle filter changes
+  // Handle filter changes (only updates pending filters)
   const handleFilterChange = (key: keyof ReportFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setPendingFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Apply pending filters
+  const applyFilters = () => {
+    setAppliedFilters({ ...pendingFilters });
   };
 
   // Clear all filters
   const clearFilters = () => {
-    setFilters({
+    const defaultFilters = {
       type: selectedReport,
       store: 'all',
       startDate: '',
       endDate: '',
       status: 'all',
       itemType: 'all'
-    });
+    };
+    setPendingFilters(defaultFilters);
+    setAppliedFilters(defaultFilters);
   };
 
   if (isLoading) {
@@ -191,8 +209,8 @@ export default function Reports() {
           </div>
         </Card>
 
-        {/* Filters - Hide for Monthly and Annual reports */}
-        {selectedReport !== 'monthly' && selectedReport !== 'annual' && (
+        {/* Filters - Hide for Monthly, Annual, Summary, and Value reports */}
+        {selectedReport !== 'monthly' && selectedReport !== 'annual' && selectedReport !== 'summary' && selectedReport !== 'value' && (
           <Card>
             <div className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Filters</h3>
@@ -200,7 +218,7 @@ export default function Reports() {
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Store</label>
                   <select
-                  value={filters.store}
+                  value={pendingFilters.store}
                   onChange={(e) => handleFilterChange('store', e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   >
@@ -216,7 +234,7 @@ export default function Reports() {
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Status</label>
                 <select
-                  value={filters.status}
+                  value={pendingFilters.status}
                   onChange={(e) => handleFilterChange('status', e.target.value)}
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 >
@@ -232,7 +250,7 @@ export default function Reports() {
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Item Type</label>
                 <select
-                  value={filters.itemType}
+                  value={pendingFilters.itemType}
                   onChange={(e) => handleFilterChange('itemType', e.target.value)}
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 >
@@ -245,14 +263,6 @@ export default function Reports() {
                 </select>
               </div>
 
-                <div className="flex items-end space-x-2">
-                  <button
-                  onClick={clearFilters}
-                    className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                  >
-                    Clear Filters
-                  </button>
-                </div>
               </div>
 
             {/* Date Range Filters */}
@@ -261,7 +271,7 @@ export default function Reports() {
                 <label className="block text-sm font-medium text-foreground mb-2">Start Date</label>
                 <input
                   type="date"
-                  value={filters.startDate || ''}
+                  value={pendingFilters.startDate || ''}
                   onChange={(e) => handleFilterChange('startDate', e.target.value)}
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -270,11 +280,27 @@ export default function Reports() {
                 <label className="block text-sm font-medium text-foreground mb-2">End Date</label>
                 <input
                   type="date"
-                  value={filters.endDate || ''}
+                  value={pendingFilters.endDate || ''}
                   onChange={(e) => handleFilterChange('endDate', e.target.value)}
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
+            </div>
+
+            {/* Filter Action Buttons */}
+            <div className="flex items-center space-x-2 mt-4">
+              <button
+                onClick={applyFilters}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Apply Filters
+              </button>
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Clear Filters
+              </button>
             </div>
           </div>
         </Card>

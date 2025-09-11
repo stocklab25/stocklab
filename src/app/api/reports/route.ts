@@ -40,29 +40,19 @@ interface StoreValueData {
 }
 
 export async function GET(req: NextRequest) {
-  const requestId = Math.random().toString(36).substr(2, 9);
   const startTime = Date.now();
-  
-  console.log(`🔍 [${requestId}] ===== REPORTS API START =====`);
-  console.log(`🔍 [${requestId}] Timestamp: ${new Date().toISOString()}`);
-  console.log(`🔍 [${requestId}] Request URL: ${req.url}`);
-  console.log(`🔍 [${requestId}] Request method: ${req.method}`);
   
   try {
     // Authentication
-    console.log(`🔍 [${requestId}] Step 1: Authentication`);
     const { user, isValid } = await verifySupabaseAuth(req);
     if (!isValid || !user) {
-      console.log(`🔍 [${requestId}] ❌ Authentication failed`);
       return NextResponse.json(
         { error: 'Unauthorized - Authentication required' },
         { status: 401 }
       );
     }
-    console.log(`🔍 [${requestId}] ✅ Authentication successful for user: ${user.email}`);
 
     // Parse query parameters
-    console.log(`🔍 [${requestId}] Step 2: Parsing query parameters`);
     const { searchParams } = new URL(req.url);
     const filters: ReportFilters = {
       type: searchParams.get('type') || 'summary',
@@ -72,11 +62,8 @@ export async function GET(req: NextRequest) {
       status: searchParams.get('status') || 'all',
       itemType: searchParams.get('itemType') || 'all'
     };
-    
-    console.log(`🔍 [${requestId}] Query parameters:`, JSON.stringify(filters, null, 2));
 
     // Build base where clauses
-    console.log(`🔍 [${requestId}] Step 3: Building where clauses`);
     const inventoryWhere: any = {
       deletedAt: null
     };
@@ -123,14 +110,7 @@ export async function GET(req: NextRequest) {
       storeInventoryWhere.status = filters.status;
     }
 
-    console.log(`🔍 [${requestId}] Where clauses:`, {
-      inventory: inventoryWhere,
-      sales: salesWhere,
-      storeInventory: storeInventoryWhere
-    });
-
     // Fetch all data in parallel
-    console.log(`🔍 [${requestId}] Step 4: Fetching data from database`);
     
     const [
       inventoryItems,
@@ -247,30 +227,18 @@ export async function GET(req: NextRequest) {
       })
     ]);
 
-    console.log(`🔍 [${requestId}] Data fetched successfully:`);
-    console.log(`🔍 [${requestId}] - Inventory items: ${inventoryItems.length}`);
-    console.log(`🔍 [${requestId}] - Store inventory items: ${storeInventoryItems.length}`);
-    console.log(`🔍 [${requestId}] - Sales records: ${salesData.length}`);
-    console.log(`🔍 [${requestId}] - Stores: ${storesData.length}`);
-    console.log(`🔍 [${requestId}] - Expenses: ${expensesData.length}`);
-    console.log(`🔍 [${requestId}] - Products: ${productsData.length}`);
-    console.log(`🔍 [${requestId}] - Transactions: ${transactionsData.length}`);
-
     // Process data based on report type
-    console.log(`🔍 [${requestId}] Step 5: Processing data for report type: ${filters.type}`);
     
     let reportData: any = {};
     let summaryData: any = {};
 
     switch (filters.type) {
       case 'summary':
-        console.log(`🔍 [${requestId}] Processing inventory summary report`);
         const inventorySummary = await processInventorySummary(
           inventoryItems, 
           storeInventoryItems, 
           productsData, 
-          transactionsData,
-          requestId
+          transactionsData
         );
         reportData = { inventory: inventorySummary };
         summaryData = {
@@ -282,10 +250,8 @@ export async function GET(req: NextRequest) {
         break;
 
       case 'value':
-        console.log(`🔍 [${requestId}] Processing value report (warehouse only)`);
         const valueData = await processValueReport(
-          inventoryItems,
-          requestId
+          inventoryItems
         );
         reportData = { value: valueData };
         summaryData = {
@@ -297,12 +263,10 @@ export async function GET(req: NextRequest) {
         break;
 
       case 'sales':
-        console.log(`🔍 [${requestId}] Processing sales report`);
         const salesSummary = await processSalesReport(
           salesData,
           expensesData,
-          storesData,
-          requestId
+          storesData
         );
         reportData = { sales: salesSummary };
         summaryData = {
@@ -314,11 +278,9 @@ export async function GET(req: NextRequest) {
         break;
 
       case 'monthly':
-        console.log(`🔍 [${requestId}] Processing monthly report`);
         const monthlyData = await processMonthlyReport(
           salesData,
-          expensesData,
-          requestId
+          expensesData
         );
         reportData = { sales: monthlyData };
         summaryData = {
@@ -330,11 +292,9 @@ export async function GET(req: NextRequest) {
         break;
 
       case 'annual':
-        console.log(`🔍 [${requestId}] Processing annual report`);
         const annualData = await processAnnualReport(
           salesData,
-          expensesData,
-          requestId
+          expensesData
         );
         reportData = { sales: annualData };
         summaryData = {
@@ -346,11 +306,9 @@ export async function GET(req: NextRequest) {
         break;
 
       case 'trends':
-        console.log(`🔍 [${requestId}] Processing trends report`);
         const trendsData = await processTrendsReport(
           salesData,
-          transactionsData,
-          requestId
+          transactionsData
         );
         reportData = { trends: trendsData };
         summaryData = {
@@ -362,10 +320,8 @@ export async function GET(req: NextRequest) {
         break;
 
       case 'store-value':
-        console.log(`🔍 [${requestId}] Processing store value report (store inventory only)`);
         const storeValueData = await processStoreValueReport(
-          storeInventoryItems,
-          requestId
+          storeInventoryItems
         );
         reportData = { storeValue: storeValueData };
         summaryData = {
@@ -377,19 +333,14 @@ export async function GET(req: NextRequest) {
         break;
 
       default:
-        console.log(`🔍 [${requestId}] Unknown report type: ${filters.type}`);
         return NextResponse.json(
           { error: `Unknown report type: ${filters.type}` },
           { status: 400 }
         );
     }
 
-    console.log(`🔍 [${requestId}] Report data processed:`, JSON.stringify(reportData, null, 2));
-    console.log(`🔍 [${requestId}] Summary data:`, JSON.stringify(summaryData, null, 2));
-
     // Prepare response
     const processingTime = Date.now() - startTime;
-    console.log(`🔍 [${requestId}] Total processing time: ${processingTime}ms`);
 
     const response = {
       success: true,
@@ -409,16 +360,11 @@ export async function GET(req: NextRequest) {
       }
     };
 
-    console.log(`🔍 [${requestId}] ===== REPORTS API SUCCESS =====`);
-    console.log(`🔍 [${requestId}] Response size: ${JSON.stringify(response).length} characters`);
-    
     return NextResponse.json(response);
 
   } catch (error) {
     const processingTime = Date.now() - startTime;
-    console.error(`🔍 [${requestId}] ===== REPORTS API ERROR =====`);
-    console.error(`🔍 [${requestId}] Error after ${processingTime}ms:`, error);
-    console.error(`🔍 [${requestId}] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Reports API Error:', error);
     
     return NextResponse.json(
       { 
@@ -436,22 +382,16 @@ async function processInventorySummary(
   inventoryItems: any[],
   storeInventoryItems: any[],
   productsData: any[],
-  transactionsData: any[],
-  requestId: string
+  transactionsData: any[]
 ): Promise<InventorySummaryData> {
-  console.log(`🔍 [${requestId}] Processing inventory summary data`);
   
   // Calculate total value from warehouse inventory only (store inventory are references, not separate items)
   const totalValue = inventoryItems.reduce((sum, item) => {
     const cost = Math.max(0, parseFloat(item.cost || 0));
     const quantity = Math.max(0, item.quantity || 1);
     const itemValue = cost * quantity;
-    console.log(`🔍 [${requestId}] Warehouse item: ${item.product?.name || 'Unknown'} - Cost: $${cost}, Qty: ${quantity}, Value: $${itemValue}`);
     return sum + itemValue;
   }, 0);
-  
-  console.log(`🔍 [${requestId}] Total inventory value (warehouse only): $${totalValue.toFixed(2)}`);
-  console.log(`🔍 [${requestId}] Store inventory references: ${storeInventoryItems.length} (not counted as separate value)`);
   
   // Count items by brand
   const brandCounts: { [key: string]: number } = {};
@@ -465,8 +405,6 @@ async function processInventorySummary(
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
   
-  console.log(`🔍 [${requestId}] Top brands:`, topBrands);
-  
   // Recent activity by transaction type
   const activityCounts: { [key: string]: number } = {};
   transactionsData.forEach(txn => {
@@ -476,8 +414,6 @@ async function processInventorySummary(
   const recentActivity = Object.entries(activityCounts)
     .map(([type, count]) => ({ type, count }))
     .sort((a, b) => b.count - a.count);
-  
-  console.log(`🔍 [${requestId}] Recent activity:`, recentActivity);
   
   // Combine warehouse and store inventory for filtered data
   const itemMap = new Map();
@@ -514,7 +450,6 @@ async function processInventorySummary(
   });
   
   const filteredInventory = Array.from(itemMap.values());
-  console.log(`🔍 [${requestId}] Combined inventory items: ${filteredInventory.length}`);
   
   // Calculate total unique items - only count warehouse inventory items
   // Store inventory items are just references to warehouse items, not separate items
@@ -522,10 +457,6 @@ async function processInventorySummary(
   
   // Calculate low stock items from warehouse inventory (store inventory doesn't have low stock concept)
   const lowStockItems = inventoryItems.filter(item => item.quantity <= 5).length;
-  
-  console.log(`🔍 [${requestId}] Total unique items: ${totalItems} (warehouse inventory only)`);
-  console.log(`🔍 [${requestId}] Store inventory references: ${storeInventoryItems.length} (not counted as separate items)`);
-  console.log(`🔍 [${requestId}] Low stock items: ${lowStockItems}`);
   
   return {
     totalValue,
@@ -538,21 +469,16 @@ async function processInventorySummary(
 }
 
 async function processValueReport(
-  inventoryItems: any[],
-  requestId: string
+  inventoryItems: any[]
 ): Promise<any> {
-  console.log(`🔍 [${requestId}] Processing value report data (warehouse only)`);
   
   // Calculate value from warehouse inventory only
   const totalValue = inventoryItems.reduce((sum, item) => {
     const cost = Math.max(0, parseFloat(item.cost || 0));
     const quantity = Math.max(0, item.quantity || 1);
     const itemValue = cost * quantity;
-    console.log(`🔍 [${requestId}] Warehouse item: ${item.product?.name || 'Unknown'} - Cost: $${cost}, Qty: ${quantity}, Value: $${itemValue}`);
     return sum + itemValue;
   }, 0);
-  
-  console.log(`🔍 [${requestId}] Warehouse total value: $${totalValue.toFixed(2)}`);
   
   // Calculate value by brand from warehouse inventory
   const brandValues: { [key: string]: number } = {};
@@ -568,7 +494,6 @@ async function processValueReport(
     .map(([brand, value]) => ({ brand, value }))
     .sort((a, b) => b.value - a.value);
   
-  console.log(`🔍 [${requestId}] Value by brand:`, valueByBrand);
   
   return {
     totalValue,
@@ -580,10 +505,8 @@ async function processValueReport(
 async function processSalesReport(
   salesData: any[],
   expensesData: any[],
-  storesData: any[],
-  requestId: string
+  storesData: any[]
 ): Promise<SalesSummaryData> {
-  console.log(`🔍 [${requestId}] Processing sales report data`);
   
   let totalSales = 0;
   let totalProfit = 0;
@@ -609,13 +532,6 @@ async function processSalesReport(
     }
   });
   
-  console.log(`🔍 [${requestId}] Sales summary:`, {
-    totalSales: totalSales.toFixed(2),
-    totalProfit: totalProfit.toFixed(2),
-    totalItems,
-    completedSales,
-    refundedSales
-  });
   
   return {
     totalSales,
@@ -631,10 +547,8 @@ async function processSalesReport(
 
 async function processMonthlyReport(
   salesData: any[],
-  expensesData: any[],
-  requestId: string
+  expensesData: any[]
 ): Promise<any> {
-  console.log(`🔍 [${requestId}] Processing monthly report data`);
   
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -645,17 +559,13 @@ async function processMonthlyReport(
     return date && date.getFullYear() === currentYear && date.getMonth() === currentMonth;
   });
   
-  console.log(`🔍 [${requestId}] Monthly sales count: ${monthlySales.length}`);
-  
-  return await processSalesReport(monthlySales, expensesData, [], requestId);
+  return await processSalesReport(monthlySales, expensesData, []);
 }
 
 async function processAnnualReport(
   salesData: any[],
-  expensesData: any[],
-  requestId: string
+  expensesData: any[]
 ): Promise<any> {
-  console.log(`🔍 [${requestId}] Processing annual report data`);
   
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -665,16 +575,12 @@ async function processAnnualReport(
     return date && date.getFullYear() === currentYear;
   });
   
-  console.log(`🔍 [${requestId}] Annual sales count: ${annualSales.length}`);
-  
-  return await processSalesReport(annualSales, expensesData, [], requestId);
+  return await processSalesReport(annualSales, expensesData, []);
 }
 
 async function processStoreValueReport(
-  storeInventoryItems: any[],
-  requestId: string
+  storeInventoryItems: any[]
 ): Promise<StoreValueData[]> {
-  console.log(`🔍 [${requestId}] Processing store value report data`);
   
   const storeValues: { [key: string]: StoreValueData } = {};
   
@@ -704,19 +610,14 @@ async function processStoreValueReport(
   });
   
   const result = Object.values(storeValues).sort((a, b) => b.totalValue - a.totalValue);
-  console.log(`🔍 [${requestId}] Store values calculated for ${result.length} stores`);
   
   return result;
 }
 
 async function processTrendsReport(
   salesData: any[],
-  transactionsData: any[],
-  requestId: string
+  transactionsData: any[]
 ): Promise<any> {
-  console.log(`🔍 [${requestId}] Processing trends report data`);
-  console.log(`🔍 [${requestId}] Sales data count: ${salesData.length}`);
-  console.log(`🔍 [${requestId}] Transactions data count: ${transactionsData.length}`);
   
   // Process store sales trends
   const storeSalesTrends = new Map();
@@ -860,9 +761,6 @@ async function processTrendsReport(
     }))
   }));
   
-  console.log(`🔍 [${requestId}] Processed store trends: ${storeTrendsArray.length} stores`);
-  console.log(`🔍 [${requestId}] Processed brand trends: ${brandTrendsArray.length} brands`);
-  console.log(`🔍 [${requestId}] Processed item type trends: ${itemTypeTrendsArray.length} item types`);
   
   return {
     sales: salesData,
