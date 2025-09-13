@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
       const endDate = new Date(filters.endDate);
       endDate.setHours(23, 59, 59, 999);
       
+      
       inventoryWhere.createdAt = {
         gte: startDate,
         lte: endDate
